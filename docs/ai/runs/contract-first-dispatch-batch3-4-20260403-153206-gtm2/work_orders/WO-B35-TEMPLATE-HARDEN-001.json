@@ -1,0 +1,174 @@
+﻿{
+    "task_id":  "contract-first-dispatch-batch3-4-20260403-153206-gtm2",
+    "work_order_id":  "WO-B35-TEMPLATE-HARDEN-001",
+    "plan_id":  "PLAN-CONTRACT-FIRST-DISPATCH-BATCH3-4-20260403-153206-GTM2",
+    "role":  "contract-template-hardener",
+    "task_goal":  "在不新增 schema 字段的前提下，把 Batch 3.5 的中文输出、mandatory reads 与回执正文所有权要求，下沉到现有 prompt 生成模板与示例合同对象中。",
+    "instruction_source":  "docs/plans/contract-first-dispatch.md",
+    "read_paths_mandatory":  [
+                                 "docs/plans/contract-first-dispatch.md",
+                                 "docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json",
+                                 "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json",
+                                 "docs/SUBAGENT_GOVERNANCE.md",
+                                 "rules/common/SUBAGENT_RULES.md",
+                                 "skills/global-task-orchestrator/SKILL.md",
+                                 "skills/global-task-orchestrator/assets/prompts/work-order-generator.md",
+                                 "skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md",
+                                 "skills/global-task-orchestrator/assets/prompts/return-packet-writer.md",
+                                 "templates/work_order.example.json",
+                                 "templates/dispatch_packet.example.json",
+                                 "templates/return_packet.example.json"
+                             ],
+    "read_paths_optional":  [
+                                "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/work_orders/WO-B3-EXEC-PROMPT-001.json",
+                                "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/dispatch_packets/DP-B3-EXEC-PROMPT-001.json"
+                            ],
+    "context_paths":  [
+                          "docs/plans/contract-first-dispatch.md",
+                          "docs/SUBAGENT_GOVERNANCE.md",
+                          "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/dispatch_packets/DP-B35-TEMPLATE-HARDEN-001.json"
+                      ],
+    "scope_in":  [
+                     "skills/global-task-orchestrator/assets/prompts/work-order-generator.md",
+                     "skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md",
+                     "skills/global-task-orchestrator/assets/prompts/return-packet-writer.md",
+                     "templates/work_order.example.json",
+                     "templates/dispatch_packet.example.json",
+                     "templates/return_packet.example.json"
+                 ],
+    "scope_out":  [
+                      "不得新增 schema 字段或修改任何 `schemas/*.json`。",
+                      "不得修改 `skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md` 或 `skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md`。",
+                      "不得修改任何脚本文件；脚本闸门下沉由其他 Batch 3.5 工单负责。",
+                      "不得扩展到 Batch 4 的测试实现。"
+                  ],
+    "write_paths":  [
+                        "skills/global-task-orchestrator/assets/prompts/work-order-generator.md",
+                        "skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md",
+                        "skills/global-task-orchestrator/assets/prompts/return-packet-writer.md",
+                        "templates/work_order.example.json",
+                        "templates/dispatch_packet.example.json",
+                        "templates/return_packet.example.json",
+                        "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B35-TEMPLATE-HARDEN-001.json"
+                    ],
+    "evidence_summary":  [
+                             "Batch 3.5 要求把中文输出、mandatory reads、return_packet 正文所有权继续下沉到合同对象、模板字段与最小验收闸门。",
+                             "当前示例模板仍以英文 Batch 2 样例为主，`dispatch_message_raw` 也未稳定体现默认中文输出约束。",
+                             "由于本批不改 schema，需优先利用现有字段与固定语句完成下沉，而不是发明新的字段名。"
+                         ],
+    "constraints":  [
+                        "先读完 `read_paths_mandatory` 再修改。",
+                        "`evidence_summary` 仅作导航。",
+                        "默认中文输出必须通过现有字段值与固定语句体现，不新增未冻结字段名。",
+                        "回执正文所有权要作为固定模板语句写入现有 prompt / example 字段，不宣告 Batch 3.5 校验脚本已经完成。",
+                        "若需要改 `execution-dispatch-template.md` 或 `review-dispatch-template.md`，立即返回 `blocked`。"
+                    ],
+    "change_spec":  [
+                        {
+                            "path":  "skills/global-task-orchestrator/assets/prompts/work-order-generator.md",
+                            "instructions":  [
+                                                 "把 Batch 3.5 的三项规则写进模板：mandatory reads 不得缺失、说明性文本默认中文、`return_packet` 正文由执行子代理本人填写且主协调器不得代写。",
+                                                 "说明这些规则应体现在现有 `dispatch_message_raw`、`constraints`、`acceptance_criteria`、`verification_steps` 等字段值中。"
+                                             ],
+                            "done_when":  [
+                                              "模板能指导主协调器在不增字段的前提下，把三项规则稳定写入合同对象。"
+                                          ]
+                        },
+                        {
+                            "path":  "skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md",
+                            "instructions":  [
+                                                 "在复杂任务施工图编译要求中补入中文输出、mandatory reads 与回执正文所有权的交接/验收表达。",
+                                                 "让 `verification_focus`、`handoff_notes`、`forbidden_changes` 等字段显式承载这些规则。"
+                                             ],
+                            "done_when":  [
+                                              "模板能指导主协调器把三项规则稳定编译进 `dispatch_packet` 相关字段。"
+                                          ]
+                        },
+                        {
+                            "path":  "skills/global-task-orchestrator/assets/prompts/return-packet-writer.md",
+                            "instructions":  [
+                                                 "保持 Batch 3 已引入的所有权表述，并补充与 Batch 3.5 一致的固定模板语句，说明该约束需要同步写入合同对象与最小校验闸门。",
+                                                 "不要越权修改脚本逻辑，只改提示词模板。"
+                                             ],
+                            "done_when":  [
+                                              "模板正文能与现有合同样例协同表达回执正文所有权约束。"
+                                          ]
+                        },
+                        {
+                            "path":  "templates/work_order.example.json",
+                            "instructions":  [
+                                                 "在现有字段内改成中文样例，显式把默认中文输出、mandatory reads、回执正文所有权写进 `constraints`、`acceptance_criteria`、`verification_steps` 与 `dispatch_message_raw`。",
+                                                 "不得新增新的字段名。"
+                                             ],
+                            "done_when":  [
+                                              "示例 `work_order` 可以作为 Batch 3.5 规则下沉后的中文合同样例。"
+                                          ]
+                        },
+                        {
+                            "path":  "templates/dispatch_packet.example.json",
+                            "instructions":  [
+                                                 "在现有字段内改成中文样例，并把中文输出、mandatory reads、回执正文所有权写入 `forbidden_changes`、`verification_focus`、`handoff_notes` 等字段。",
+                                                 "保持字段名与结构不变。"
+                                             ],
+                            "done_when":  [
+                                              "示例 `dispatch_packet` 可以作为 Batch 3.5 规则下沉后的施工图样例。"
+                                          ]
+                        },
+                        {
+                            "path":  "templates/return_packet.example.json",
+                            "instructions":  [
+                                                 "把说明性文本改成中文样例，确保现有字段能体现执行子代理本人写正文、验证命令明确、偏离/阻塞/后续清晰。",
+                                                 "不新增新的字段名。"
+                                             ],
+                            "done_when":  [
+                                              "示例 `return_packet` 可以作为 Batch 3.5 规则下沉后的中文回执样例。"
+                                          ]
+                        }
+                    ],
+    "execution_steps":  [
+                            "阅读冻结方案、治理真源、现有 prompt 与示例合同。",
+                            "先改三份 prompt 生成模板，再改三份 example.json。",
+                            "用工单里的关键短语检查命令验证模板样例是否已承载三项规则。",
+                            "先写 `return_packet`，再回报。"
+                        ],
+    "acceptance_criteria":  [
+                                "三份 prompt 生成模板都显式指导主协调器在现有字段内下沉中文输出、mandatory reads、回执正文所有权。",
+                                "三份 example.json 都改为以中文说明性文本为主，且不新增字段名。",
+                                "`templates/work_order.example.json` 的 `dispatch_message_raw` 不再是英文极简句，并显式包含默认中文输出与正文所有权要求。",
+                                "未修改任何脚本、schema 或未纳入 `scope_in` 的文件。"
+                            ],
+    "verification_steps":  [
+                               "Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/work-order-generator.md\u0027 -Pattern \u0027中文\u0027,\u0027read_paths_mandatory\u0027,\u0027主协调器不得代写\u0027 -SimpleMatch",
+                               "Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md\u0027 -Pattern \u0027中文\u0027,\u0027mandatory reads\u0027,\u0027主协调器不得代写\u0027,\u0027handoff_notes\u0027 -SimpleMatch",
+                               "Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/return-packet-writer.md\u0027 -Pattern \u0027主协调器及其他角色不得替代撰写\u0027,\u0027合同对象\u0027,\u0027最小校验闸门\u0027 -SimpleMatch",
+                               "Select-String -Path \u0027templates/work_order.example.json\u0027 -Pattern \u0027中文\u0027,\u0027主协调器不得代写\u0027,\u0027read_paths_mandatory\u0027,\u0027dispatch_message_raw\u0027 -SimpleMatch",
+                               "Select-String -Path \u0027templates/dispatch_packet.example.json\u0027 -Pattern \u0027中文\u0027,\u0027主协调器不得代写\u0027,\u0027verification_focus\u0027,\u0027handoff_notes\u0027 -SimpleMatch",
+                               "Select-String -Path \u0027templates/return_packet.example.json\u0027 -Pattern \u0027执行子代理本人\u0027,\u0027verification_commands\u0027,\u0027deviations_from_dispatch\u0027,\u0027follow_up_needed\u0027 -SimpleMatch"
+                           ],
+    "stop_conditions":  [
+                            "需要新增 schema 字段名或修改 schema 文件。",
+                            "需要改 `execution-dispatch-template.md` 或 `review-dispatch-template.md` 才能继续。",
+                            "必读文件不足以在现有字段内稳定承载三项规则。"
+                        ],
+    "dispatch_packet_path":  "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/dispatch_packets/DP-B35-TEMPLATE-HARDEN-001.json",
+    "return_packet_path":  "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B35-TEMPLATE-HARDEN-001.json",
+    "return_packet_required":  true,
+    "required_return_fields":  [
+                                   "work_order_id",
+                                   "status",
+                                   "summary",
+                                   "changed_files",
+                                   "planned_files_not_changed",
+                                   "verification_commands",
+                                   "verification_result",
+                                   "deviations_from_dispatch",
+                                   "blocked_by",
+                                   "risks",
+                                   "follow_up_needed",
+                                   "written_by",
+                                   "written_role"
+                               ],
+    "completion_gate":  "return_packet_written_and_accepted",
+    "state_owner":  "main-coordinator",
+    "dispatch_message_raw":  "你是 `contract-template-hardener` 执行子代理。\n先完整阅读 `read_paths_mandatory`，`evidence_summary` 仅作导航，不能代替原文件阅读。\n说明性文本默认中文；字段名、路径、脚本参数、代码标识符保持原样。\n\n任务目标：\n- 在不新增 schema 字段的前提下，把 Batch 3.5 的中文输出、mandatory reads 与回执正文所有权要求，下沉到现有 prompt 生成模板与示例合同对象中。\n\n必读上下文：\n- `docs/plans/contract-first-dispatch.md`\n- `docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json`\n- `docs/SUBAGENT_GOVERNANCE.md`\n- `rules/common/SUBAGENT_RULES.md`\n- `skills/global-task-orchestrator/SKILL.md`\n- `skills/global-task-orchestrator/assets/prompts/work-order-generator.md`\n- `skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md`\n- `skills/global-task-orchestrator/assets/prompts/return-packet-writer.md`\n- `templates/work_order.example.json`\n- `templates/dispatch_packet.example.json`\n- `templates/return_packet.example.json`\n\n导航摘要：\n- Batch 3.5 要求把中文输出、mandatory reads、return_packet 正文所有权继续下沉到合同对象、模板字段与最小验收闸门。\n- 当前示例模板仍以英文 Batch 2 样例为主，`dispatch_message_raw` 也未稳定体现默认中文输出约束。\n- 由于本批不改 schema，需优先利用现有字段与固定语句完成下沉，而不是发明新的字段名。\n\n唯一写入范围：\n- `skills/global-task-orchestrator/assets/prompts/work-order-generator.md`\n- `skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md`\n- `skills/global-task-orchestrator/assets/prompts/return-packet-writer.md`\n- `templates/work_order.example.json`\n- `templates/dispatch_packet.example.json`\n- `templates/return_packet.example.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B35-TEMPLATE-HARDEN-001.json`\n\n禁改范围：\n- 不得新增 schema 字段或修改任何 `schemas/*.json`。\n- 不得修改 `skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md` 或 `skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md`。\n- 不得修改任何脚本文件；脚本闸门下沉由其他 Batch 3.5 工单负责。\n- 不得扩展到 Batch 4 的测试实现。\n\n执行约束：\n- 先读完 `read_paths_mandatory` 再修改。\n- `evidence_summary` 仅作导航。\n- 默认中文输出必须通过现有字段值与固定语句体现，不新增未冻结字段名。\n- 回执正文所有权要作为固定模板语句写入现有 prompt / example 字段，不宣告 Batch 3.5 校验脚本已经完成。\n- 若需要改 `execution-dispatch-template.md` 或 `review-dispatch-template.md`，立即返回 `blocked`。\n\n逐文件改法：\n- `skills/global-task-orchestrator/assets/prompts/work-order-generator.md`: 把 Batch 3.5 的三项规则写进模板：mandatory reads 不得缺失、说明性文本默认中文、`return_packet` 正文由执行子代理本人填写且主协调器不得代写。；说明这些规则应体现在现有 `dispatch_message_raw`、`constraints`、`acceptance_criteria`、`verification_steps` 等字段值中。\n- `skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md`: 在复杂任务施工图编译要求中补入中文输出、mandatory reads 与回执正文所有权的交接/验收表达。；让 `verification_focus`、`handoff_notes`、`forbidden_changes` 等字段显式承载这些规则。\n- `skills/global-task-orchestrator/assets/prompts/return-packet-writer.md`: 保持 Batch 3 已引入的所有权表述，并补充与 Batch 3.5 一致的固定模板语句，说明该约束需要同步写入合同对象与最小校验闸门。；不要越权修改脚本逻辑，只改提示词模板。\n- `templates/work_order.example.json`: 在现有字段内改成中文样例，显式把默认中文输出、mandatory reads、回执正文所有权写进 `constraints`、`acceptance_criteria`、`verification_steps` 与 `dispatch_message_raw`。；不得新增新的字段名。\n- `templates/dispatch_packet.example.json`: 在现有字段内改成中文样例，并把中文输出、mandatory reads、回执正文所有权写入 `forbidden_changes`、`verification_focus`、`handoff_notes` 等字段。；保持字段名与结构不变。\n- `templates/return_packet.example.json`: 把说明性文本改成中文样例，确保现有字段能体现执行子代理本人写正文、验证命令明确、偏离/阻塞/后续清晰。；不新增新的字段名。\n\n复杂任务施工图：\n先读后写：\n- `docs/plans/contract-first-dispatch.md`\n- `docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json`\n- `docs/SUBAGENT_GOVERNANCE.md`\n- `rules/common/SUBAGENT_RULES.md`\n- `skills/global-task-orchestrator/SKILL.md`\n- `skills/global-task-orchestrator/assets/prompts/work-order-generator.md`\n- `skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md`\n- `skills/global-task-orchestrator/assets/prompts/return-packet-writer.md`\n- `templates/work_order.example.json`\n- `templates/dispatch_packet.example.json`\n- `templates/return_packet.example.json`\n\n执行顺序：\n- 更新三份 prompt 生成模板\n- 更新三份 example.json\n- 运行关键短语校验\n- 写入 return_packet\n\n不变量：\n- Batch 3.5 不新增 schema 字段。\n- Batch 3.5 仅在现有字段与固定语句内下沉规则。\n- 说明性文本默认中文。\n\n禁改范围：\n- 不要修改 `schemas/*.json`。\n- 不要修改 `execution-dispatch-template.md`、`review-dispatch-template.md`。\n- 不要修改任何脚本文件。\n\n依赖说明：\n- 先改模板真源，再改 example.json，避免样例脱离模板口径。\n- example.json 不得引入 schema 未冻结的新字段名。\n\n完成信号：\n- 三份 prompt 生成模板更新完成。\n- 三份 example.json 更新完成。\n- 关键短语校验命令通过。\n- return_packet 已落盘。\n\n校验关注点：\n- 三项规则是否都在现有字段内下沉。\n- `dispatch_message_raw` 是否改为稳定中文示例。\n- 未越界修改脚本、schema 或 Batch 4 文件。\n\n回退策略：\n- 若发现必须新增字段名或改 schema，立即停止并回主协调器。\n- 若发现需修改 `execution-dispatch-template.md` 或 `review-dispatch-template.md`，立即停止并说明超出 Batch 3.5 冻结主列表。\n\n交接说明：\n- 审查时重点看三项规则是否已进入现有字段值，而不是只停留在 prompt 正文层。\n- 回执应明确哪些样例文本改成中文、哪些固定语句被新增。\n\n执行步骤：\n- 阅读冻结方案、治理真源、现有 prompt 与示例合同。\n- 先改三份 prompt 生成模板，再改三份 example.json。\n- 用工单里的关键短语检查命令验证模板样例是否已承载三项规则。\n- 先写 `return_packet`，再回报。\n\n验收标准：\n- 三份 prompt 生成模板都显式指导主协调器在现有字段内下沉中文输出、mandatory reads、回执正文所有权。\n- 三份 example.json 都改为以中文说明性文本为主，且不新增字段名。\n- `templates/work_order.example.json` 的 `dispatch_message_raw` 不再是英文极简句，并显式包含默认中文输出与正文所有权要求。\n- 未修改任何脚本、schema 或未纳入 `scope_in` 的文件。\n\n验证步骤：\n- Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/work-order-generator.md\u0027 -Pattern \u0027中文\u0027,\u0027read_paths_mandatory\u0027,\u0027主协调器不得代写\u0027 -SimpleMatch\n- Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md\u0027 -Pattern \u0027中文\u0027,\u0027mandatory reads\u0027,\u0027主协调器不得代写\u0027,\u0027handoff_notes\u0027 -SimpleMatch\n- Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/return-packet-writer.md\u0027 -Pattern \u0027主协调器及其他角色不得替代撰写\u0027,\u0027合同对象\u0027,\u0027最小校验闸门\u0027 -SimpleMatch\n- Select-String -Path \u0027templates/work_order.example.json\u0027 -Pattern \u0027中文\u0027,\u0027主协调器不得代写\u0027,\u0027read_paths_mandatory\u0027,\u0027dispatch_message_raw\u0027 -SimpleMatch\n- Select-String -Path \u0027templates/dispatch_packet.example.json\u0027 -Pattern \u0027中文\u0027,\u0027主协调器不得代写\u0027,\u0027verification_focus\u0027,\u0027handoff_notes\u0027 -SimpleMatch\n- Select-String -Path \u0027templates/return_packet.example.json\u0027 -Pattern \u0027执行子代理本人\u0027,\u0027verification_commands\u0027,\u0027deviations_from_dispatch\u0027,\u0027follow_up_needed\u0027 -SimpleMatch\n\n停止条件：\n- 需要新增 schema 字段名或修改 schema 文件。\n- 需要改 `execution-dispatch-template.md` 或 `review-dispatch-template.md` 才能继续。\n- 必读文件不足以在现有字段内稳定承载三项规则。\n\n回执要求：\n- `return_packet` 正文必须由执行子代理本人填写，主协调器不得代写。\n- `return_packet_path`: `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B35-TEMPLATE-HARDEN-001.json`\n- `completion_gate`: `return_packet_written_and_accepted`\n- 若信息不足以安全实施，返回 `blocked`，不要猜测。\n- 完成前先写 `return_packet`，再声明完成。"
+}

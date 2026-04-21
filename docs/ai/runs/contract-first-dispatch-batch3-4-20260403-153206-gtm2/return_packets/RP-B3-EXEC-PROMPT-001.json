@@ -1,0 +1,43 @@
+﻿{
+    "work_order_id":  "WO-B3-EXEC-PROMPT-001",
+    "status":  "completed",
+    "summary":  "已重写两份 Batch 3 提示词编译模板并新增执行型派发模板，且按工单命令完成关键短语校验。",
+    "changed_files":  [
+                          "skills/global-task-orchestrator/assets/prompts/work-order-generator.md",
+                          "skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md",
+                          "skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md",
+                          "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B3-EXEC-PROMPT-001.json"
+                      ],
+    "planned_files_not_changed":  [
+
+                                  ],
+    "verification_commands":  [
+                                  "Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/work-order-generator.md\u0027 -Pattern \u0027dispatch_message_raw\u0027,\u0027read_paths_mandatory\u0027,\u0027evidence_summary\u0027,\u0027scope_out\u0027,\u0027acceptance_criteria\u0027,\u0027return_packet_path\u0027 -SimpleMatch",
+                                  "Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md\u0027 -Pattern \u0027execution_order\u0027,\u0027invariants\u0027,\u0027forbidden_changes\u0027,\u0027verification_focus\u0027,\u0027fallback_strategy\u0027,\u0027handoff_notes\u0027 -SimpleMatch",
+                                  "Test-Path \u0027skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md\u0027",
+                                  "Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md\u0027 -Pattern \u0027read_paths_mandatory\u0027,\u0027evidence_summary\u0027,\u0027write_paths\u0027,\u0027scope_out\u0027,\u0027acceptance_criteria\u0027,\u0027stop_conditions\u0027,\u0027return_packet\u0027,\u0027中文\u0027 -SimpleMatch"
+                              ],
+    "verification_result":  "全部命令执行成功；关键词命中且 execution-dispatch-template.md 存在。",
+    "deviations_from_dispatch":  [
+
+                                 ],
+    "blocked_by":  [
+
+                   ],
+    "risks":  [
+                  "本批只完成提示词真源改写，未触及 Batch 3.5 的模板字段下沉或脚本校验逻辑。"
+              ],
+    "follow_up_needed":  [
+                             "由主协调器或审查子代理复核中文语义与后续批次衔接。"
+                         ],
+    "written_by":  "batch3-execution-prompt-compiler",
+    "written_role":  "execution-prompt-compiler",
+    "return_packet_id":  "RP-B3-EXEC-PROMPT-001",
+    "task_id":  "contract-first-dispatch-batch3-4-20260403-153206-gtm2",
+    "verification":  [
+
+                     ],
+    "next_actions":  [
+
+                     ]
+}

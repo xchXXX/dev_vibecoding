@@ -1,0 +1,7 @@
+interface:
+  display_name: "开发前 Benchmark"
+  short_description: "编码前先定义分层 benchmark、fixture 与验收口径"
+  default_prompt: "使用 $pre-dev-benchmark 先为这个需求定义分层 benchmark、fixture 和最终验收口径。"
+
+policy:
+  allow_implicit_invocation: true

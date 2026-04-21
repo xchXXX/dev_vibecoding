@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReturnPacket",
+  "description": "执行子代理回执对象，用于结构化回收结果、验证动作、风险与后续事项。",
+  "type": "object",
+  "required": [
+    "return_packet_id",
+    "task_id",
+    "work_order_id",
+    "status",
+    "summary",
+    "changed_files",
+    "planned_files_not_changed",
+    "verification_commands",
+    "verification_result",
+    "deviations_from_dispatch",
+    "blocked_by",
+    "risks",
+    "follow_up_needed",
+    "written_by",
+    "written_role"
+  ],
+  "properties": {
+    "return_packet_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "work_order_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "blocked",
+        "partial"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "planned_files_not_changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verification_commands": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verification_result": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "deviations_from_dispatch": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "follow_up_needed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "written_by": {
+      "type": "string"
+    },
+    "written_role": {
+      "type": "string"
+    },
+    "written_at": {
+      "type": "string"
+    },
+    "verification": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stop_reason": {
+      "type": "string"
+    },
+    "downstream_hint": {
+      "type": "string"
+    },
+    "next_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

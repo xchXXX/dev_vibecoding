@@ -1,0 +1,47 @@
+﻿{
+    "work_order_id":  "WO-B35-TEMPLATE-HARDEN-001",
+    "status":  "completed",
+    "summary":  "已在允许写入范围内更新三份 prompt 模板与三份 example.json，并按工单 verification_steps 逐条执行 Select-String 校验通过。",
+    "changed_files":  [
+                          "skills/global-task-orchestrator/assets/prompts/work-order-generator.md",
+                          "skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md",
+                          "skills/global-task-orchestrator/assets/prompts/return-packet-writer.md",
+                          "templates/work_order.example.json",
+                          "templates/dispatch_packet.example.json",
+                          "templates/return_packet.example.json"
+                      ],
+    "planned_files_not_changed":  [
+
+                                  ],
+    "verification_commands":  [
+                                  "Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/work-order-generator.md\u0027 -Pattern \u0027中文\u0027,\u0027read_paths_mandatory\u0027,\u0027主协调器不得代写\u0027 -SimpleMatch",
+                                  "Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md\u0027 -Pattern \u0027中文\u0027,\u0027mandatory reads\u0027,\u0027主协调器不得代写\u0027,\u0027handoff_notes\u0027 -SimpleMatch",
+                                  "Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/return-packet-writer.md\u0027 -Pattern \u0027主协调器及其他角色不得替代撰写\u0027,\u0027合同对象\u0027,\u0027最小校验闸门\u0027 -SimpleMatch",
+                                  "Select-String -Path \u0027templates/work_order.example.json\u0027 -Pattern \u0027中文\u0027,\u0027主协调器不得代写\u0027,\u0027read_paths_mandatory\u0027,\u0027dispatch_message_raw\u0027 -SimpleMatch",
+                                  "Select-String -Path \u0027templates/dispatch_packet.example.json\u0027 -Pattern \u0027中文\u0027,\u0027主协调器不得代写\u0027,\u0027verification_focus\u0027,\u0027handoff_notes\u0027 -SimpleMatch",
+                                  "Select-String -Path \u0027templates/return_packet.example.json\u0027 -Pattern \u0027执行子代理本人\u0027,\u0027verification_commands\u0027,\u0027deviations_from_dispatch\u0027,\u0027follow_up_needed\u0027 -SimpleMatch"
+                              ],
+    "verification_result":  "上述 6 条命令均成功命中目标短语，退出码为 0。",
+    "deviations_from_dispatch":  [
+
+                                 ],
+    "blocked_by":  [
+
+                   ],
+    "risks":  [
+                  "本工单未覆盖脚本与测试闸门实现，仍需后续批次继续收口。"
+              ],
+    "follow_up_needed":  [
+                             "由后续 Batch 3.5/4 工单补齐脚本校验与测试回归。"
+                         ],
+    "written_by":  "batch-3.5-template-hardener-subagent",
+    "written_role":  "contract-template-hardener",
+    "return_packet_id":  "RP-B35-TEMPLATE-HARDEN-001",
+    "task_id":  "contract-first-dispatch-batch3-4-20260403-153206-gtm2",
+    "verification":  [
+
+                     ],
+    "next_actions":  [
+
+                     ]
+}

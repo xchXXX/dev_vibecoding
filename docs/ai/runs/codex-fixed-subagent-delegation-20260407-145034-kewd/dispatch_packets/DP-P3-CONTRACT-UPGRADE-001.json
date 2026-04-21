@@ -1,0 +1,106 @@
+{
+  "task_id": "codex-fixed-subagent-delegation-20260407-145034-kewd",
+  "dispatch_packet_id": "DP-P3-CONTRACT-UPGRADE-001",
+  "work_order_id": "WO-P3-CONTRACT-UPGRADE-001",
+  "instruction_source": "docs/plans/codex-fixed-subagent-delegation.md",
+  "read_before_write": [
+    "docs/plans/codex-fixed-subagent-delegation.md",
+    "docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/plan.json",
+    "templates/work_order.example.json",
+    "templates/dispatch_packet.example.json",
+    "templates/return_packet.example.json",
+    "schemas/work_order.schema.json",
+    "schemas/dispatch_packet.schema.json",
+    "schemas/return_packet.schema.json"
+  ],
+  "execution_order": [
+    "先调整 schemas/work_order.schema.json 与 schemas/return_packet.schema.json。",
+    "再校准 schemas/dispatch_packet.schema.json 的兼容表达。",
+    "最后同步三个 templates 示例，确保字段示例和 schema 一致。",
+    "执行 JSON 校验并写入 return_packet。"
+  ],
+  "change_spec": [
+    {
+      "path": "schemas/work_order.schema.json",
+      "change_type": "update",
+      "instructions": [
+        "增加 write_scope 属性定义并保持向后兼容。",
+        "不删除现有 write_paths 支持。"
+      ]
+    },
+    {
+      "path": "schemas/return_packet.schema.json",
+      "change_type": "update",
+      "instructions": [
+        "required 中补充 return_packet_id 与 task_id。",
+        "保持其他 required 字段集合不退化。"
+      ]
+    },
+    {
+      "path": "schemas/dispatch_packet.schema.json",
+      "change_type": "update",
+      "instructions": [
+        "确保与升级后的合同语义兼容。",
+        "不削弱复杂任务必填字段。"
+      ]
+    },
+    {
+      "path": "templates/work_order.example.json",
+      "change_type": "update",
+      "instructions": [
+        "补充 write_scope 示例并对齐 schema。",
+        "保留已有关键门禁字段示例。"
+      ]
+    },
+    {
+      "path": "templates/dispatch_packet.example.json",
+      "change_type": "update",
+      "instructions": [
+        "与 work_order 示例形成可引用关系。",
+        "保留施工图核心字段示例。"
+      ]
+    },
+    {
+      "path": "templates/return_packet.example.json",
+      "change_type": "update",
+      "instructions": [
+        "补充 return_packet_id 与 task_id 示例。",
+        "保持 required_return_fields 对齐。"
+      ]
+    }
+  ],
+  "invariants": [
+    "不修改 orchestrator 脚本。",
+    "不改变阶段1/2产物语义。",
+    "字段升级优先兼容而非破坏式替换。"
+  ],
+  "forbidden_changes": [
+    "不得修改 skills/global-task-orchestrator/scripts/*。",
+    "不得修改 agents/*.md 与 agents/codex-role-map.json。",
+    "不得由主协调器代写 return_packet 正文。"
+  ],
+  "dependency_notes": [
+    "阶段3产物将被阶段4编译器与阶段6验证直接消费。",
+    "若 schema 变更导致现有样例不可解析，应立即回退并 blocked。"
+  ],
+  "done_signals": [
+    "3 个 schema 文件与 3 个模板文件完成对齐。",
+    "关键字段（write_scope、return_packet_id、task_id）已落实。",
+    "return_packet 由执行子代理本人写入。"
+  ],
+  "verification_focus": [
+    "JSON 结构可解析。",
+    "write_scope 出现在 work_order schema 与示例。",
+    "return_packet required 覆盖 return_packet_id/task_id。",
+    "无越界写入。"
+  ],
+  "fallback_strategy": [
+    "若发现破坏兼容，停止并返回 blocked。",
+    "若需改脚本才能通过，停止并回退主协调器裁决。"
+  ],
+  "handoff_notes": [
+    "严格填写 required_return_fields 全量字段。",
+    "验证命令与验证结果必须一一对应。",
+    "written_by/written_role 必须是执行子代理本人。"
+  ]
+}

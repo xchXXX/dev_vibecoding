@@ -1,0 +1,33 @@
+{
+  "return_packet_id": "RP-B25-PLAN-DUAL-001-R2",
+  "task_id": "20260402-batch25-plan-dual-track-upgrade",
+  "work_order_id": "WO-B25-PLAN-DUAL-001-R2",
+  "status": "completed",
+  "summary": "Created the missing Batch 2.5 run plan.json and filled the validator-required metadata fields in the two existing return packets.",
+  "changed_files": [
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/plan.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R1.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R2.json"
+  ],
+  "planned_files_not_changed": [],
+  "verification_commands": [
+    "ConvertFrom-Json parse check for docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/plan.json",
+    "ConvertFrom-Json parse check for RP-B25-PLAN-DUAL-001.json",
+    "ConvertFrom-Json parse check for RP-B25-PLAN-DUAL-001-R1.json",
+    "ConvertFrom-Json parse check for RP-B25-PLAN-DUAL-001-R2.json",
+    "powershell -ExecutionPolicy Bypass -File skills/global-task-orchestrator/scripts/validate-control-plane.ps1 -RepoRoot C:/Users/72385/dev/ai-harness -TaskId 20260402-batch25-plan-dual-track-upgrade -Json"
+  ],
+  "verification_result": "All four JSON files parse cleanly. The Batch 2.5 run validate command passes with the expected repo_doctor warning only.",
+  "deviations_from_dispatch": [],
+  "blocked_by": [],
+  "risks": [
+    "repo_doctor.ps1 is still absent in this repository, so validate remains warning-only for that stricter gate."
+  ],
+  "follow_up_needed": [
+    "Run the review gate again against the now self-validatable Batch 2.5 run."
+  ],
+  "written_at": "2026-04-03T00:00:00+08:00",
+  "written_by": "plan-contract-rework-finalizer",
+  "written_role": "plan-contract-rework-finalizer"
+}

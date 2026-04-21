@@ -1,0 +1,34 @@
+{
+  "return_packet_id": "RP-B3-RETURN-PROMPT-001",
+  "task_id": "contract-first-dispatch-batch3-4-20260403-153206-gtm2",
+  "work_order_id": "WO-B3-RETURN-PROMPT-001",
+  "status": "completed",
+  "summary": "在 Batch 3 return_packet writer 中下沉 v2 合同字段并明确归属，本文记录本人完成的模板更新和验证。",
+  "changed_files": [
+    "skills/global-task-orchestrator/assets/prompts/return-packet-writer.md",
+    "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B3-RETURN-PROMPT-001.json"
+  ],
+  "planned_files_not_changed": [],
+  "verification_commands": [
+    "Select-String -Path 'skills/global-task-orchestrator/assets/prompts/return-packet-writer.md' -Pattern 'planned_files_not_changed','verification_commands','verification_result','deviations_from_dispatch','blocked_by','follow_up_needed','return_packet' -SimpleMatch",
+    "Select-String -Path 'skills/global-task-orchestrator/assets/prompts/return-packet-writer.md' -Pattern '`return_packet` 正文必须由执行子代理本人编写' -SimpleMatch"
+  ],
+  "verification_result": "两条 Select-String 均找到关键词：一个覆盖所有 v2 字段，另一个确认`return_packet` 归属声明。",
+  "deviations_from_dispatch": [],
+  "blocked_by": [],
+  "risks": [
+    "后续 Batch 3.5 仍需把中文优先/mandatory read 等合约承诺向其它提示词下沉，否则可能出现前后口径不一致。"
+  ],
+  "follow_up_needed": [
+    "与 Batch 3.5 负责方确认中文优先与回执所有权要求在 dispatch_message_raw 等 prompt 里落地。"
+  ],
+  "verification": [
+    "模板显示了 `return_packet` vlog 归属的执行子代理专属声明，并经 Select-String 抓取验证。"
+  ],
+  "written_by": "batch3-return-prompt-compiler",
+  "written_role": "return-packet-prompt-compiler",
+  "written_at": "2026-04-03T16:22:34+08:00",
+  "next_actions": [
+    "待 Batch 3.5 合同/提示词验收后，再补充中文优先与 mandatory read 录入情况。"
+  ]
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "pnpm-fetch-500",
+    "prompt": "场景：pnpm install 报错 ERR_PNPM_FETCH_500，准备重试，帮我看看怎么处理。现在先不要解决问题，只回复 OK。"
+  },
+  {
+    "id": "npm-ci-timeout",
+    "prompt": "场景：npm ci 失败，提示 network timeout。我想重试前先查有没有现成修复方案。现在先不要解决问题，只回复 OK。"
+  },
+  {
+    "id": "pytest-module-not-found",
+    "prompt": "场景：python -m pytest 失败，报错 ModuleNotFoundError: No module named requests，准备重试。现在先不要解决问题，只回复 OK。"
+  },
+  {
+    "id": "pip-ssl-error",
+    "prompt": "场景：pip install -r requirements.txt 失败，提示 SSL error，重试前想先看历史解法。现在先不要解决问题，只回复 OK。"
+  },
+  {
+    "id": "cargo-toolchain-missing",
+    "prompt": "场景：cargo test 报错 toolchain missing，准备再次执行前先确认怎么修。现在先不要解决问题，只回复 OK。"
+  },
+  {
+    "id": "go-test-permission-denied",
+    "prompt": "场景：go test ./... 失败，提示 permission denied。我准备重试，先帮我看看怎么办。现在先不要解决问题，只回复 OK。"
+  },
+  {
+    "id": "python-migrate-module-missing",
+    "prompt": "场景：python manage.py migrate 失败，报错 No module named django，想在重试前先查现成方案。现在先不要解决问题，只回复 OK。"
+  },
+  {
+    "id": "docker-build-enoent",
+    "prompt": "场景：docker build 失败，提示 ENOENT 找不到文件，准备重新跑之前先确认修复路径。现在先不要解决问题，只回复 OK。"
+  },
+  {
+    "id": "git-fetch-ssl-problem",
+    "prompt": "场景：git fetch origin 失败，提示 SSL certificate problem。我准备重试，先看看有没有已有修复方案。现在先不要解决问题，只回复 OK。"
+  },
+  {
+    "id": "bash-command-not-found",
+    "prompt": "场景：bash 脚本执行失败，exit code 127，报错 command not found。我想重试前先查历史解法。现在先不要解决问题，只回复 OK。"
+  }
+]

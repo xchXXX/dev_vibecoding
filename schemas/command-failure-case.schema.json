@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CommandFailureCase",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "case_id",
+    "signature",
+    "command_signature",
+    "error_signature",
+    "scope_kind",
+    "scope_confidence",
+    "scope_reason",
+    "projects_seen",
+    "solution",
+    "stats",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^CASE-[a-f0-9]{16}$"
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "command_signature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "error_signature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "command_excerpt": {
+      "type": "string"
+    },
+    "error_excerpt": {
+      "type": "string"
+    },
+    "scope_kind": {
+      "type": "string",
+      "enum": [
+        "candidate_global",
+        "candidate_project",
+        "global",
+        "project"
+      ]
+    },
+    "scope_confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "scope_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "projects_seen": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "solution": {
+      "type": "string"
+    },
+    "stats": {
+      "type": "object",
+      "required": [
+        "hit_count",
+        "verify_count",
+        "incident_count"
+      ],
+      "properties": {
+        "hit_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "verify_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incident_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "last_verified_at": {
+      "type": "string"
+    },
+    "last_hit_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

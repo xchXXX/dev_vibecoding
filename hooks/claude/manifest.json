@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "runtime": "claude-native",
+  "items": [
+    {
+      "id": "SessionStart",
+      "source": "hooks/claude/scripts/SessionStart.ps1",
+      "target": "session_start",
+      "description": "Audit session startup, collect session ID/context, do not change request parameters.",
+      "notes": "Helps doctor/install verify the hook registration."
+    },
+    {
+      "id": "UserPromptSubmit",
+      "source": "hooks/claude/scripts/UserPromptSubmit.ps1",
+      "target": "user_prompt_submit",
+      "description": "Inspect user prompts, only return block/allow decisions, do not rewrite content."
+    },
+    {
+      "id": "PreToolUse",
+      "source": "hooks/claude/scripts/PreToolUse.ps1",
+      "target": "pre_tool_use",
+      "description": "Guard high-risk tools (Bash, Write, Edit, MultiEdit) before execution, only block or allow.",
+      "tools": [
+        "Bash",
+        "Write",
+        "Edit",
+        "MultiEdit"
+      ]
+    },
+    {
+      "id": "PostToolUse",
+      "source": "hooks/claude/scripts/PostToolUse.ps1",
+      "target": "post_tool_use",
+      "description": "Record execution results and metadata for the same high-risk tools, keeping guard focus.",
+      "tools": [
+        "Bash",
+        "Write",
+        "Edit",
+        "MultiEdit"
+      ]
+    },
+    {
+      "id": "Stop",
+      "source": "hooks/claude/scripts/Stop.ps1",
+      "target": "stop",
+      "description": "Capture stop signals, only return block/allow decisions or minimal context."
+    },
+    {
+      "id": "SubagentStop",
+      "source": "hooks/claude/scripts/SubagentStop.ps1",
+      "target": "subagent_stop",
+      "description": "Audit sub-agent termination paths, annotate order/receipt state with block/allow."
+    }
+  ]
+}

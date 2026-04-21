@@ -1,0 +1,182 @@
+{
+  "task_id": "codex-fixed-subagent-delegation-20260407-145034-kewd",
+  "dispatch_packet_id": "DP-P3-CONTRACT-UPGRADE-001",
+  "work_order_id": "WO-P3-CONTRACT-UPGRADE-001",
+  "instruction_source": "docs/plans/codex-fixed-subagent-delegation.md",
+  "role": "backend-implementer",
+  "write_paths": [
+    "templates/work_order.example.json",
+    "templates/dispatch_packet.example.json",
+    "templates/return_packet.example.json",
+    "schemas/work_order.schema.json",
+    "schemas/dispatch_packet.schema.json",
+    "schemas/return_packet.schema.json"
+  ],
+  "write_scope": {
+    "policy": "allowlist",
+    "paths": [
+      "templates/work_order.example.json",
+      "templates/dispatch_packet.example.json",
+      "templates/return_packet.example.json",
+      "schemas/work_order.schema.json",
+      "schemas/dispatch_packet.schema.json",
+      "schemas/return_packet.schema.json"
+    ],
+    "notes": "dispatch_packet 复述与 work_order 一致的写入边界，避免执行阶段口径漂移。",
+    "relationship_to_write_paths": "write_scope 负责解释委派边界，write_paths 负责最终执行白名单。"
+  },
+  "return_packet_path": "docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/return_packets/RP-P3-CONTRACT-UPGRADE-001.json",
+  "return_packet_required": true,
+  "required_return_fields": [
+    "return_packet_id",
+    "task_id",
+    "work_order_id",
+    "status",
+    "summary",
+    "changed_files",
+    "planned_files_not_changed",
+    "verification_commands",
+    "verification_result",
+    "deviations_from_dispatch",
+    "blocked_by",
+    "risks",
+    "follow_up_needed",
+    "written_by",
+    "written_role"
+  ],
+  "completion_gate": "return_packet_written_and_accepted",
+  "state_owner": "main-coordinator",
+  "read_before_write": [
+    "docs/plans/codex-fixed-subagent-delegation.md",
+    "docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/plan.json",
+    "docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/return_packets/RP-P2-ROLE-MAP-FREEZE-001.json",
+    "templates/work_order.example.json",
+    "templates/dispatch_packet.example.json",
+    "templates/return_packet.example.json",
+    "schemas/work_order.schema.json",
+    "schemas/dispatch_packet.schema.json",
+    "schemas/return_packet.schema.json"
+  ],
+  "execution_order": [
+    "先调整 schemas/work_order.schema.json 与 schemas/return_packet.schema.json。",
+    "再校准 schemas/dispatch_packet.schema.json 的兼容表达。",
+    "最后同步三个 templates 示例，确保字段示例和 schema 一致。",
+    "执行 JSON 校验并写入 return_packet。"
+  ],
+  "change_spec": [
+    {
+      "path": "schemas/work_order.schema.json",
+      "change_type": "update",
+      "instructions": [
+        "补充 write_scope 属性定义，保持 write_paths 兼容。",
+        "校准 role 字段说明，支持角色委派语义表达。"
+      ],
+      "done_when": [
+        "work_order schema 能同时表达 write_scope 与 write_paths。"
+      ]
+    },
+    {
+      "path": "schemas/return_packet.schema.json",
+      "change_type": "update",
+      "instructions": [
+        "required 增加 return_packet_id 与 task_id。",
+        "verification_result 保持向后兼容表达。"
+      ],
+      "done_when": [
+        "return_packet schema required 覆盖 return_packet_id/task_id。"
+      ]
+    },
+    {
+      "path": "schemas/dispatch_packet.schema.json",
+      "change_type": "update",
+      "instructions": [
+        "补充与 work_order 对齐的角色/写入边界/回执约束字段。",
+        "不削弱既有复杂任务施工图必填字段。"
+      ],
+      "done_when": [
+        "dispatch_packet schema 能校验复杂任务字段并可复用角色委派口径。"
+      ]
+    },
+    {
+      "path": "templates/work_order.example.json",
+      "change_type": "update",
+      "instructions": [
+        "展示 write_scope 示例并写清与 write_paths 的关系。"
+      ],
+      "done_when": [
+        "work_order 示例可表达角色委派边界。"
+      ]
+    },
+    {
+      "path": "templates/dispatch_packet.example.json",
+      "change_type": "update",
+      "instructions": [
+        "与 work_order 形成互引字段：role、write_scope、required_return_fields。"
+      ],
+      "done_when": [
+        "dispatch_packet 示例能独立指导复杂任务执行。"
+      ]
+    },
+    {
+      "path": "templates/return_packet.example.json",
+      "change_type": "update",
+      "instructions": [
+        "显式包含 return_packet_id 与 task_id，保持回执最小字段完整。"
+      ],
+      "done_when": [
+        "return_packet 示例与升级后 schema 对齐。"
+      ]
+    }
+  ],
+  "invariants": [
+    "不修改 orchestrator 脚本。",
+    "不改变阶段1/2产物语义。",
+    "字段升级优先兼容，而非破坏式替换。"
+  ],
+  "forbidden_changes": [
+    "不得修改 write_paths 之外文件。",
+    "不得由主协调器代写 return_packet 正文。",
+    "若需改脚本才能通过，必须停止并返回 blocked。"
+  ],
+  "dependency_notes": [
+    "阶段3产物将被阶段4编译器与阶段6验证直接消费。",
+    "若 schema 变更导致现有样例不可解析，应立即停止并返回 blocked。"
+  ],
+  "done_signals": [
+    "3 个 schema 与 3 个模板全部更新并对齐。",
+    "write_scope、return_packet_id、task_id 已在合同对象落地。",
+    "return_packet 已由执行子代理本人写入。"
+  ],
+  "verification_focus": [
+    "JSON 结构可解析。",
+    "work_order schema 与示例都包含 write_scope。",
+    "return_packet schema.required 覆盖 return_packet_id/task_id。",
+    "未越界写入。"
+  ],
+  "fallback_strategy": [
+    "若发现破坏兼容，立即停止并返回 blocked。",
+    "若发现必须越过 write_paths，立即停止并回报主协调器。"
+  ],
+  "handoff_notes": [
+    "审核时逐条对照 required_return_fields 是否完整。",
+    "核验命令需与 verification_result 一一对应。",
+    "written_by/written_role 必须是执行子代理本人。"
+  ],
+  "execution_steps": [
+    "先改 schema，再改模板。",
+    "完成后执行 JSON 结构校验与关键字段检查。"
+  ],
+  "verification_steps": [
+    "python -m json.tool templates/work_order.example.json",
+    "python -m json.tool templates/dispatch_packet.example.json",
+    "python -m json.tool templates/return_packet.example.json",
+    "python -m json.tool schemas/work_order.schema.json",
+    "python -m json.tool schemas/dispatch_packet.schema.json",
+    "python -m json.tool schemas/return_packet.schema.json"
+  ],
+  "stop_conditions": [
+    "发现需要修改脚本才能保持兼容。",
+    "发现字段升级会导致当前阶段已有工单不可被验证。",
+    "发现必须越过 write_paths 才能完成目标。"
+  ]
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "case-01",
+    "initial_content": "@echo off\r\necho CFM-FWD-FAIL-01\r\ncfm_missing_command_case_01\r\nexit /b %ERRORLEVEL%\r\n",
+    "pass_marker": "CFM-FWD-PASS-01",
+    "memory_match": "case-01.cmd"
+  },
+  {
+    "id": "case-02",
+    "initial_content": "@echo off\r\necho CFM-FWD-FAIL-02\r\nexit /b 7\r\n",
+    "pass_marker": "CFM-FWD-PASS-02",
+    "memory_match": "case-02.cmd"
+  },
+  {
+    "id": "case-03",
+    "initial_content": "@echo off\r\necho BUILD FAILED CASE-03\r\nexit /b 0\r\n",
+    "pass_marker": "CFM-FWD-PASS-03",
+    "memory_match": "case-03.cmd"
+  },
+  {
+    "id": "case-04",
+    "initial_content": "@echo off\r\necho CFM-FWD-FAIL-04\r\ncall :missing_label_04\r\nexit /b 1\r\n",
+    "pass_marker": "CFM-FWD-PASS-04",
+    "memory_match": "case-04.cmd"
+  },
+  {
+    "id": "case-05",
+    "initial_content": "@echo off\r\necho CFM-FWD-FAIL-05\r\ntype __CASE_ROOT_REL__\\missing-05.txt >nul\r\nexit /b 1\r\n",
+    "pass_marker": "CFM-FWD-PASS-05",
+    "memory_match": "case-05.cmd"
+  },
+  {
+    "id": "case-06",
+    "initial_content": "@echo off\r\necho CFM-FWD-FAIL-06\r\ncall __CASE_ROOT_REL__\\missing-06.cmd\r\nexit /b 1\r\n",
+    "pass_marker": "CFM-FWD-PASS-06",
+    "memory_match": "case-06.cmd"
+  },
+  {
+    "id": "case-07",
+    "initial_content": "@echo off\r\necho CFM-FWD-FAIL-07\r\nping -n 2 127.0.0.1 >nul\r\nexit /b 124\r\n",
+    "pass_marker": "CFM-FWD-PASS-07",
+    "memory_match": "case-07.cmd"
+  },
+  {
+    "id": "case-08",
+    "initial_content": "@echo off\r\necho ERROR STEP INCOMPLETE CASE-08\r\nexit /b 0\r\n",
+    "pass_marker": "CFM-FWD-PASS-08",
+    "memory_match": "case-08.cmd"
+  },
+  {
+    "id": "case-09",
+    "initial_content": "@echo off\r\necho CFM-FWD-FAIL-09\r\ndir __CASE_ROOT_REL__\\missing-dir >nul\r\nexit /b 1\r\n",
+    "pass_marker": "CFM-FWD-PASS-09",
+    "memory_match": "case-09.cmd"
+  },
+  {
+    "id": "case-10",
+    "initial_content": "@echo off\r\necho CFM-FWD-FAIL-10\r\nwhere cfm_missing_tool_case_10 >nul 2>nul\r\nif errorlevel 1 exit /b 1\r\nexit /b 0\r\n",
+    "pass_marker": "CFM-FWD-PASS-10",
+    "memory_match": "case-10.cmd"
+  }
+]

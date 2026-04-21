@@ -1,0 +1,82 @@
+﻿{
+  "schema_version": "1.0",
+  "map_id": "codex-role-map-freeze-phase2-20260407",
+  "task_id": "codex-fixed-subagent-delegation-20260407-145034-kewd",
+  "source_of_truth": {
+    "role_semantics": "agents/*.md",
+    "role_to_agent_type_map": "agents/codex-role-map.json",
+    "allowed_agent_types": ["default", "explorer", "worker"]
+  },
+  "selection_order": [
+    "select_role",
+    "resolve_role_map",
+    "build_work_order_and_dispatch_packet",
+    "compile_dispatch_message"
+  ],
+  "roles": {
+    "planner": {
+      "agent_type": "default",
+      "model": "gpt-5",
+      "reasoning_effort": "high",
+      "allow_write": true,
+      "allow_shell": true,
+      "notes": "用于方案冻结、边界收敛、分批拆解。"
+    },
+    "reader": {
+      "agent_type": "explorer",
+      "model": "gpt-5",
+      "reasoning_effort": "medium",
+      "allow_write": false,
+      "allow_shell": true,
+      "notes": "只读补上下文与证据，不允许写入目标文件。"
+    },
+    "reviewer": {
+      "agent_type": "default",
+      "model": "gpt-5",
+      "reasoning_effort": "high",
+      "allow_write": false,
+      "allow_shell": true,
+      "notes": "以 findings 为主，默认只审查不直接修复。"
+    },
+    "backend-implementer": {
+      "agent_type": "worker",
+      "model": "gpt-5",
+      "reasoning_effort": "medium",
+      "allow_write": true,
+      "allow_shell": true,
+      "notes": "后端逻辑、脚本和服务端实现。"
+    },
+    "frontend-implementer": {
+      "agent_type": "worker",
+      "model": "gpt-5",
+      "reasoning_effort": "medium",
+      "allow_write": true,
+      "allow_shell": true,
+      "notes": "前端页面、样式和交互实现。"
+    },
+    "test-verifier": {
+      "agent_type": "worker",
+      "model": "gpt-5",
+      "reasoning_effort": "high",
+      "allow_write": true,
+      "allow_shell": true,
+      "notes": "补测、执行验证并输出验收结论。"
+    },
+    "doc-curator": {
+      "agent_type": "worker",
+      "model": "gpt-5",
+      "reasoning_effort": "medium",
+      "allow_write": true,
+      "allow_shell": false,
+      "notes": "文档整理、规范收敛与入口同步。"
+    },
+    "ops-runbook": {
+      "agent_type": "worker",
+      "model": "gpt-5",
+      "reasoning_effort": "medium",
+      "allow_write": true,
+      "allow_shell": true,
+      "notes": "运维手册、排障说明和运行验证。"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "plan_id": "PLAN-CONTRACT-FIRST-20260402-001",
+  "task_id": "contract-first-dispatch-20260402-001",
+  "version": 3,
+  "mode": "proposal-confirm-then-execute",
+  "status": "frozen",
+  "plan_owner": "main_window",
+  "source_plan_doc": "docs/plans/contract-first-dispatch.md",
+  "plan_md_is_semantic_source": true,
+  "plan_json_is_structured_projection": true,
+  "goal": "固化 contract-first 双窗口派发链路的阶段边界与验收口径",
+  "why": "让 Execute Window 使用稳定的结构化投影字段，同时保留 plan.md 作为语义真源",
+  "scope_in": [
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "schemas/plan.schema.json",
+    "templates/plan.example.json"
+  ],
+  "scope_out": [
+    "不扩展到 prompts 重写",
+    "不直接修改第三方托管 skill"
+  ],
+  "decisions": [
+    "Plan Window 负责同步 plan.md 到 plan.json",
+    "Execute Window 读文优先，按需读取 plan.json"
+  ],
+  "acceptance": [
+    "plan 主窗口所有权清晰",
+    "plan.json 与 plan.md 双件制口径一致",
+    "下游执行可直接消费结构化字段"
+  ],
+  "stop_conditions": [
+    "发现 plan.md 与 plan.json 冲突",
+    "发现必须扩大到未冻结范围"
+  ],
+  "risks": [
+    "下游若仍依赖 legacy scope 结构需要迁移"
+  ],
+  "phase_overview": [
+    "Batch 1 治理规则冻结",
+    "Batch 2 合同 schema 与 template 升级",
+    "Batch 2.5 plan 双件制模板与脚本收口"
+  ]
+}

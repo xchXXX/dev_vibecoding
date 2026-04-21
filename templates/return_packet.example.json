@@ -1,0 +1,44 @@
+{
+  "return_packet_id": "RP-P3-CONTRACT-UPGRADE-001",
+  "task_id": "codex-fixed-subagent-delegation-20260407-145034-kewd",
+  "work_order_id": "WO-P3-CONTRACT-UPGRADE-001",
+  "status": "completed",
+  "summary": "已完成阶段3合同升级：模板与 schema 对齐角色委派字段，return_packet 核心字段可被稳定校验。",
+  "changed_files": [
+    "templates/work_order.example.json",
+    "templates/dispatch_packet.example.json",
+    "templates/return_packet.example.json",
+    "schemas/work_order.schema.json",
+    "schemas/dispatch_packet.schema.json",
+    "schemas/return_packet.schema.json"
+  ],
+  "planned_files_not_changed": [],
+  "verification_commands": [
+    "python -m json.tool templates/work_order.example.json",
+    "python -m json.tool templates/dispatch_packet.example.json",
+    "python -m json.tool templates/return_packet.example.json",
+    "python -m json.tool schemas/work_order.schema.json",
+    "python -m json.tool schemas/dispatch_packet.schema.json",
+    "python -m json.tool schemas/return_packet.schema.json",
+    "python -c \"import json, pathlib; s=json.loads(pathlib.Path('schemas/work_order.schema.json').read_text(encoding='utf-8')); print('write_scope' in s.get('properties', {}))\"",
+    "python -c \"import json, pathlib; s=json.loads(pathlib.Path('schemas/return_packet.schema.json').read_text(encoding='utf-8')); r=set(s.get('required', [])); print({'return_packet_id','task_id'}.issubset(r))\""
+  ],
+  "verification_result": "JSON 结构校验通过；work_order.schema.properties 包含 write_scope；return_packet.schema.required 覆盖 return_packet_id 与 task_id。",
+  "deviations_from_dispatch": [],
+  "blocked_by": [],
+  "risks": [
+    "历史回执若缺少 return_packet_id/task_id，按新 schema 校验时会失败；迁移期需补齐旧样例或按版本分流校验。"
+  ],
+  "follow_up_needed": [
+    "阶段4编译器落地时，默认生成的 required_return_fields 应持续包含 return_packet_id 与 task_id。"
+  ],
+  "written_by": "stage3-contract-upgrade-subagent",
+  "written_role": "backend-implementer",
+  "written_at": "2026-04-07T16:30:00+08:00",
+  "verification": [
+    "本回执正文由执行子代理本人填写，主协调器未代写。"
+  ],
+  "next_actions": [
+    "进入下一阶段前，先在控制面验证脚本中跑一次端到端样例。"
+  ]
+}

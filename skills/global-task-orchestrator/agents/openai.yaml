@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Global Task Orchestrator"
+  short_description: "动态委派与工单拆分主协调 skill"
+  default_prompt: "Use $global-task-orchestrator to receive a new requirement, freeze a plan, and dynamically split delegated work orders after confirmation."

@@ -1,0 +1,98 @@
+﻿{
+    "task_id":  "contract-first-dispatch-batch3-4-20260403-153206-gtm2",
+    "work_order_id":  "WO-B3-REVIEW-PROMPT-001",
+    "plan_id":  "PLAN-CONTRACT-FIRST-DISPATCH-BATCH3-4-20260403-153206-GTM2",
+    "role":  "review-prompt-compiler",
+    "task_goal":  "新增 Batch 3 的审查型派发模板真源，固定审查提示词的压缩输出口径。",
+    "instruction_source":  "docs/plans/contract-first-dispatch.md",
+    "read_paths_mandatory":  [
+                                 "docs/plans/contract-first-dispatch.md",
+                                 "docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json",
+                                 "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json",
+                                 "docs/SUBAGENT_GOVERNANCE.md",
+                                 "skills/global-task-orchestrator/SKILL.md",
+                                 "templates/review_report.example.md",
+                                 "templates/review_testcases.example.md"
+                             ],
+    "read_paths_optional":  [
+                                "rules/common/SUBAGENT_RULES.md"
+                            ],
+    "context_paths":  [
+                          "docs/plans/contract-first-dispatch.md",
+                          "docs/SUBAGENT_GOVERNANCE.md",
+                          "templates/review_report.example.md",
+                          "templates/review_testcases.example.md"
+                      ],
+    "scope_in":  [
+                     "skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md"
+                 ],
+    "scope_out":  [
+                      "不得修改任何已有 prompt 真源、模板样例、治理文档或脚本。",
+                      "不得把 Batch 4 的测试闭环实现提前写入当前批次。"
+                  ],
+    "write_paths":  [
+                        "skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md",
+                        "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B3-REVIEW-PROMPT-001.json"
+                    ],
+    "evidence_summary":  [
+                             "Batch 3 明确要求新增审查型派发模板，并让审查型提示词显式承载“结论 / findings / 依据 / 残余风险”的压缩输出要求。",
+                             "治理真源还要求：当需要补测试时，审查型子代理必须输出可直接落地的具体测试用例。"
+                         ],
+    "constraints":  [
+                        "说明性文本默认中文。",
+                        "模板只负责审查型派发正文，不修改合同字段或脚本闸门。",
+                        "若需要新增测试实现，请停止；Batch 4 再处理。"
+                    ],
+    "change_spec":  [
+                        {
+                            "path":  "skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md",
+                            "instructions":  [
+                                                 "新增一份可复用的审查型派发模板真源。",
+                                                 "模板必须显式要求输出 `结论：通过 / 不通过`、`findings`、`关键依据`、`残余风险`。",
+                                                 "模板必须明确：当需要补测试时，应按 `templates/review_testcases.example.md` 给出可直接落地的测试用例。"
+                                             ],
+                            "done_when":  [
+                                              "新增文件存在，且正文能直接指导审查型子代理输出压缩、可验收的结论。"
+                                          ]
+                        }
+                    ],
+    "execution_steps":  [
+                            "阅读必读文件。",
+                            "新增审查型派发模板。",
+                            "运行关键短语校验。",
+                            "先写 `return_packet`，再回报。"
+                        ],
+    "acceptance_criteria":  [
+                                "新增 `skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md`。",
+                                "模板明确要求 `结论：通过 / 不通过`、`findings`、`关键依据`、`残余风险`。",
+                                "模板明确补测时要输出具体测试用例，并引用 `templates/review_testcases.example.md` 的格式。"
+                            ],
+    "verification_steps":  [
+                               "Test-Path \u0027skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md\u0027",
+                               "Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md\u0027 -Pattern \u0027结论：通过 / 不通过\u0027,\u0027findings\u0027,\u0027关键依据\u0027,\u0027残余风险\u0027,\u0027review_testcases.example.md\u0027 -SimpleMatch"
+                           ],
+    "stop_conditions":  [
+                            "需要越权修改模板样例、脚本或治理文档。",
+                            "必读文件仍不足以确定审查型压缩输出口径。"
+                        ],
+    "return_packet_path":  "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B3-REVIEW-PROMPT-001.json",
+    "return_packet_required":  true,
+    "required_return_fields":  [
+                                   "work_order_id",
+                                   "status",
+                                   "summary",
+                                   "changed_files",
+                                   "planned_files_not_changed",
+                                   "verification_commands",
+                                   "verification_result",
+                                   "deviations_from_dispatch",
+                                   "blocked_by",
+                                   "risks",
+                                   "follow_up_needed",
+                                   "written_by",
+                                   "written_role"
+                               ],
+    "completion_gate":  "return_packet_written_and_accepted",
+    "state_owner":  "main-coordinator",
+    "dispatch_message_raw":  "你是 `review-prompt-compiler` 执行子代理。\n先完整阅读 `read_paths_mandatory`，`evidence_summary` 仅作导航，不能代替原文件阅读。\n说明性文本默认中文；字段名、路径、脚本参数、代码标识符保持原样。\n\n任务目标：\n- 新增 Batch 3 的审查型派发模板真源，固定审查提示词的压缩输出口径。\n\n必读上下文：\n- `docs/plans/contract-first-dispatch.md`\n- `docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json`\n- `docs/SUBAGENT_GOVERNANCE.md`\n- `skills/global-task-orchestrator/SKILL.md`\n- `templates/review_report.example.md`\n- `templates/review_testcases.example.md`\n\n导航摘要：\n- Batch 3 明确要求新增审查型派发模板，并让审查型提示词显式承载“结论 / findings / 依据 / 残余风险”的压缩输出要求。\n- 治理真源还要求：当需要补测试时，审查型子代理必须输出可直接落地的具体测试用例。\n\n唯一写入范围：\n- `skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B3-REVIEW-PROMPT-001.json`\n\n禁改范围：\n- 不得修改任何已有 prompt 真源、模板样例、治理文档或脚本。\n- 不得把 Batch 4 的测试闭环实现提前写入当前批次。\n\n执行约束：\n- 说明性文本默认中文。\n- 模板只负责审查型派发正文，不修改合同字段或脚本闸门。\n- 若需要新增测试实现，请停止；Batch 4 再处理。\n\n逐文件改法：\n- `skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md`: 新增一份可复用的审查型派发模板真源。；模板必须显式要求输出 `结论：通过 / 不通过`、`findings`、`关键依据`、`残余风险`。；模板必须明确：当需要补测试时，应按 `templates/review_testcases.example.md` 给出可直接落地的测试用例。\n\n执行步骤：\n- 阅读必读文件。\n- 新增审查型派发模板。\n- 运行关键短语校验。\n- 先写 `return_packet`，再回报。\n\n验收标准：\n- 新增 `skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md`。\n- 模板明确要求 `结论：通过 / 不通过`、`findings`、`关键依据`、`残余风险`。\n- 模板明确补测时要输出具体测试用例，并引用 `templates/review_testcases.example.md` 的格式。\n\n验证步骤：\n- Test-Path \u0027skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md\u0027\n- Select-String -Path \u0027skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md\u0027 -Pattern \u0027结论：通过 / 不通过\u0027,\u0027findings\u0027,\u0027关键依据\u0027,\u0027残余风险\u0027,\u0027review_testcases.example.md\u0027 -SimpleMatch\n\n停止条件：\n- 需要越权修改模板样例、脚本或治理文档。\n- 必读文件仍不足以确定审查型压缩输出口径。\n\n回执要求：\n- `return_packet` 正文必须由执行子代理本人填写，主协调器不得代写。\n- `return_packet_path`: `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B3-REVIEW-PROMPT-001.json`\n- `completion_gate`: `return_packet_written_and_accepted`\n- 若信息不足以安全实施，返回 `blocked`，不要猜测。\n- 完成前先写 `return_packet`，再声明完成。"
+}

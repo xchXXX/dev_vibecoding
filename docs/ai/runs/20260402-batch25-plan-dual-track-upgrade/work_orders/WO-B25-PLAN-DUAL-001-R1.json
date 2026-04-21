@@ -1,0 +1,151 @@
+{
+  "task_id": "20260402-batch25-plan-dual-track-upgrade",
+  "work_order_id": "WO-B25-PLAN-DUAL-001-R1",
+  "plan_id": "PLAN-CONTRACT-FIRST-DISPATCH-BATCH25",
+  "role": "plan-contract-script-rework",
+  "task_goal": "Resolve the Batch 2.5 review failure by cleaning temporary smoke artifacts and making the return packet trail truthful.",
+  "instruction_source": "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+  "read_paths_mandatory": [
+    "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "rules/common/SUBAGENT_RULES.md",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/work_orders/WO-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/dispatch_packets/DP-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/review_report_r1.md"
+  ],
+  "read_paths_optional": [
+    "docs/ai/runs/batch25-smoke-20260402/plan.json",
+    "docs/ai/runs/batch25-smoke-20260402b/plan.json",
+    "docs/ai/runs/batch25-smoke-20260402c/plan.json",
+    "docs/plans/batch25-smoke-20260402.md",
+    "docs/plans/batch25-smoke-20260402b.md",
+    "docs/plans/batch25-smoke-20260402c.md"
+  ],
+  "context_paths": [
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/work_orders/WO-B25-PLAN-DUAL-001-R1.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/dispatch_packets/DP-B25-PLAN-DUAL-001-R1.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/review_report_r1.md"
+  ],
+  "scope_in": [
+    "docs/ai/runs/batch25-smoke-20260402",
+    "docs/ai/runs/batch25-smoke-20260402b",
+    "docs/ai/runs/batch25-smoke-20260402c",
+    "docs/plans/batch25-smoke-20260402.md",
+    "docs/plans/batch25-smoke-20260402b.md",
+    "docs/plans/batch25-smoke-20260402c.md",
+    ".ai/session/batch25-smoke-20260402",
+    ".ai/session/batch25-smoke-20260402b",
+    ".ai/session/batch25-smoke-20260402c",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R1.json"
+  ],
+  "scope_out": [
+    "Do not change the accepted Batch 2.5 schema, example, or script logic.",
+    "Do not touch prompts, review strategy, or later batches.",
+    "Do not delete any path outside the explicit batch25-smoke temporary artifact set.",
+    "Do not modify orchestration logs or session logs; the main coordinator owns those."
+  ],
+  "write_paths": [
+    "docs/ai/runs/batch25-smoke-20260402",
+    "docs/ai/runs/batch25-smoke-20260402b",
+    "docs/ai/runs/batch25-smoke-20260402c",
+    "docs/plans/batch25-smoke-20260402.md",
+    "docs/plans/batch25-smoke-20260402b.md",
+    "docs/plans/batch25-smoke-20260402c.md",
+    ".ai/session/batch25-smoke-20260402",
+    ".ai/session/batch25-smoke-20260402b",
+    ".ai/session/batch25-smoke-20260402c",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R1.json"
+  ],
+  "evidence_summary": [
+    "The review gate failed because temporary smoke validation artifacts remained in the repo outside the original work order scope.",
+    "The original return packet did not fully account for those temporary writes.",
+    "The Batch 2.5 functional changes themselves are not the blocker; the blocker is cleanup and truthful receipt accounting."
+  ],
+  "constraints": [
+    "Read all mandatory paths before making changes.",
+    "evidence_summary is navigation only and cannot replace source reading.",
+    "Only delete the explicit batch25-smoke temporary artifacts listed in scope_in.",
+    "Do not change any accepted Batch 2.5 code or template files unless you find a direct receipt-accounting issue in the original return packet.",
+    "Amend the original return packet to mention the temporary smoke outputs and their cleanup.",
+    "Write the new rework return packet before declaring completion."
+  ],
+  "change_spec": [
+    {
+      "path": "docs/ai/runs/batch25-smoke-20260402 + batch25-smoke-20260402b + batch25-smoke-20260402c",
+      "instructions": [
+        "Delete only the temporary smoke run directories created for validation.",
+        "Delete the matching temporary markdown plan files and .ai/session directories."
+      ],
+      "done_when": [
+        "No batch25-smoke temporary artifacts remain in docs/ai/runs, docs/plans, or .ai/session."
+      ]
+    },
+    {
+      "path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+      "instructions": [
+        "Amend the original return packet so it truthfully records that temporary smoke artifacts were created during validation and later cleaned in rework.",
+        "Do not overwrite the original functional validation facts."
+      ],
+      "done_when": [
+        "The original return packet no longer hides the temporary validation writes."
+      ]
+    },
+    {
+      "path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R1.json",
+      "instructions": [
+        "Write the rework return packet summarizing the cleanup action, the commands used, and the final no-smoke-artifact state."
+      ],
+      "done_when": [
+        "The rework return packet exists and satisfies required_return_fields."
+      ]
+    }
+  ],
+  "execution_steps": [
+    "Read the original work order, dispatch packet, return packet, and review report.",
+    "Verify each explicit batch25-smoke path before deleting it.",
+    "Delete only the allowed temporary artifacts.",
+    "Amend the original return packet to record the temporary outputs and cleanup.",
+    "Write the rework return packet."
+  ],
+  "acceptance_criteria": [
+    "All listed batch25-smoke artifacts are removed.",
+    "No path outside the explicit temporary artifact set is deleted.",
+    "The original return packet truthfully records the temporary validation outputs and their cleanup.",
+    "The rework return packet exists and explains the cleanup result.",
+    "No accepted Batch 2.5 schema, template, or script change is altered."
+  ],
+  "verification_steps": [
+    "List the explicit batch25-smoke paths before and after cleanup.",
+    "Confirm that each listed path is absent after cleanup.",
+    "Validate that both return packet JSON files parse cleanly."
+  ],
+  "stop_conditions": [
+    "Any cleanup path resolves outside the repository workspace.",
+    "A path outside the explicit smoke artifact set appears necessary to delete.",
+    "The original return packet cannot be amended without changing unrelated accepted facts."
+  ],
+  "dispatch_packet_path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/dispatch_packets/DP-B25-PLAN-DUAL-001-R1.json",
+  "return_packet_path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R1.json",
+  "return_packet_required": true,
+  "required_return_fields": [
+    "work_order_id",
+    "status",
+    "summary",
+    "changed_files",
+    "planned_files_not_changed",
+    "verification_commands",
+    "verification_result",
+    "deviations_from_dispatch",
+    "blocked_by",
+    "risks",
+    "follow_up_needed",
+    "written_by",
+    "written_role"
+  ],
+  "completion_gate": "return_packet_written_and_accepted",
+  "state_owner": "main-coordinator",
+  "dispatch_message_raw": "You are the Batch 2.5 rework execution worker. Read every file in read_paths_mandatory before changing anything. evidence_summary is navigation only and cannot replace source reading. Your only write scope is the explicit batch25-smoke temporary artifact paths plus the original and rework return packets. Do not edit the accepted Batch 2.5 schema, example, or script logic. Verify each cleanup target stays inside the repository workspace before deleting it. If anything falls outside the explicit smoke artifact set, stop and return blocked instead of guessing. Write the rework return packet before declaring completion."
+}

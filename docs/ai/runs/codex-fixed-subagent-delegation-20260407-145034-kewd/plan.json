@@ -1,0 +1,64 @@
+﻿{
+    "plan_id":  "PLAN-CODEX-FIXED-SUBAGENT-DELEGATION-20260407-145034-KEWD",
+    "task_id":  "codex-fixed-subagent-delegation-20260407-145034-kewd",
+    "version":  1,
+    "mode":  "proposal-confirm-then-execute",
+    "status":  "frozen",
+    "plan_owner":  "main_window",
+    "source_plan_doc":  "docs/plans/codex-fixed-subagent-delegation.md",
+    "plan_md_is_semantic_source":  true,
+    "plan_json_is_structured_projection":  true,
+    "goal":  "冻结一套面向 Codex 固定底层子代理类型的角色化委派方案，并将实施顺序编排为明确阶段。",
+    "why":  "当前委派在实践中偏向直接使用 explorer，导致角色边界、合同字段和回收口径不稳定；需要在 default/explorer/worker 之上建立仓库自定义角色编排层。",
+    "scope_in":  [
+                     "docs/AGENTS.md",
+                     "docs/CODEX_COMPAT.md",
+                     "docs/SUBAGENT_GOVERNANCE.md",
+                     "agents/README.md",
+                     "agents/manifest.json",
+                     "skills/global-task-orchestrator/SKILL.md",
+                     "skills/global-task-orchestrator/references/agent-selection-matrix.md",
+                     "skills/global-task-orchestrator/references/dynamic-routing-rules.md"
+                 ],
+    "scope_out":  [
+                      "不新增 Codex 平台原生子代理类型",
+                      "不假设 Codex 自动扫描 ai-harness/agents",
+                      "不在本批直接实现全量脚本、doctor 或项目适配代码",
+                      "不引入新的控制面对象替代现有 plan/work_order/dispatch_packet/return_packet"
+                  ],
+    "decisions":  [
+                      "底层执行形态固定为 default/explorer/worker",
+                      "业务角色由 ai-harness/agents/*.md 作为真源维护",
+                      "新增 codex-role-map 作为角色到底层类型的桥接层",
+                      "子代理委派必须合同化并回收到结构化结果",
+                      "正式实施顺序按阶段推进，并遵循先方案、再文档、再测试、最后代码"
+                  ],
+    "acceptance":  [
+                       "文档清楚区分底层固定类型与上层自定义角色",
+                       "文档明确角色真源、映射层、合同层和回收层的职责边界",
+                       "文档给出稳定的阶段实施顺序和每阶段验收口径",
+                       "结构化 plan.json 与 plan.md 的冻结结论保持一致"
+                   ],
+    "stop_conditions":  [
+                            "发现现有控制面 schema 无法承载角色委派的最小字段",
+                            "发现角色职责无法稳定映射到一个固定底层类型",
+                            "发现 global-task-orchestrator 现有规则与角色编排不可兼容",
+                            "继续推进必须依赖新的平台级原生 agent_type"
+                        ],
+    "risks":  [
+                  "角色定义和映射层同时变动会造成责任漂移",
+                  "若先改编排而不补合同模板，回收口径仍会不稳定",
+                  "过早并行启用过多角色可能导致写入边界冲突",
+                  "项目侧入口文档未同步时，团队仍会沿用裸 explorer 心智"
+              ],
+    "phase_overview":  [
+                           "阶段 0：方案冻结与文档落盘",
+                           "阶段 1：角色层规范化",
+                           "阶段 2：角色映射层冻结",
+                           "阶段 3：合同与模板升级",
+                           "阶段 4：委派消息编译器落地",
+                           "阶段 5：orchestrator 路由升级",
+                           "阶段 6：验证与治理收口",
+                           "阶段 7：项目适配与渐进启用"
+                       ]
+}

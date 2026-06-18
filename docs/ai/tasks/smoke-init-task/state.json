@@ -1,0 +1,28 @@
+﻿{
+    "task_id":  "smoke-init-task",
+    "title":  "Smoke",
+    "status":  "draft",
+    "owner":  "main-coordinator",
+    "objective":  "Smoke objective",
+    "scope_in":  [
+                     "To be filled"
+                 ],
+    "scope_out":  [
+                      "To be filled"
+                  ],
+    "acceptance":  [
+                       "To be filled"
+                   ],
+    "stop_conditions":  [
+                            "To be filled"
+                        ],
+    "decisions":  [
+
+                  ],
+    "current_phase":  "planning",
+    "subtasks":  [
+
+                 ],
+    "updated_at":  "2026-05-29T22:21:35+08:00",
+    "version":  1
+}

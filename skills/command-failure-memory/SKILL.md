@@ -42,14 +42,25 @@ description: 在 Codex 里，当 shell、terminal、PowerShell、test、build、
 1. 优先使用跟随当前 runtime 的兼容 launcher。
 
 ```powershell
+$workspaceRunner = Join-Path (Get-Location) 'skills\command-failure-memory\scripts\command-failure-memory.cmd'
 $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
-$runner = Join-Path $codexHome 'skills\command-failure-memory\scripts\command-failure-memory.cmd'
+$runtimeRunner = Join-Path $codexHome 'skills\command-failure-memory\scripts\command-failure-memory.cmd'
+$fallbackRunner = Join-Path $env:USERPROFILE '.codex\skills\command-failure-memory\scripts\command-failure-memory.cmd'
+$runner = if (Test-Path -LiteralPath $workspaceRunner) {
+  $workspaceRunner
+} elseif (Test-Path -LiteralPath $runtimeRunner) {
+  $runtimeRunner
+} else {
+  $fallbackRunner
+}
 ```
 
 说明：
+- 在仓库内已内置该 skill 时，优先直接走当前 workspace 的 `.cmd` launcher，不要先假设它已经安装到 `~/.codex/skills`。
+- 如果当前 workspace 不带该 skill，再跟随 `CODEX_HOME` 查找 runtime 安装；只有前两者都不存在时才回退到 `%USERPROFILE%\.codex`。
 - 在 Codex shell 里优先走 `.cmd` launcher；它会自动选择兼容 backend，避免在受限 PowerShell 会话里直接调用 `.ps1` 失败。
-- 如果当前会话设置了 `CODEX_HOME`，launcher 与 memory 默认都应跟随该 runtime；只有在 `CODEX_HOME` 未设置时才回退到 `%USERPROFILE%\.codex`。
 - `command-failure-memory.py` 是当前首选 backend；`command-failure-memory.ps1` 保留为兼容回退与现有 harness 集成入口。
+- 但 `.cmd` 只适合简单参数；若 `CommandText`、`ErrorText` 或 `Resolution` 本身包含正则、多层引号、here-string、换行或其他容易被 Windows batch 二次拆解的复杂内容，应直接调用 `command-failure-memory.py`，不要继续把复杂参数塞进 `.cmd`。
 
 2. 失败后先记录。
 

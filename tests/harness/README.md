@@ -2,11 +2,30 @@
 
 harness happy path / bad path 回归测试落点。
 
+规则口径说明：
+
+- 全局治理合同仍以 `docs/SUBAGENT_GOVERNANCE.md` 为真源。
+- 当前仓库的项目规则入口已切到 `rules/registry/*` 与 `rules/items/<kind>/*`。
+- 历史测试说明若出现 `rules/common/SUBAGENT_RULES.md`，应按旧口径兼容背景理解，不再视为项目规则唯一入口。
+
 ## 目录级统一入口
 
 - 当前冻结执行方式：
-  - `Get-ChildItem -LiteralPath .\tests\harness -Filter *.ps1 | Sort-Object Name | ForEach-Object { powershell -NoProfile -ExecutionPolicy Bypass -File $_.FullName }`
+  - `Get-ChildItem -LiteralPath .\tests\harness -Filter *.ps1 | Sort-Object Name | ForEach-Object { pwsh -NoProfile -ExecutionPolicy Bypass -File $_.FullName }`
 - 目录入口按文件名顺序执行 `tests/harness/*.ps1`，因此 `tests/harness/command-failure-case.schema.ps1` 已纳入统一回归集
+
+## Windows 命令约束合同套件
+
+- 脚本：`tests/harness/windows-command-guardrails.contract.ps1`
+- 直接对象：
+  - `C:\Users\72385\.codex\AGENTS.md`
+  - `rules/items/policy/Windows命令构造约束.md`
+  - `rules/items/policy/PowerShell7脚本基线.md`
+  - `docs/CODEX_COMPAT.md`
+- 覆盖：
+  - global preference：全局长期偏好层必须声明中文说明、答问优先、quiet long-run 与 Windows 命令偏好
+  - rule：项目规则必须明确复杂 one-liner 禁止项、复杂参数不走 `.cmd`、`NUL` / `ghost snapshot` 单独视为平台噪音
+  - baseline：项目兼容文档必须明确 `pwsh7` 基线，不再把 5.1 作为默认主路径
 
 ## claude hooks phase5 HookCommon 套件
 
@@ -39,8 +58,8 @@ harness happy path / bad path 回归测试落点。
   - `scripts/sync-codex.ps1`
   - `scripts/doctor-core.ps1`
 - 覆盖：
-  - happy path：固定白名单三 skill（`global-task-orchestrator` + `command-failure-memory` + `pre-dev-benchmark`）的 install / sync / doctor 闭环
-  - source mapping：固定白名单中的 `skills/pre-dev-benchmark` 可同步到 `~/.codex/skills/pre-dev-benchmark`
+  - happy path：固定白名单四 skill（`global-task-orchestrator` + `command-failure-memory` + `pre-dev-benchmark` + `fix-closure-gate`）的 install / sync / doctor 闭环
+  - source mapping：固定白名单中的 `skills/pre-dev-benchmark` 与 `skills/fix-closure-gate` 可同步到 `~/.codex/skills/*`
   - guard：仅托管冻结 skill，不接管 `.system/*`、plugins 与 unmanaged sibling skills
   - receipt：trusted/untrusted receipt 差异、stale managed file 清理与 drift 检测
   - safety：runtime root 越界、malformed receipt、空 `managed_files` 必须失败
@@ -50,33 +69,65 @@ harness happy path / bad path 回归测试落点。
 
 - 脚本：`tests/harness/control-plane.integration.ps1`
 - 黑盒入口：
+  - `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action new-task -Topic <topic> -Json`
+  - `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action init-task -TaskId <task_id> -Json`
+  - `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action sync-task-md -TaskId <task_id> -Json`
+  - `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action append-event -TaskId <task_id> -EventJson <json> -Json`
+  - `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action build-subtask-brief -TaskId <task_id> -SubtaskId <subtask_id> -Json`
+  - `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action build-execute-handoff -TaskId <task_id> -Json`
   - `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action validate -TaskId <task_id> -Json`
-  - `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action bootstrap -Json`
-  - `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action hydrate -Json`
-  - `skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1 -Path <work_order-or-dir> -Json`
 - 覆盖：
-  - happy path：当前冻结 run 模板通过 `validate`
-  - happy path：`hydrate` 重编译 stale `dispatch_message_raw`，并回填 `expected_written_role / expected_written_by_patterns / dispatch_packet_required`
+  - happy path：`new-task` 在同 topic 连续调用时生成不同 `task_id`
+  - happy path：`init-task` 创建 `docs/ai/tasks/<task_id>/state.json`
+  - happy path：`init-task` 创建 `docs/ai/tasks/<task_id>/task.md`
+  - happy path：`init-task` 创建 `docs/ai/tasks/<task_id>/events.jsonl`
+  - happy path：`validate` 在新 task fixture 上通过
+  - happy path：`sync-task-md` 根据 `state.json` 重写摘要，并生成 `## 目标 / ## 关键决定 / ## 当前阶段 / ## 子任务` 等核心 section
+  - happy path：`append-event` 追加合法事件后 `validate` 仍通过
+  - happy path：`build-subtask-brief` 输出子任务简报
+  - happy path：`build-execute-handoff` 输出 `Execute Window` 首条交接内容，至少包含 `task_id / current_phase / objective / scope_in / scope_out / acceptance / stop_conditions / task.md / 首批子任务摘要 / 先委派子代理`
+  - identity：一个正式长任务只对应一个 `task_id`；`Plan Window` 与 `Execute Window` 共享它
   - bad path：`validate` 缺 `TaskId`
-  - bad path：`plan.json.status != frozen`
-  - bad path：`bootstrap` 绑定 `draft` source plan 或 existing run draft plan
-  - bad path：`codex-role-map` 非法 `agent_type` 或缺少必需角色
-  - bad path：缺 `work_orders` 目录或没有任何 `work_order JSON`
-  - bad path：缺 `read_paths_mandatory`
-  - bad path：弱化 `required_return_fields` 后仍缺仓库最低回执字段
-  - bad path：`dispatch_message_raw` 与合同编译结果不一致
-  - bad path：复杂任务缺 `dispatch_packet`
-  - bad path：缺必需 `return_packet`
-  - bad path：缺 `work_order_id` 时仍不能绕过缺失 `return_packet`
-  - bad path：`return_packet_path` 指向他人工单回执
-  - bad path：`return_packet_required=false` 不能绕过缺失回执
-  - bad path：`return_packet` 作者角色/作者身份与 `work_order` 的 `expected_written_role / expected_written_by / expected_written_by_patterns` 合同不一致
-  - bad path：`expected_written_by_patterns` 非法，或被弱化为不受限的通配/正则转义模式
-  - bad path：`dispatch_packet_path` 越出当前 task run 或穿过 reparse point
-  - bad path：伪造 `task_id + dispatch_packet_path` 不能绕过当前 run 边界
-  - bad path：显式 `dispatch_packet_required=true` 强制进入复杂任务闸门
-  - bad path：`hydrate` 在目标路径不存在、目标 task 缺 `work_orders`、JSON 不可解析、编译失败、`dispatch_packet_path` 越界、或施工图字段缺失时必须非零退出
-  - bad path：`compile-dispatch-message.ps1` 在空目标目录上必须非零退出
+  - bad path：对已存在目录再次 `init-task` 必须失败，阻断误复用与误覆盖
+  - bad path：`state.json` 缺必填字段（例如 `current_phase`）
+  - bad path：重复 `subtask_id`
+  - bad path：`pending / in_progress` 子任务缺 `read_paths` 或 `write_paths`
+  - bad path：`blocked` 子任务缺 `result`
+  - bad path：`completed` 子任务缺关键 `result` 字段（例如 `result.summary / result.written_role / result.verification`）
+  - bad path：`completed` 子任务 `changed_files` 越出 `subtask.write_paths`
+  - bad path：`result.written_role` 与 `subtask.role` 不一致
+  - bad path：`manifest.json` 或 `agents/codex-role-map.json` 多出未对齐角色
+  - bad path：schema 规定为 array 的根字段若被写成单个 string，例如 `scope_in` 或 `acceptance`
+  - bad path：schema 规定为 array 的子任务字段若被写成单个 string，例如 `read_paths / write_paths / assignment.must_include`
+  - bad path：schema 规定为 array 的结果字段若被写成单个 string，例如 `result.verification.commands` 或 `blocked_by`
+  - bad path：`events.jsonl` 含非法 JSON 行
+  - 不再覆盖旧控制面对象：`plan.json / work_orders / dispatch_packets / return_packets / .ai/session`
+
+## global-task-orchestrator 文档合同套件
+
+- 脚本：`tests/harness/global-task-orchestrator.skill-doc.ps1`
+- 直接对象：
+  - `skills/global-task-orchestrator/SKILL.md`
+  - `skills/global-task-orchestrator/references/governance-essentials.md`
+  - `skills/global-task-orchestrator/agents/openai.yaml`
+  - `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1`
+- 覆盖：
+  - `task_id` 身份语义
+  - `Plan Window / Execute Window` 路由
+  - `build-execute-handoff` 必填口径
+  - `current_phase` 推荐枚举：`planning / doc_sync / test_sync / code_impl / review / blocked`
+  - `openai.yaml` 默认提示不得回退为过薄摘要
+
+## fix-closure-gate 文档合同套件
+
+- 脚本：`tests/harness/fix-closure-gate.skill-doc.ps1`
+- 直接对象：
+  - `skills/fix-closure-gate/SKILL.md`
+  - `skills/fix-closure-gate/agents/openai.yaml`
+- 覆盖：
+  - frontmatter：`description` 必须明确触发场景、跳过条件与最小字段合同
+  - body：必须区分职责 / 非职责、触发条件 / 跳过条件、`diagnostic_checks` / `acceptance_checks`
+  - metadata：`agents/openai.yaml` 必须与 `SKILL.md` 的触发意图和字段口径保持一致
 
 ## codex failure-memory 集成套件
 

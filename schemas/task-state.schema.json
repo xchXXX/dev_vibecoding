@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TaskState",
+  "description": "全局主协调器的唯一运行时真源。",
+  "type": "object",
+  "required": [
+    "task_id",
+    "title",
+    "status",
+    "owner",
+    "objective",
+    "scope_in",
+    "scope_out",
+    "acceptance",
+    "stop_conditions",
+    "decisions",
+    "current_phase",
+    "subtasks",
+    "updated_at",
+    "version"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "blocked",
+        "completed",
+        "archived"
+      ]
+    },
+    "owner": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "scope_in": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "scope_out": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "acceptance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "stop_conditions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "current_phase": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "doc_sync",
+        "test_sync",
+        "code_impl",
+        "review",
+        "blocked"
+      ]
+    },
+    "verification_contract": {
+      "type": "object",
+      "required": [
+        "minimal_repro",
+        "hit_proof",
+        "diagnostic_checks",
+        "acceptance_checks",
+        "non_goals",
+        "review_evidence"
+      ],
+      "properties": {
+        "minimal_repro": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hit_proof": {
+          "type": "string",
+          "minLength": 1
+        },
+        "diagnostic_checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "acceptance_checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "non_goals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "review_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "subtasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "subtask_id",
+          "title",
+          "role",
+          "status",
+          "dependencies",
+          "read_paths",
+          "write_paths",
+          "assignment"
+        ],
+        "properties": {
+          "subtask_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "in_progress",
+              "blocked",
+              "completed",
+              "cancelled"
+            ]
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "read_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "write_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignment": {
+            "type": "object",
+            "required": [
+              "goal",
+              "must_include",
+              "verification"
+            ],
+            "properties": {
+              "goal": {
+                "type": "string"
+              },
+              "must_include": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "verification": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": true
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "changed_files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "planned_files_not_changed": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "verification": {
+                "type": "object",
+                "properties": {
+                  "commands": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "result": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              },
+              "risks": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "deviations": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "blocked_by": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "follow_up": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "written_by": {
+                "type": "string"
+              },
+              "written_role": {
+                "type": "string"
+              },
+              "review_evidence": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,3 @@
+{"ts":"2026-05-29T09:00:00+08:00","actor":"main-coordinator","type":"task_initialized","summary":"初始化新控制面任务目录。","refs":["docs/ai/tasks/20260529-example-orchestrator-task/state.json","docs/ai/tasks/20260529-example-orchestrator-task/task.md"]}
+{"ts":"2026-05-29T09:15:00+08:00","actor":"backend-implementer","type":"subtask_started","summary":"开始重写 orchestrator_ctl.ps1。","refs":["skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1"]}
+{"ts":"2026-05-29T10:10:00+08:00","actor":"reviewer","type":"review_requested","summary":"请求对新控制面口径做审查。","refs":["docs/SUBAGENT_GOVERNANCE.md","tests/harness/control-plane.integration.ps1"]}

@@ -7,17 +7,22 @@ if (-not [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Syst
 }
 
 $HarnessRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-$TemplateTaskId = 'contract-first-dispatch-batch3-4-20260403-153206-gtm2'
-$TemplateRunDir = Join-Path $HarnessRoot ("docs/ai/runs/{0}" -f $TemplateTaskId)
-$TemplatePlanDoc = Join-Path $HarnessRoot 'docs/plans/contract-first-dispatch.md'
-$TemplatePlanJson = Join-Path $HarnessRoot 'docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json'
-$TemplateRoleMapPath = Join-Path $HarnessRoot 'agents/codex-role-map.json'
-$TemplateManifestPath = Join-Path $HarnessRoot 'agents/manifest.json'
-$TempRoot = Join-Path $env:TEMP ('ai-harness-control-plane-tests-' + [guid]::NewGuid().ToString('N'))
+$TempRoot = Join-Path $env:TEMP ('ai-harness-control-plane-v3-tests-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $TempRoot -Force | Out-Null
+$null = Register-EngineEvent PowerShell.Exiting -Action {
+    if (-not [string]::IsNullOrWhiteSpace($event.MessageData) -and (Test-Path -LiteralPath $event.MessageData)) {
+        Remove-Item -LiteralPath $event.MessageData -Recurse -Force -ErrorAction SilentlyContinue
+    }
+} -MessageData $TempRoot
 
 $script:Failures = New-Object System.Collections.Generic.List[string]
 $script:PassCount = 0
+
+function Cleanup-TempRoot {
+    if (Test-Path -LiteralPath $TempRoot) {
+        Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 
 function Assert-True {
     param([bool]$Condition, [string]$Message)
@@ -41,16 +46,6 @@ function Write-Json {
     Set-Content -LiteralPath $PathValue -Value ($Data | ConvertTo-Json -Depth 100) -Encoding UTF8
 }
 
-function Set-ObjectProperty {
-    param([object]$Object, [string]$Name, $Value)
-
-    if ($null -eq $Object.PSObject.Properties[$Name]) {
-        $Object | Add-Member -NotePropertyName $Name -NotePropertyValue $Value
-    } else {
-        $Object.$Name = $Value
-    }
-}
-
 function Invoke-PowerShellFile {
     param(
         [string]$FilePath,
@@ -60,7 +55,7 @@ function Invoke-PowerShellFile {
     $stdoutPath = Join-Path $TempRoot ('stdout-' + [guid]::NewGuid().ToString('N') + '.log')
     $stderrPath = Join-Path $TempRoot ('stderr-' + [guid]::NewGuid().ToString('N') + '.log')
     $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $FilePath) + $Arguments
-    $process = Start-Process -FilePath (Get-Command powershell.exe).Source -ArgumentList $argList -NoNewWindow -Wait -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+    $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList $argList -NoNewWindow -Wait -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
 
     $lines = New-Object System.Collections.Generic.List[string]
     foreach ($capturePath in @($stdoutPath, $stderrPath)) {
@@ -77,6 +72,25 @@ function Invoke-PowerShellFile {
     }
 }
 
+function Convert-ResultToJson {
+    param([object]$Result)
+
+    $json = $null
+    try {
+        if (-not [string]::IsNullOrWhiteSpace($Result.Text)) {
+            $json = ($Result.Text | ConvertFrom-Json)
+        }
+    } catch {
+        $json = $null
+    }
+
+    return [PSCustomObject]@{
+        ExitCode = $Result.ExitCode
+        Text     = $Result.Text
+        Json     = $json
+    }
+}
+
 function Run-TestCase {
     param([string]$Name, [scriptblock]$Body)
     try {
@@ -90,6 +104,88 @@ function Run-TestCase {
     }
 }
 
+function New-StateObject {
+    param([string]$TaskId)
+
+    return [ordered]@{
+        task_id         = $TaskId
+        title           = 'Control-plane v3 integration fixture'
+        status          = 'active'
+        owner           = 'main-coordinator'
+        objective       = 'Exercise the task state control-plane contract.'
+        scope_in        = @(
+            'tests/README.md',
+            'tests/harness/README.md',
+            'tests/harness/control-plane.integration.ps1'
+        )
+        scope_out       = @(
+            'skills/global-task-orchestrator/**'
+        )
+        acceptance      = @(
+            'state.json remains the only source of truth',
+            'task.md can be regenerated from state.json'
+        )
+        stop_conditions = @(
+            'validation reports schema or contract drift'
+        )
+        decisions       = @(
+            'task.md is a human-readable summary',
+            'events.jsonl is optional append-only telemetry'
+        )
+        current_phase   = 'test_sync'
+        subtasks        = @(
+            [ordered]@{
+                subtask_id    = 'ST-control-plane-tests'
+                title         = 'Rewrite control-plane integration suite'
+                role          = 'test-verifier'
+                status        = 'pending'
+                dependencies  = @()
+                read_paths    = @(
+                    'tests/README.md',
+                    'tests/harness/README.md'
+                )
+                write_paths   = @(
+                    'tests/harness/control-plane.integration.ps1'
+                )
+                assignment    = [ordered]@{
+                    goal         = 'Cover init-task, sync-task-md, append-event, build-subtask-brief, and validate.'
+                    must_include = @(
+                        'happy path coverage',
+                        'bad path coverage'
+                    )
+                    verification = @(
+                        'validate succeeds on the happy path'
+                    )
+                }
+            }
+        )
+        updated_at      = '2026-05-29T00:00:00+08:00'
+        version         = 1
+    }
+}
+
+function New-VerificationContractFixture {
+    return [ordered]@{
+        minimal_repro    = 'Run validate with current_phase=code_impl and no verification_contract.'
+        hit_proof        = 'The failure or pass outcome must prove the verification_contract gate is active.'
+        diagnostic_checks = @(
+            'validate fails before verification_contract is filled'
+        )
+        acceptance_checks = @(
+            'validate passes after verification_contract is filled'
+        )
+        non_goals        = @(
+            'Do not add new phases'
+        )
+        review_evidence  = @(
+            'repro_before_fix',
+            'pass_after_fix',
+            'hit_proof_observed',
+            'relevant_regression_ok'
+        )
+    }
+}
+
 function New-Scenario {
     param([string]$Name)
 
@@ -97,46 +193,42 @@ function New-Scenario {
     $repoRoot = Join-Path $scenarioRoot 'repo'
     New-Item -ItemType Directory -Path $repoRoot -Force | Out-Null
 
-    $skillTargetRoot = Join-Path $repoRoot 'skills/global-task-orchestrator'
-    New-Item -ItemType Directory -Path $skillTargetRoot -Force | Out-Null
-    Copy-Item -Path (Join-Path $HarnessRoot 'skills/global-task-orchestrator/scripts') -Destination $skillTargetRoot -Recurse -Force
+    $skillSource = Join-Path $HarnessRoot 'skills/global-task-orchestrator'
+    $skillsRoot = Join-Path $repoRoot 'skills'
+    New-Item -ItemType Directory -Path $skillsRoot -Force | Out-Null
+    Copy-Item -LiteralPath $skillSource -Destination $skillsRoot -Recurse -Force
 
-    $planTargetDir = Join-Path $repoRoot 'docs/plans'
-    New-Item -ItemType Directory -Path $planTargetDir -Force | Out-Null
-    Copy-Item -LiteralPath $TemplatePlanDoc -Destination (Join-Path $planTargetDir 'contract-first-dispatch.md') -Force
-    Copy-Item -LiteralPath $TemplatePlanJson -Destination (Join-Path $planTargetDir 'contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json') -Force
-
-    $runParent = Join-Path $repoRoot 'docs/ai/runs'
-    $runDir = Join-Path $runParent $TemplateTaskId
-    New-Item -ItemType Directory -Path $runDir -Force | Out-Null
-    Copy-Item -Path (Join-Path $TemplateRunDir '*') -Destination $runDir -Recurse -Force
-
-    $agentsDir = Join-Path $repoRoot 'agents'
-    New-Item -ItemType Directory -Path $agentsDir -Force | Out-Null
-    Copy-Item -LiteralPath $TemplateRoleMapPath -Destination (Join-Path $agentsDir 'codex-role-map.json') -Force
-    Copy-Item -LiteralPath $TemplateManifestPath -Destination (Join-Path $agentsDir 'manifest.json') -Force
+    $agentsRoot = Join-Path $repoRoot 'agents'
+    New-Item -ItemType Directory -Path $agentsRoot -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $HarnessRoot 'agents/codex-role-map.json') -Destination (Join-Path $agentsRoot 'codex-role-map.json') -Force
+    Copy-Item -LiteralPath (Join-Path $HarnessRoot 'agents/manifest.json') -Destination (Join-Path $agentsRoot 'manifest.json') -Force
 
     return [PSCustomObject]@{
-        RepoRoot = $repoRoot
-        TaskId = $TemplateTaskId
-        RunDir = $runDir
+        Name            = $Name
+        RepoRoot        = $repoRoot
+        TaskId          = ('task-' + $Name)
+        OrchestratorPath = Join-Path $repoRoot 'skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1'
     }
 }
 
-function Get-WorkOrderPath {
-    param([object]$Scenario, [string]$WorkOrderId)
-    return (Join-Path $Scenario.RunDir ("work_orders/{0}.json" -f $WorkOrderId))
-}
-
-function Get-ReturnPacketPath {
-    param([object]$Scenario, [string]$WorkOrderId)
-    $workOrder = Read-Json -PathValue (Get-WorkOrderPath -Scenario $Scenario -WorkOrderId $WorkOrderId)
-    return (Join-Path $Scenario.RepoRoot ([string]$workOrder.return_packet_path))
-}
-
-function Get-RoleMapPath {
+function Get-TaskDir {
     param([object]$Scenario)
-    return (Join-Path $Scenario.RepoRoot 'agents/codex-role-map.json')
+    return (Join-Path $Scenario.RepoRoot ("docs/ai/tasks/{0}" -f $Scenario.TaskId))
+}
+
+function Get-StatePath {
+    param([object]$Scenario)
+    return (Join-Path (Get-TaskDir -Scenario $Scenario) 'state.json')
+}
+
+function Get-TaskMdPath {
+    param([object]$Scenario)
+    return (Join-Path (Get-TaskDir -Scenario $Scenario) 'task.md')
+}
+
+function Get-EventsPath {
+    param([object]$Scenario)
+    return (Join-Path (Get-TaskDir -Scenario $Scenario) 'events.jsonl')
 }
 
 function Get-ManifestPath {
@@ -144,900 +236,714 @@ function Get-ManifestPath {
     return (Join-Path $Scenario.RepoRoot 'agents/manifest.json')
 }
 
-function New-FrozenSourcePlanPair {
+function Get-RoleMapPath {
+    param([object]$Scenario)
+    return (Join-Path $Scenario.RepoRoot 'agents/codex-role-map.json')
+}
+
+function Write-StateFixture {
     param(
-        [string]$RepoRoot,
-        [string]$TaskId,
-        [string]$PlanId,
-        [string]$DocRelative,
-        [string]$JsonRelative,
-        [string]$Goal
+        [object]$Scenario,
+        [object]$State
     )
 
-    $docPath = Join-Path $RepoRoot $DocRelative
-    $jsonPath = Join-Path $RepoRoot $JsonRelative
+    $taskDir = Get-TaskDir -Scenario $Scenario
+    New-Item -ItemType Directory -Path $taskDir -Force | Out-Null
+    Write-Json -PathValue (Get-StatePath -Scenario $Scenario) -Data $State
+}
 
-    @(
-        '# Frozen Plan',
-        '',
-        ('- task_id: {0}' -f $TaskId),
-        ('- plan_id: {0}' -f $PlanId),
-        '- status: frozen',
-        '',
-        '## Goal',
-        ('- {0}' -f $Goal),
-        '',
-        '## Scope',
-        ('- scope_in: {0}' -f $DocRelative),
-        '- scope_out: none',
-        '',
-        '## Acceptance',
-        '- source plan pair is frozen and bindable',
-        '',
-        '## Stop Conditions',
-        '- none'
-    ) | Set-Content -LiteralPath $docPath -Encoding UTF8
+function Write-TaskMdFixture {
+    param(
+        [object]$Scenario,
+        [string]$Content = "# Task Summary`n"
+    )
 
-    $templatePlan = Read-Json -PathValue (Join-Path $TemplateRunDir 'plan.json')
-    $templatePlan.plan_id = $PlanId
-    $templatePlan.task_id = $TaskId
-    $templatePlan.status = 'frozen'
-    $templatePlan.source_plan_doc = $DocRelative.Replace('\', '/')
-    $templatePlan.goal = $Goal
-    $templatePlan.scope_in = @($DocRelative.Replace('\', '/'))
-    $templatePlan.scope_out = @('none')
-    $templatePlan.acceptance = @('source plan pair is frozen and bindable')
-    $templatePlan.stop_conditions = @('none')
-    Write-Json -PathValue $jsonPath -Data $templatePlan
+    Set-Content -LiteralPath (Get-TaskMdPath -Scenario $Scenario) -Value $Content -Encoding UTF8
+}
 
-    return [PSCustomObject]@{
-        DocRelative = $DocRelative
-        JsonRelative = $JsonRelative
-        DocPath = $docPath
-        JsonPath = $jsonPath
+function Write-EventsFixture {
+    param(
+        [object]$Scenario,
+        [string[]]$Lines = @()
+    )
+
+    $eventsPath = Get-EventsPath -Scenario $Scenario
+    if ($Lines.Count -eq 0) {
+        [System.IO.File]::WriteAllText($eventsPath, '')
+        return
     }
+    Set-Content -LiteralPath $eventsPath -Value $Lines -Encoding UTF8
+}
+
+function Invoke-OrchestratorAction {
+    param(
+        [object]$Scenario,
+        [string]$Action,
+        [object[]]$Arguments = @()
+    )
+
+    $baseArgs = @('-Action', $Action, '-RepoRoot', $Scenario.RepoRoot)
+    $result = Invoke-PowerShellFile -FilePath $Scenario.OrchestratorPath -Arguments ($baseArgs + $Arguments + @('-Json'))
+    return (Convert-ResultToJson -Result $result)
+}
+
+function Invoke-NewTask {
+    param(
+        [object]$Scenario,
+        [string]$Topic
+    )
+
+    return (Invoke-OrchestratorAction -Scenario $Scenario -Action 'new-task' -Arguments @(
+        '-Topic', $Topic
+    ))
+}
+
+function Invoke-InitTask {
+    param([object]$Scenario)
+
+    return (Invoke-OrchestratorAction -Scenario $Scenario -Action 'init-task' -Arguments @(
+        '-TaskId', $Scenario.TaskId,
+        '-Title', 'control-plane-v3-integration-fixture',
+        '-Owner', 'main-coordinator',
+        '-Objective', 'exercise-task-state-contract'
+    ))
+}
+
+function Invoke-SyncTaskMd {
+    param([object]$Scenario)
+
+    return (Invoke-OrchestratorAction -Scenario $Scenario -Action 'sync-task-md' -Arguments @(
+        '-TaskId', $Scenario.TaskId
+    ))
+}
+
+function Invoke-AppendEvent {
+    param([object]$Scenario)
+
+    return (Invoke-OrchestratorAction -Scenario $Scenario -Action 'append-event' -Arguments @(
+        '-TaskId', $Scenario.TaskId,
+        '-Actor', 'test-verifier',
+        '-Type', 'note_added',
+        '-Summary', 'appended-event-for-integration-coverage'
+    ))
+}
+
+function Invoke-BuildSubtaskBrief {
+    param(
+        [object]$Scenario,
+        [string]$SubtaskId
+    )
+
+    return (Invoke-OrchestratorAction -Scenario $Scenario -Action 'build-subtask-brief' -Arguments @(
+        '-TaskId', $Scenario.TaskId,
+        '-SubtaskId', $SubtaskId
+    ))
+}
+
+function Invoke-BuildExecuteHandoff {
+    param([object]$Scenario)
+
+    return (Invoke-OrchestratorAction -Scenario $Scenario -Action 'build-execute-handoff' -Arguments @(
+        '-TaskId', $Scenario.TaskId
+    ))
 }
 
 function Invoke-Validate {
     param([object]$Scenario)
 
-    $orchestrator = Join-Path $Scenario.RepoRoot 'skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1'
-    $result = Invoke-PowerShellFile -FilePath $orchestrator -Arguments @('-Action', 'validate', '-RepoRoot', $Scenario.RepoRoot, '-TaskId', $Scenario.TaskId, '-Json')
-    $json = $null
-    try {
-        if (-not [string]::IsNullOrWhiteSpace($result.Text)) {
-            $json = ($result.Text | ConvertFrom-Json)
-        }
-    } catch {
-        $json = $null
-    }
-
-    return [PSCustomObject]@{
-        ExitCode = $result.ExitCode
-        Text = $result.Text
-        Json = $json
-    }
+    return (Invoke-OrchestratorAction -Scenario $Scenario -Action 'validate' -Arguments @(
+        '-TaskId', $Scenario.TaskId
+    ))
 }
 
 function Invoke-ValidateWithoutTaskId {
     param([object]$Scenario)
 
-    $orchestrator = Join-Path $Scenario.RepoRoot 'skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1'
-    $result = Invoke-PowerShellFile -FilePath $orchestrator -Arguments @('-Action', 'validate', '-RepoRoot', $Scenario.RepoRoot, '-Json')
-    $json = $null
-    try {
-        if (-not [string]::IsNullOrWhiteSpace($result.Text)) {
-            $json = ($result.Text | ConvertFrom-Json)
-        }
-    } catch {
-        $json = $null
-    }
-
-    return [PSCustomObject]@{
-        ExitCode = $result.ExitCode
-        Text = $result.Text
-        Json = $json
-    }
+    return (Invoke-OrchestratorAction -Scenario $Scenario -Action 'validate')
 }
 
-function Invoke-Hydrate {
-    param(
-        [object]$Scenario,
-        [string]$TargetPath
+function Test-InitTaskHappyPath {
+    $scenario = New-Scenario -Name 'init-task-happy-path'
+    $result = Invoke-InitTask -Scenario $scenario
+
+    Assert-True ($result.ExitCode -eq 0) 'init-task should return exit code 0'
+    Assert-True ($null -ne $result.Json) 'init-task should emit parseable JSON'
+    Assert-True ([bool]$result.Json.ok) 'init-task should return ok=true'
+    Assert-True (Test-Path -LiteralPath (Get-StatePath -Scenario $scenario)) 'init-task should create state.json'
+    Assert-True (Test-Path -LiteralPath (Get-TaskMdPath -Scenario $scenario)) 'init-task should create task.md'
+    Assert-True (Test-Path -LiteralPath (Get-EventsPath -Scenario $scenario)) 'init-task should create events.jsonl'
+
+    $validate = Invoke-Validate -Scenario $scenario
+    Assert-True ($validate.ExitCode -eq 0) 'validate should pass after init-task'
+    Assert-True ($null -ne $validate.Json) 'validate happy path should emit parseable JSON'
+    Assert-True ([bool]$validate.Json.ok) 'validate should return ok=true after init-task'
+}
+
+function Test-NewTaskGeneratesUniqueIds {
+    $scenario = New-Scenario -Name 'new-task-unique-ids'
+
+    $first = Invoke-NewTask -Scenario $scenario -Topic 'shared-task-topic'
+    $second = Invoke-NewTask -Scenario $scenario -Topic 'shared-task-topic'
+
+    Assert-True ($first.ExitCode -eq 0) 'first new-task should return exit code 0'
+    Assert-True ($second.ExitCode -eq 0) 'second new-task should return exit code 0'
+    Assert-True ($null -ne $first.Json) 'first new-task should emit parseable JSON'
+    Assert-True ($null -ne $second.Json) 'second new-task should emit parseable JSON'
+    Assert-True ([bool]$first.Json.ok) 'first new-task should return ok=true'
+    Assert-True ([bool]$second.Json.ok) 'second new-task should return ok=true'
+    Assert-True (-not [string]::IsNullOrWhiteSpace([string]$first.Json.task_id)) 'first new-task should return a task_id'
+    Assert-True (-not [string]::IsNullOrWhiteSpace([string]$second.Json.task_id)) 'second new-task should return a task_id'
+    Assert-True ([string]$first.Json.task_id -ne [string]$second.Json.task_id) 'same-topic new-task calls should produce different task_id values'
+}
+
+function Test-SyncTaskMdHappyPath {
+    $scenario = New-Scenario -Name 'sync-task-md-happy-path'
+    $init = Invoke-InitTask -Scenario $scenario
+    Assert-True ($init.ExitCode -eq 0) 'sync-task-md happy path requires init-task to succeed'
+
+    $statePath = Get-StatePath -Scenario $scenario
+    $state = Read-Json -PathValue $statePath
+    $state.title = 'Control-plane summary rewritten'
+    $state.current_phase = 'review'
+    $state.decisions = @(
+        'state.json remains authoritative',
+        'task.md summary was regenerated'
     )
+    Write-Json -PathValue $statePath -Data $state
 
-    $orchestrator = Join-Path $Scenario.RepoRoot 'skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1'
-    $result = Invoke-PowerShellFile -FilePath $orchestrator -Arguments @('-Action', 'hydrate', '-RepoRoot', $Scenario.RepoRoot, '-Path', $TargetPath, '-Json')
-    $json = $null
-    try {
-        if (-not [string]::IsNullOrWhiteSpace($result.Text)) {
-            $json = ($result.Text | ConvertFrom-Json)
-        }
-    } catch {
-        $json = $null
-    }
+    $result = Invoke-SyncTaskMd -Scenario $scenario
+    Assert-True ($result.ExitCode -eq 0) 'sync-task-md should return exit code 0'
+    Assert-True ($null -ne $result.Json) 'sync-task-md should emit parseable JSON'
+    Assert-True ([bool]$result.Json.ok) 'sync-task-md should return ok=true'
 
-    return [PSCustomObject]@{
-        ExitCode = $result.ExitCode
-        Text = $result.Text
-        Json = $json
+    $taskMd = Get-Content -LiteralPath (Get-TaskMdPath -Scenario $scenario) -Raw -Encoding UTF8
+    Assert-ContainsText -Text $taskMd -Expected 'Control-plane summary rewritten' -Message 'task.md should reflect the rewritten title'
+    Assert-ContainsText -Text $taskMd -Expected 'review' -Message 'task.md should reflect the rewritten current phase'
+    foreach ($section in @('## 目标', '## 关键决定', '## 当前阶段', '## 子任务')) {
+        Assert-ContainsText -Text $taskMd -Expected $section -Message ("task.md should include structured section {0}" -f $section)
     }
 }
 
-function Invoke-CompileDispatchMessage {
-    param(
-        [object]$Scenario,
-        [string]$TargetPath
-    )
+function Test-AppendEventHappyPath {
+    $scenario = New-Scenario -Name 'append-event-happy-path'
+    $init = Invoke-InitTask -Scenario $scenario
+    Assert-True ($init.ExitCode -eq 0) 'append-event happy path requires init-task to succeed'
 
-    $compiler = Join-Path $Scenario.RepoRoot 'skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1'
-    $result = Invoke-PowerShellFile -FilePath $compiler -Arguments @('-RepoRoot', $Scenario.RepoRoot, '-Path', $TargetPath, '-Json')
-    $json = $null
-    try {
-        if (-not [string]::IsNullOrWhiteSpace($result.Text)) {
-            $json = ($result.Text | ConvertFrom-Json)
-        }
-    } catch {
-        $json = $null
-    }
+    $result = Invoke-AppendEvent -Scenario $scenario
+    Assert-True ($result.ExitCode -eq 0) 'append-event should return exit code 0'
+    Assert-True ($null -ne $result.Json) 'append-event should emit parseable JSON'
+    Assert-True ([bool]$result.Json.ok) 'append-event should return ok=true'
 
-    return [PSCustomObject]@{
-        ExitCode = $result.ExitCode
-        Text = $result.Text
-        Json = $json
-    }
+    $lines = Get-Content -LiteralPath (Get-EventsPath -Scenario $scenario) -Encoding UTF8
+    Assert-True ($lines.Count -ge 1) 'append-event should append at least one JSONL line'
+    Assert-ContainsText -Text ($lines -join "`n") -Expected 'note_added' -Message 'events.jsonl should contain the appended event type'
+
+    $validate = Invoke-Validate -Scenario $scenario
+    Assert-True ($validate.ExitCode -eq 0) 'validate should still pass after append-event'
+    Assert-True ([bool]$validate.Json.ok) 'validate should remain ok after append-event'
 }
 
-function Invoke-HydrateByTaskId {
-    param(
-        [object]$Scenario,
-        [string]$TargetTaskId
-    )
+function Test-BuildSubtaskBriefHappyPath {
+    $scenario = New-Scenario -Name 'build-subtask-brief-happy-path'
+    $init = Invoke-InitTask -Scenario $scenario
+    Assert-True ($init.ExitCode -eq 0) 'build-subtask-brief happy path requires init-task to succeed'
 
-    $orchestrator = Join-Path $Scenario.RepoRoot 'skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1'
-    $result = Invoke-PowerShellFile -FilePath $orchestrator -Arguments @('-Action', 'hydrate', '-RepoRoot', $Scenario.RepoRoot, '-TaskId', $TargetTaskId, '-Json')
-    $json = $null
-    try {
-        if (-not [string]::IsNullOrWhiteSpace($result.Text)) {
-            $json = ($result.Text | ConvertFrom-Json)
-        }
-    } catch {
-        $json = $null
-    }
+    $state = New-StateObject -TaskId $scenario.TaskId
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
 
-    return [PSCustomObject]@{
-        ExitCode = $result.ExitCode
-        Text = $result.Text
-        Json = $json
-    }
+    $result = Invoke-BuildSubtaskBrief -Scenario $scenario -SubtaskId 'ST-control-plane-tests'
+    Assert-True ($result.ExitCode -eq 0) 'build-subtask-brief should return exit code 0'
+    Assert-True (($null -ne $result.Json) -or (-not [string]::IsNullOrWhiteSpace($result.Text))) 'build-subtask-brief should emit JSON or text'
+    Assert-ContainsText -Text $result.Text -Expected 'ST-control-plane-tests' -Message 'subtask brief should include subtask_id'
+    Assert-ContainsText -Text $result.Text -Expected 'tests/harness/control-plane.integration.ps1' -Message 'subtask brief should include write scope'
+    Assert-ContainsText -Text $result.Text -Expected 'test-verifier' -Message 'subtask brief should include role'
 }
 
-function Invoke-Bootstrap {
-    param(
-        [string]$RepoRoot,
-        [string]$TaskId,
-        [string]$PlanId,
-        [string]$SourcePlanDoc,
-        [string]$SourcePlanJson
-    )
+function Test-BuildExecuteHandoffHappyPath {
+    $scenario = New-Scenario -Name 'build-execute-handoff-happy-path'
+    $init = Invoke-InitTask -Scenario $scenario
+    Assert-True ($init.ExitCode -eq 0) 'build-execute-handoff happy path requires init-task to succeed'
 
-    $orchestrator = Join-Path $RepoRoot 'skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1'
-    $arguments = @('-Action', 'bootstrap', '-RepoRoot', $RepoRoot, '-TaskId', $TaskId, '-PlanId', $PlanId, '-SourcePlanDoc', $SourcePlanDoc, '-SourcePlanJson', $SourcePlanJson, '-Json')
-    return (Invoke-PowerShellFile -FilePath $orchestrator -Arguments $arguments)
-}
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.objective = '定稿 Execute Window 的起步合同。'
+    $state.scope_in = @('docs/ARCHITECTURE.md', 'tests/README.md')
+    $state.scope_out = @('hooks/**')
+    $state.acceptance = @('handoff 明确首批子任务', '执行窗口不需要猜范围')
+    $state.stop_conditions = @('发现已定稿合同与代码现实冲突')
+    $state.current_phase = 'planning'
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario -Content "# 任务摘要`n`n当前任务合同已定稿。`n"
 
-function Test-HappyPath {
-    $scenario = New-Scenario -Name 'happy-path'
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($result.ExitCode -eq 0) 'happy path should return exit code 0'
-    Assert-True ($null -ne $result.Json) 'happy path should emit parseable JSON'
-    Assert-True ([bool]$result.Json.ok) 'happy path should return ok=true'
-    Assert-True ([int]$result.Json.errors.Count -eq 0) 'happy path should not have validation errors'
-    Assert-True ([int]$result.Json.work_orders_checked -gt 0) 'happy path should validate at least one work_order'
+    $result = Invoke-BuildExecuteHandoff -Scenario $scenario
+    Assert-True ($result.ExitCode -eq 0) 'build-execute-handoff should return exit code 0'
+    Assert-True (($null -ne $result.Json) -or (-not [string]::IsNullOrWhiteSpace($result.Text))) 'build-execute-handoff should emit JSON or text'
+    Assert-ContainsText -Text $result.Text -Expected $scenario.TaskId -Message 'execute handoff should include task_id'
+    Assert-ContainsText -Text $result.Text -Expected 'planning' -Message 'execute handoff should include current_phase'
+    Assert-ContainsText -Text $result.Text -Expected '定稿 Execute Window 的起步合同。' -Message 'execute handoff should include objective'
+    Assert-ContainsText -Text $result.Text -Expected 'docs/ARCHITECTURE.md' -Message 'execute handoff should include scope_in'
+    Assert-ContainsText -Text $result.Text -Expected 'hooks/**' -Message 'execute handoff should include scope_out'
+    Assert-ContainsText -Text $result.Text -Expected 'handoff 明确首批子任务' -Message 'execute handoff should include acceptance'
+    Assert-ContainsText -Text $result.Text -Expected '发现已定稿合同与代码现实冲突' -Message 'execute handoff should include stop conditions'
+    Assert-ContainsText -Text $result.Text -Expected 'task.md' -Message 'execute handoff should include task.md read path'
+    Assert-ContainsText -Text $result.Text -Expected 'ST-control-plane-tests' -Message 'execute handoff should include first subtask summary'
+    Assert-ContainsText -Text $result.Text -Expected '先委派子代理' -Message 'execute handoff should require delegation before execution'
+    Assert-ContainsText -Text $result.Text -Expected '若 `current_phase` 仍为 `planning`' -Message 'execute handoff should explain how to start from planning'
+    Assert-ContainsText -Text $result.Text -Expected '不要重新 `init-task`' -Message 'execute handoff should include re-init prohibition'
+    Assert-ContainsText -Text $result.Text -Expected '不要把新开执行窗口误判成新任务' -Message 'execute handoff should include task identity prohibition'
+    Assert-ContainsText -Text $result.Text -Expected '不要跳过子代理直接收口' -Message 'execute handoff should include delegation prohibition'
 }
 
 function Test-MissingTaskIdFails {
     $scenario = New-Scenario -Name 'missing-taskid'
     $result = Invoke-ValidateWithoutTaskId -Scenario $scenario
+
     Assert-True ($null -ne $result.Json) 'missing TaskId should emit parseable JSON'
     Assert-True (-not [bool]$result.Json.ok) 'missing TaskId should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected '必须提供 -TaskId' -Message 'validate should hard-fail when TaskId is omitted'
+    Assert-ContainsText -Text $result.Text -Expected 'TaskId' -Message 'validate should mention the missing TaskId'
 }
 
-function Test-RoleMapInvalidAgentType {
-    $scenario = New-Scenario -Name 'role-map-invalid-agent-type'
-    $roleMapPath = Get-RoleMapPath -Scenario $scenario
-    $roleMap = Read-Json -PathValue $roleMapPath
-    $roleMap.roles.reader.agent_type = 'invalid-agent-type'
-    Write-Json -PathValue $roleMapPath -Data $roleMap
+function Test-StateMissingRequiredFieldsFails {
+    $scenario = New-Scenario -Name 'state-missing-required-fields'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.Remove('current_phase')
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'invalid role-map agent_type should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'invalid role-map agent_type should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'agent_type 非法' -Message 'validate output should mention invalid role-map agent_type'
+    Assert-True ($null -ne $result.Json) 'missing required state field should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'missing required state field should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'current_phase' -Message 'validate should mention the missing state field'
 }
 
-function Test-RoleMapMissingRequiredRole {
-    $scenario = New-Scenario -Name 'role-map-missing-required-role'
-    $roleMapPath = Get-RoleMapPath -Scenario $scenario
-    $roleMap = Read-Json -PathValue $roleMapPath
-    $roleMap.roles.PSObject.Properties.Remove('test-verifier')
-    Write-Json -PathValue $roleMapPath -Data $roleMap
+function Test-InvalidCurrentPhaseFails {
+    $scenario = New-Scenario -Name 'invalid-current-phase'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.current_phase = 'freeform-phase'
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'missing required role should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'missing required role should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected '缺少必需角色' -Message 'validate output should mention required role coverage'
+    Assert-True ($null -ne $result.Json) 'invalid current_phase should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'invalid current_phase should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'current_phase' -Message 'validate should mention current_phase'
+    Assert-ContainsText -Text $result.Text -Expected 'planning' -Message 'validate should mention the allowed current_phase values'
 }
 
-function Test-RoleMapManifestConsistencyHappyPath {
-    $scenario = New-Scenario -Name 'role-map-manifest-consistency-happy-path'
-    $manifestPath = Get-ManifestPath -Scenario $scenario
-    Assert-True (Test-Path -LiteralPath $manifestPath) 'manifest fixture should exist in scenario'
+function Test-CodeImplMissingVerificationContractFails {
+    $scenario = New-Scenario -Name 'code-impl-missing-verification-contract'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.current_phase = 'code_impl'
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($result.ExitCode -eq 0) 'consistent role-map and manifest should pass validate'
-    Assert-True ($null -ne $result.Json) 'consistency happy path should emit parseable JSON'
-    Assert-True ([bool]$result.Json.ok) 'consistent role-map and manifest should return ok=true'
+    Assert-True ($null -ne $result.Json) 'code_impl without verification_contract should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'code_impl without verification_contract should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'verification_contract' -Message 'validate should mention verification_contract'
+    Assert-ContainsText -Text $result.Text -Expected 'code_impl' -Message 'validate should mention the code_impl gate'
 }
 
-function Test-DraftPlanValidate {
-    $scenario = New-Scenario -Name 'draft-plan-validate'
-    $planPath = Join-Path $scenario.RunDir 'plan.json'
-    $plan = Read-Json -PathValue $planPath
-    $plan.status = 'draft'
-    Write-Json -PathValue $planPath -Data $plan
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'draft plan should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'draft plan should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'plan.json.status 必须为 frozen' -Message 'validate output should include the frozen gate'
-}
-
-function Test-FrozenRunPlanContentDriftFailsValidate {
-    $scenario = New-Scenario -Name 'frozen-run-plan-content-drift-validate'
-    $planPath = Join-Path $scenario.RunDir 'plan.json'
-    $plan = Read-Json -PathValue $planPath
-    $plan.status = 'frozen'
-    $plan.goal = 'run plan goal drifted from source frozen plan'
-    Write-Json -PathValue $planPath -Data $plan
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'frozen run plan drift should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'frozen run plan drift should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'run plan 与 source frozen plan 字段不一致' -Message 'validate should fail when run plan drifts from source frozen plan'
-}
-
-function Test-FrozenRunPlanSourcePlanJsonBypassFailsValidate {
-    $scenario = New-Scenario -Name 'frozen-run-plan-source-plan-json-bypass-validate'
-    $planPath = Join-Path $scenario.RunDir 'plan.json'
-    $plan = Read-Json -PathValue $planPath
-    $plan.status = 'frozen'
-    $plan.goal = 'run plan drift plus source_plan_json bypass attempt'
-    $plan | Add-Member -Force -NotePropertyName 'source_plan_json' -NotePropertyValue ("docs/ai/runs/{0}/plan.json" -f $scenario.TaskId)
-    Write-Json -PathValue $planPath -Data $plan
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'source_plan_json bypass attempt should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'source_plan_json bypass attempt should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'source_plan_json 必须绑定到 source_plan_doc 对应的 frozen plan.json' -Message 'validate should reject run-declared source_plan_json bypasses'
-}
-
-function Test-DraftPlanBootstrap {
-    $scenario = New-Scenario -Name 'draft-plan-bootstrap'
-    $taskId = 'bootstrap-draft-plan-001'
-    $planId = 'PLAN-BOOTSTRAP-DRAFT-001'
-    $sourcePlanDocRelative = 'docs/plans/bootstrap-draft-source.md'
-    $sourcePlanJsonRelative = 'docs/plans/bootstrap-draft-source.json'
-    $sourcePlanDocPath = Join-Path $scenario.RepoRoot $sourcePlanDocRelative
-    $sourcePlanJsonPath = Join-Path $scenario.RepoRoot $sourcePlanJsonRelative
-
-    @(
-        '# Frozen Plan',
-        '',
-        ('- task_id: {0}' -f $taskId),
-        ('- plan_id: {0}' -f $planId),
-        '- status: draft',
-        '',
-        '## Goal',
-        '- Bootstrap draft gate test',
-        '',
-        '## Scope',
-        '- scope_in: docs/plans/bootstrap-draft-source.md',
-        '- scope_out: none',
-        '',
-        '## Acceptance',
-        '- bootstrap must reject draft source plans',
-        '',
-        '## Stop Conditions',
-        '- none'
-    ) | Set-Content -LiteralPath $sourcePlanDocPath -Encoding UTF8
-
-    $templatePlan = Read-Json -PathValue (Join-Path $scenario.RunDir 'plan.json')
-    $templatePlan.plan_id = $planId
-    $templatePlan.task_id = $taskId
-    $templatePlan.status = 'draft'
-    $templatePlan.source_plan_doc = $sourcePlanDocRelative.Replace('\', '/')
-    $templatePlan.goal = 'Bootstrap draft gate test'
-    $templatePlan.scope_in = @('docs/plans/bootstrap-draft-source.md')
-    $templatePlan.scope_out = @('none')
-    $templatePlan.acceptance = @('bootstrap must reject draft source plans')
-    $templatePlan.stop_conditions = @('none')
-    Write-Json -PathValue $sourcePlanJsonPath -Data $templatePlan
-
-    $result = Invoke-Bootstrap -RepoRoot $scenario.RepoRoot -TaskId $taskId -PlanId $planId -SourcePlanDoc $sourcePlanDocRelative -SourcePlanJson $sourcePlanJsonRelative
-    Assert-True ($result.ExitCode -ne 0) 'bootstrap should reject draft source plans'
-    Assert-ContainsText -Text $result.Text -Expected 'status must be frozen' -Message 'bootstrap output should include the frozen gate'
-}
-
-function Test-ExistingRunDraftBootstrap {
-    $scenario = New-Scenario -Name 'existing-run-draft-bootstrap'
-    $taskId = 'bootstrap-existing-run-draft-001'
-    $planId = 'PLAN-BOOTSTRAP-EXISTING-RUN-DRAFT-001'
-    $sourcePlanDocRelative = 'docs/plans/bootstrap-existing-run-frozen-source.md'
-    $sourcePlanJsonRelative = 'docs/plans/bootstrap-existing-run-frozen-source.json'
-    $sourcePair = New-FrozenSourcePlanPair -RepoRoot $scenario.RepoRoot -TaskId $taskId -PlanId $planId -DocRelative $sourcePlanDocRelative -JsonRelative $sourcePlanJsonRelative -Goal 'Bootstrap existing run plan should also require frozen'
-
-    $runDir = Join-Path $scenario.RepoRoot ("docs/ai/runs/{0}" -f $taskId)
-    New-Item -ItemType Directory -Path $runDir -Force | Out-Null
-    $existingRunPlanPath = Join-Path $runDir 'plan.json'
-    $existingRunPlan = Read-Json -PathValue $sourcePair.JsonPath
-    $existingRunPlan.status = 'draft'
-    Write-Json -PathValue $existingRunPlanPath -Data $existingRunPlan
-
-    $result = Invoke-Bootstrap -RepoRoot $scenario.RepoRoot -TaskId $taskId -PlanId $planId -SourcePlanDoc $sourcePlanDocRelative -SourcePlanJson $sourcePlanJsonRelative
-    Assert-True ($result.ExitCode -ne 0) 'bootstrap should reject existing run plans that are still draft'
-    Assert-ContainsText -Text $result.Text -Expected 'existing run plan.json.status must be frozen' -Message 'bootstrap output should mention the existing run frozen gate'
-}
-
-function Test-ExistingRunFrozenContentDriftBootstrap {
-    $scenario = New-Scenario -Name 'existing-run-frozen-content-drift-bootstrap'
-    $taskId = 'bootstrap-existing-run-frozen-content-drift-001'
-    $planId = 'PLAN-BOOTSTRAP-EXISTING-RUN-FROZEN-CONTENT-DRIFT-001'
-    $sourcePlanDocRelative = 'docs/plans/bootstrap-existing-run-frozen-content-source.md'
-    $sourcePlanJsonRelative = 'docs/plans/bootstrap-existing-run-frozen-content-source.json'
-    $sourcePair = New-FrozenSourcePlanPair -RepoRoot $scenario.RepoRoot -TaskId $taskId -PlanId $planId -DocRelative $sourcePlanDocRelative -JsonRelative $sourcePlanJsonRelative -Goal 'Bootstrap existing run plan should match source frozen content'
-
-    $runDir = Join-Path $scenario.RepoRoot ("docs/ai/runs/{0}" -f $taskId)
-    New-Item -ItemType Directory -Path $runDir -Force | Out-Null
-    $existingRunPlanPath = Join-Path $runDir 'plan.json'
-    $existingRunPlan = Read-Json -PathValue $sourcePair.JsonPath
-    $existingRunPlan.status = 'frozen'
-    $existingRunPlan.goal = 'drifted run goal'
-    Write-Json -PathValue $existingRunPlanPath -Data $existingRunPlan
-
-    $result = Invoke-Bootstrap -RepoRoot $scenario.RepoRoot -TaskId $taskId -PlanId $planId -SourcePlanDoc $sourcePlanDocRelative -SourcePlanJson $sourcePlanJsonRelative
-    Assert-True ($result.ExitCode -ne 0) 'bootstrap should reject existing frozen run plans that drift from source frozen content'
-    Assert-ContainsText -Text $result.Text -Expected 'does not match source frozen plan' -Message 'bootstrap output should mention source frozen content mismatch'
-}
-
-function Test-ExistingRunSourcePlanJsonBypassBootstrap {
-    $scenario = New-Scenario -Name 'existing-run-source-plan-json-bypass-bootstrap'
-    $taskId = 'bootstrap-existing-run-source-plan-json-bypass-001'
-    $planId = 'PLAN-BOOTSTRAP-EXISTING-RUN-SOURCE-PLAN-JSON-BYPASS-001'
-    $sourcePlanDocRelative = 'docs/plans/bootstrap-existing-run-source-plan-json-bypass-source.md'
-    $sourcePlanJsonRelative = 'docs/plans/bootstrap-existing-run-source-plan-json-bypass-source.json'
-    $sourcePair = New-FrozenSourcePlanPair -RepoRoot $scenario.RepoRoot -TaskId $taskId -PlanId $planId -DocRelative $sourcePlanDocRelative -JsonRelative $sourcePlanJsonRelative -Goal 'Bootstrap existing run plan should reject source_plan_json bypass'
-
-    $runDir = Join-Path $scenario.RepoRoot ("docs/ai/runs/{0}" -f $taskId)
-    New-Item -ItemType Directory -Path $runDir -Force | Out-Null
-    $existingRunPlanPath = Join-Path $runDir 'plan.json'
-    $existingRunPlan = Read-Json -PathValue $sourcePair.JsonPath
-    $existingRunPlan.status = 'frozen'
-    $existingRunPlan | Add-Member -Force -NotePropertyName 'source_plan_json' -NotePropertyValue ("docs/ai/runs/{0}/plan.json" -f $taskId)
-    Write-Json -PathValue $existingRunPlanPath -Data $existingRunPlan
-
-    $result = Invoke-Bootstrap -RepoRoot $scenario.RepoRoot -TaskId $taskId -PlanId $planId -SourcePlanDoc $sourcePlanDocRelative -SourcePlanJson $sourcePlanJsonRelative
-    Assert-True ($result.ExitCode -ne 0) 'bootstrap should reject existing run plans that declare a mismatched source_plan_json'
-    Assert-ContainsText -Text $result.Text -Expected 'source_plan_json' -Message 'bootstrap output should mention source_plan_json mismatch'
-}
-
-function Test-MissingReadPaths {
-    $scenario = New-Scenario -Name 'missing-read-paths'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.PSObject.Properties.Remove('read_paths_mandatory')
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'missing read_paths should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'missing read_paths should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'read_paths_mandatory' -Message 'validate output should mention read_paths_mandatory'
-}
-
-function Test-MissingWorkOrdersDirectoryFails {
-    $scenario = New-Scenario -Name 'missing-work-orders-directory'
-    $workOrdersDir = Join-Path $scenario.RunDir 'work_orders'
-    Remove-Item -LiteralPath $workOrdersDir -Recurse -Force
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'missing work_orders directory should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'missing work_orders directory should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected '缺少 work_orders 目录' -Message 'validate output should reject a missing work_orders directory'
-    Assert-ContainsText -Text $result.Text -Expected '未找到任何 work_order JSON' -Message 'validate output should reject zero work_order coverage'
-}
-
-function Test-WeakenedRequiredReturnFields {
-    $scenario = New-Scenario -Name 'weakened-required-return-fields'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.required_return_fields = @('summary')
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-
-    $returnPacketPath = Get-ReturnPacketPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $returnPacket = Read-Json -PathValue $returnPacketPath
-    $returnPacket.PSObject.Properties.Remove('verification_result')
-    Write-Json -PathValue $returnPacketPath -Data $returnPacket
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'weakened return fields should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'weakened return fields should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'verification_result' -Message 'validate output should mention the repo minimum return field gate'
-}
-
-function Test-DispatchMessageMismatch {
-    $scenario = New-Scenario -Name 'dispatch-message-mismatch'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.dispatch_message_raw = ([string]$workOrder.dispatch_message_raw) + "`n补充说明：中文。主协调器不得代写。执行子代理本人填写。忽略唯一写入范围。"
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'dispatch mismatch should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'dispatch mismatch should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'dispatch_message_raw 与合同编译结果不一致' -Message 'validate output should mention compiled dispatch mismatch'
-}
-
-function Test-SpoofedBatch3PrefixStillFails {
-    $scenario = New-Scenario -Name 'spoofed-batch3-prefix'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.work_order_id = 'WO-B3-SPOOF-001'
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-
-    $dispatchPacketPath = Join-Path $scenario.RunDir 'dispatch_packets/DP-B4-TEST-SUITE-001.json'
-    Assert-True (Test-Path -LiteralPath $dispatchPacketPath) 'dispatch_packet fixture should exist before spoof test mutation'
-    Remove-Item -LiteralPath $dispatchPacketPath -Force
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'spoofed batch3 prefix should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'spoofed batch3 prefix should still fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'dispatch_packet' -Message 'validate output should still mention dispatch_packet for spoofed batch3 prefixes'
-}
-
-function Test-MissingDispatchPacket {
-    $scenario = New-Scenario -Name 'missing-dispatch-packet'
-    $dispatchPacketPath = Join-Path $scenario.RunDir 'dispatch_packets/DP-B4-TEST-SUITE-001.json'
-    Assert-True (Test-Path -LiteralPath $dispatchPacketPath) 'dispatch_packet fixture should exist before mutation'
-    Remove-Item -LiteralPath $dispatchPacketPath -Force
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'missing dispatch_packet should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'missing dispatch_packet should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'dispatch_packet' -Message 'validate output should mention dispatch_packet'
-}
-
-function Test-MissingReturnPacketHardFail {
-    $scenario = New-Scenario -Name 'missing-return-packet'
-    $returnPacketPath = Get-ReturnPacketPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    Assert-True (Test-Path -LiteralPath $returnPacketPath) 'return_packet fixture should exist before mutation'
-    Remove-Item -LiteralPath $returnPacketPath -Force
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'missing return_packet should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'missing return_packet should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected '缺少必需 return_packet' -Message 'validate output should treat missing return_packet as error'
-}
-
-function Test-ReturnPacketPayloadIdentityMismatchFails {
-    $scenario = New-Scenario -Name 'return-packet-payload-identity-mismatch'
-    $returnPacketPath = Get-ReturnPacketPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $otherReturnPacketPath = Get-ReturnPacketPath -Scenario $scenario -WorkOrderId 'WO-B4-REVIEW-ACCEPT-001'
-    Assert-True (Test-Path -LiteralPath $returnPacketPath) 'target return_packet fixture should exist before mutation'
-    Assert-True (Test-Path -LiteralPath $otherReturnPacketPath) 'other return_packet fixture should exist before mutation'
-
-    $otherReturnPacket = Read-Json -PathValue $otherReturnPacketPath
-    Write-Json -PathValue $returnPacketPath -Data $otherReturnPacket
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'copied return_packet payload should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'copied return_packet payload should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'return_packet.work_order_id 与 work_order 不一致' -Message 'validate output should reject a copied return_packet payload with the wrong work_order binding'
-    Assert-ContainsText -Text $result.Text -Expected 'return_packet.return_packet_id 与 work_order 不一致' -Message 'validate output should reject a copied return_packet payload with the wrong return_packet_id'
-}
-
-function Test-HydrateRewritesStaleDispatchMessage {
-    $scenario = New-Scenario -Name 'hydrate-rewrites-stale-dispatch-message'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.dispatch_message_raw = '过期 dispatch message'
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-
-    $hydrate = Invoke-Hydrate -Scenario $scenario -TargetPath $workOrderPath
-    Assert-True ($hydrate.ExitCode -eq 0) 'hydrate should self-heal stale dispatch_message_raw'
-    Assert-True ($null -ne $hydrate.Json) 'hydrate rewrite should emit parseable JSON'
-
-    $updatedWorkOrder = Read-Json -PathValue $workOrderPath
-    Assert-True ($updatedWorkOrder.dispatch_message_raw -ne '过期 dispatch message') 'hydrate should rewrite stale dispatch_message_raw'
-    Assert-True ([string]$updatedWorkOrder.expected_written_role -eq 'control-plane-test-author') 'hydrate should backfill expected_written_role from the work_order contract'
-    Assert-True ([string]::IsNullOrWhiteSpace([string]$updatedWorkOrder.expected_written_by)) 'hydrate should not infer expected_written_by from return_packet content'
-    Assert-True ([int]@($updatedWorkOrder.expected_written_by_patterns).Count -gt 0) 'hydrate should backfill machine-checkable expected_written_by_patterns when exact writer is unknown'
-    Assert-True ([bool]$updatedWorkOrder.dispatch_packet_required) 'hydrate should persist explicit dispatch_packet_required for heuristically complex tasks'
-    Assert-ContainsText -Text ([string]$updatedWorkOrder.dispatch_message_raw) -Expected '`written_role` 必须为 `control-plane-test-author`。' -Message 'hydrated dispatch_message_raw should include the exact written_role contract'
-    Assert-ContainsText -Text ([string]$updatedWorkOrder.dispatch_message_raw) -Expected 'expected_written_by_patterns' -Message 'hydrated dispatch_message_raw should surface the machine-checkable written_by pattern contract'
-}
-
-function Test-HydrateCompileFailureNonZero {
-    $scenario = New-Scenario -Name 'hydrate-compile-failure-nonzero'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.PSObject.Properties.Remove('read_paths_mandatory')
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-
-    $hydrate = Invoke-Hydrate -Scenario $scenario -TargetPath $workOrderPath
-    Assert-True ($hydrate.ExitCode -ne 0) 'hydrate compile failure should exit non-zero'
-    Assert-True ($null -ne $hydrate.Json) 'hydrate compile failure should emit parseable JSON'
-    Assert-True ([int]$hydrate.Json.compile_failures.Count -gt 0) 'hydrate compile failure payload should include compile_failures'
-    Assert-ContainsText -Text $hydrate.Text -Expected 'read_paths_mandatory' -Message 'hydrate compile failure should mention the missing compile prerequisite'
-}
-
-function Test-HydrateInvalidJsonNonZero {
-    $scenario = New-Scenario -Name 'hydrate-invalid-json-nonzero'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    Set-Content -LiteralPath $workOrderPath -Value '{ invalid-json' -Encoding UTF8
-
-    $hydrate = Invoke-Hydrate -Scenario $scenario -TargetPath $workOrderPath
-    Assert-True ($hydrate.ExitCode -ne 0) 'hydrate should exit non-zero for unparsable work_order JSON'
-    Assert-True ($null -ne $hydrate.Json) 'hydrate invalid JSON should still emit parseable JSON payload'
-    Assert-ContainsText -Text $hydrate.Text -Expected '无法解析 work_order' -Message 'hydrate invalid JSON should report the parse failure'
-}
-
-function Test-HydrateMissingPathNonZero {
-    $scenario = New-Scenario -Name 'hydrate-missing-path-nonzero'
-    $missingPath = Join-Path $scenario.RunDir 'work_orders/does-not-exist.json'
-
-    $hydrate = Invoke-Hydrate -Scenario $scenario -TargetPath $missingPath
-    Assert-True ($hydrate.ExitCode -ne 0) 'hydrate should exit non-zero when the target path does not exist'
-    Assert-True ($null -ne $hydrate.Json) 'hydrate missing path should emit parseable JSON payload'
-    Assert-ContainsText -Text $hydrate.Text -Expected 'hydrate 目标路径不存在' -Message 'hydrate missing path should report target resolution failure'
-}
-
-function Test-HydrateMissingTaskWorkOrdersNonZero {
-    $scenario = New-Scenario -Name 'hydrate-missing-task-workorders'
-    $missingTaskId = 'hydrate-missing-task-workorders-001'
-    $runDir = Join-Path $scenario.RepoRoot ("docs/ai/runs/{0}" -f $missingTaskId)
-    New-Item -ItemType Directory -Path $runDir -Force | Out-Null
-
-    $hydrate = Invoke-HydrateByTaskId -Scenario $scenario -TargetTaskId $missingTaskId
-    Assert-True ($hydrate.ExitCode -ne 0) 'hydrate should exit non-zero when the target task run has no work_orders directory'
-    Assert-True ($null -ne $hydrate.Json) 'hydrate missing task work_orders should emit parseable JSON payload'
-    Assert-ContainsText -Text $hydrate.Text -Expected '缺少 work_orders 目录' -Message 'hydrate missing task work_orders should report the missing directory'
-}
-
-function Test-CompileDispatchMessageEmptyDirectoryNonZero {
-    $scenario = New-Scenario -Name 'compile-dispatch-empty-directory'
-    $emptyDir = Join-Path $scenario.RepoRoot 'empty-work-orders'
-    New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
-
-    $result = Invoke-CompileDispatchMessage -Scenario $scenario -TargetPath $emptyDir
-    Assert-True ($result.ExitCode -ne 0) 'compile-dispatch-message should exit non-zero for an empty target directory'
-    Assert-True ($null -ne $result.Json) 'compile-dispatch-message empty directory should emit parseable JSON payload'
-    Assert-ContainsText -Text $result.Text -Expected '未找到任何 work_order JSON' -Message 'compile-dispatch-message should reject empty target collections'
-}
-
-function Test-HydrateDispatchPacketPathOutsideRunNonZero {
-    $scenario = New-Scenario -Name 'hydrate-dispatch-packet-path-outside-run'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.dispatch_packet_path = 'docs/ai/runs/other-task/dispatch_packets/DP-B4-TEST-SUITE-001.json'
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-
-    $hydrate = Invoke-Hydrate -Scenario $scenario -TargetPath $workOrderPath
-    Assert-True ($hydrate.ExitCode -ne 0) 'hydrate should exit non-zero for dispatch_packet_path outside the current run'
-    Assert-True ($null -ne $hydrate.Json) 'hydrate boundary failure should emit parseable JSON payload'
-    Assert-ContainsText -Text $hydrate.Text -Expected '不在当前 task run 下' -Message 'hydrate boundary failure should mention the task-run violation'
-}
-
-function Test-HydrateMissingDispatchPacketFieldNonZero {
-    $scenario = New-Scenario -Name 'hydrate-missing-dispatch-packet-field'
-    $dispatchPacketPath = Join-Path $scenario.RunDir 'dispatch_packets/DP-B4-TEST-SUITE-001.json'
-    $dispatchPacket = Read-Json -PathValue $dispatchPacketPath
-    $dispatchPacket.PSObject.Properties.Remove('read_before_write')
-    Write-Json -PathValue $dispatchPacketPath -Data $dispatchPacket
-
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $hydrate = Invoke-Hydrate -Scenario $scenario -TargetPath $workOrderPath
-    Assert-True ($hydrate.ExitCode -ne 0) 'hydrate should exit non-zero when required dispatch_packet fields are missing'
-    Assert-True ($null -ne $hydrate.Json) 'hydrate missing dispatch_packet field should emit parseable JSON payload'
-    Assert-ContainsText -Text $hydrate.Text -Expected 'dispatch_packet.read_before_write' -Message 'hydrate should mention the missing dispatch_packet contract field'
-}
-
-function Test-ReturnPacketAuthorshipMismatch {
-    $scenario = New-Scenario -Name 'return-packet-authorship-mismatch'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    Set-ObjectProperty -Object $workOrder -Name 'expected_written_role' -Value 'control-plane-test-author'
-    Set-ObjectProperty -Object $workOrder -Name 'expected_written_by' -Value 'batch4-control-plane-test-subagent'
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-
-    $hydrate = Invoke-Hydrate -Scenario $scenario -TargetPath $workOrderPath
-    Assert-True ($hydrate.ExitCode -eq 0) 'hydrate should succeed before authorship mismatch validation'
-
-    $returnPacketPath = Get-ReturnPacketPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $returnPacket = Read-Json -PathValue $returnPacketPath
-    $returnPacket.written_role = 'control-plane-test-author'
-    $returnPacket.written_by = 'different-subagent'
-    Write-Json -PathValue $returnPacketPath -Data $returnPacket
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'authorship mismatch should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'authorship mismatch should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected '期望作者身份不一致' -Message 'validate output should mention the explicit expected_written_by mismatch'
-}
-
-function Test-ReturnPacketPatternContractMismatch {
-    $scenario = New-Scenario -Name 'return-packet-pattern-contract-mismatch'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $hydrate = Invoke-Hydrate -Scenario $scenario -TargetPath $workOrderPath
-    Assert-True ($hydrate.ExitCode -eq 0) 'hydrate should succeed before pattern-contract validation'
-
-    $hydratedWorkOrder = Read-Json -PathValue $workOrderPath
-    Assert-True ([int]@($hydratedWorkOrder.expected_written_by_patterns).Count -gt 0) 'hydrate should backfill expected_written_by_patterns before validation'
-
-    $returnPacketPath = Get-ReturnPacketPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $returnPacket = Read-Json -PathValue $returnPacketPath
-    $returnPacket.written_role = 'control-plane-test-author'
-    $returnPacket.written_by = 'random-worker'
-    Write-Json -PathValue $returnPacketPath -Data $returnPacket
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'pattern contract mismatch should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'pattern contract mismatch should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'expected_written_by_patterns 作者身份模式合同' -Message 'validate should reject written_by values that do not match the explicit written_by pattern contract'
-}
-
-function Test-ReturnPacketPatternContractSpoofedAliasFails {
-    $scenario = New-Scenario -Name 'return-packet-pattern-contract-spoofed-alias'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    Assert-True ([string]::IsNullOrWhiteSpace([string]$workOrder.expected_written_by)) 'spoofed alias test requires missing expected_written_by'
-    if ([int]@($workOrder.expected_written_by_patterns).Count -eq 0) {
-        Set-ObjectProperty -Object $workOrder -Name 'expected_written_by_patterns' -Value @('^batch4-control-plane-test-subagent$')
-        Write-Json -PathValue $workOrderPath -Data $workOrder
+function Test-ReviewMissingEvidenceCoverageFails {
+    $scenario = New-Scenario -Name 'review-missing-evidence-coverage'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.current_phase = 'review'
+    $state.verification_contract = New-VerificationContractFixture
+    $state.subtasks[0].status = 'completed'
+    $state.subtasks[0].result = [ordered]@{
+        status                    = 'completed'
+        written_by                = 'test-verifier'
+        written_role              = 'test-verifier'
+        summary                   = 'Completed with partial review evidence.'
+        changed_files             = @(
+            'tests/harness/control-plane.integration.ps1'
+        )
+        planned_files_not_changed = @()
+        verification              = [ordered]@{
+            commands = @(
+                'pwsh -NoProfile -ExecutionPolicy Bypass -File tests/harness/control-plane.integration.ps1'
+            )
+            result   = 'failed as expected'
+        }
+        deviations                = @()
+        blocked_by                = @()
+        risks                     = @()
+        follow_up                 = @()
+        review_evidence           = [ordered]@{
+            repro_before_fix = 'validate failed before the contract was filled.'
+        }
     }
-
-    $returnPacketPath = Get-ReturnPacketPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $returnPacket = Read-Json -PathValue $returnPacketPath
-    $returnPacket.written_role = 'control-plane-test-author'
-    $returnPacket.written_by = 'batch4-test-suite-subagent'
-    Write-Json -PathValue $returnPacketPath -Data $returnPacket
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'spoofed alias pattern mismatch should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'spoofed alias pattern mismatch should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'expected_written_by_patterns 作者身份模式合同' -Message 'validate should reject near-spoof written_by aliases when expected_written_by is missing'
+    Assert-True ($null -ne $result.Json) 'review missing evidence coverage should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'review missing evidence coverage should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'review_evidence' -Message 'validate should mention review_evidence coverage'
+    Assert-ContainsText -Text $result.Text -Expected 'pass_after_fix' -Message 'validate should mention an uncovered evidence slot'
 }
 
-function Test-InvalidWrittenByPatternFails {
-    $scenario = New-Scenario -Name 'invalid-written-by-pattern'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    Set-ObjectProperty -Object $workOrder -Name 'expected_written_by_patterns' -Value @('(')
-    Write-Json -PathValue $workOrderPath -Data $workOrder
+function Test-CompletedTaskWithOpenSubtasksFails {
+    $scenario = New-Scenario -Name 'completed-task-with-open-subtasks'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.status = 'completed'
+    $state.current_phase = 'review'
+    $state.verification_contract = New-VerificationContractFixture
+    $state.subtasks[0].status = 'pending'
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'invalid expected_written_by_patterns should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'invalid expected_written_by_patterns should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected '不是合法正则' -Message 'validate should reject malformed written_by pattern contracts'
+    Assert-True ($null -ne $result.Json) 'completed task with open subtasks should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'completed task with open subtasks should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'state.json.status=completed' -Message 'validate should mention the completed-task closure gate'
+    Assert-ContainsText -Text $result.Text -Expected 'ST-control-plane-tests' -Message 'validate should mention the unfinished subtask id'
 }
 
-function Test-WeakWrittenByPatternFails {
-    $scenario = New-Scenario -Name 'weak-written-by-pattern'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    Set-ObjectProperty -Object $workOrder -Name 'expected_written_by_patterns' -Value @('^.*$')
-    Write-Json -PathValue $workOrderPath -Data $workOrder
+function Test-ReinitExistingTaskFails {
+    $scenario = New-Scenario -Name 'reinit-existing-task-fails'
+    $first = Invoke-InitTask -Scenario $scenario
+    Assert-True ($first.ExitCode -eq 0) 'first init-task should succeed before duplicate init check'
+
+    $second = Invoke-InitTask -Scenario $scenario
+    Assert-True ($second.ExitCode -ne 0) 'second init-task should fail for the same task_id'
+    Assert-ContainsText -Text $second.Text -Expected 'already exists' -Message 'duplicate init-task should mention existing task_id'
+}
+
+function Test-DuplicateSubtaskIdFails {
+    $scenario = New-Scenario -Name 'duplicate-subtask-id'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.subtasks += $state.subtasks[0]
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'weak expected_written_by_patterns should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'weak expected_written_by_patterns should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected '不能包含通配、分组或量词' -Message 'validate should reject wildcard written_by pattern contracts that weaken authorship binding'
+    Assert-True ($null -ne $result.Json) 'duplicate subtask_id should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'duplicate subtask_id should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'subtask_id' -Message 'validate should mention duplicate subtask_id'
 }
 
-function Test-EscapedRegexWrittenByPatternFails {
-    $scenario = New-Scenario -Name 'escaped-regex-written-by-pattern'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    Set-ObjectProperty -Object $workOrder -Name 'expected_written_by_patterns' -Value @('^\d$')
-    Write-Json -PathValue $workOrderPath -Data $workOrder
+function Test-PendingSubtaskMissingPathsFails {
+    foreach ($status in @('pending', 'in_progress')) {
+        $scenario = New-Scenario -Name ("{0}-subtask-missing-paths" -f $status)
+        $state = New-StateObject -TaskId $scenario.TaskId
+        $state.subtasks[0].status = $status
+        $state.subtasks[0].read_paths = @()
+        $state.subtasks[0].write_paths = @()
+        Write-StateFixture -Scenario $scenario -State $state
+        Write-TaskMdFixture -Scenario $scenario
+        Write-EventsFixture -Scenario $scenario
+
+        $result = Invoke-Validate -Scenario $scenario
+        Assert-True ($null -ne $result.Json) ("{0} subtask missing path fields should emit parseable JSON" -f $status)
+        Assert-True (-not [bool]$result.Json.ok) ("{0} subtask missing path fields should fail validate" -f $status)
+        Assert-ContainsText -Text $result.Text -Expected 'read_paths' -Message ("validate should mention missing read_paths for {0}" -f $status)
+        Assert-ContainsText -Text $result.Text -Expected 'write_paths' -Message ("validate should mention missing write_paths for {0}" -f $status)
+    }
+}
+
+function Test-CompletedSubtaskMissingResultFieldsFails {
+    $scenario = New-Scenario -Name 'completed-subtask-missing-result-fields'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.subtasks[0].status = 'completed'
+    $state.subtasks[0].result = [ordered]@{
+        status                 = 'completed'
+        changed_files          = @()
+        planned_files_not_changed = @()
+        deviations             = @()
+        blocked_by             = @()
+        risks                  = @()
+        follow_up              = @()
+        written_by             = 'test-verifier'
+    }
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'escaped regex expected_written_by_patterns should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'escaped regex expected_written_by_patterns should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected '不能包含通配、分组或量词' -Message 'validate should reject regex escape semantics inside expected_written_by_patterns'
+    Assert-True ($null -ne $result.Json) 'completed subtask missing result fields should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'completed subtask missing result fields should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'result.summary' -Message 'validate should mention missing result.summary'
+    Assert-ContainsText -Text $result.Text -Expected 'written_role' -Message 'validate should mention missing written_role'
+    Assert-ContainsText -Text $result.Text -Expected 'verification' -Message 'validate should mention missing verification'
 }
 
-function Test-ReturnPacketCoordinatorIdentityRejected {
-    $scenario = New-Scenario -Name 'return-packet-coordinator-identity'
-    $returnPacketPath = Get-ReturnPacketPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $returnPacket = Read-Json -PathValue $returnPacketPath
-    $returnPacket.written_role = 'control-plane-test-author'
-    $returnPacket.written_by = 'main-coordinator'
-    Write-Json -PathValue $returnPacketPath -Data $returnPacket
+function Test-BlockedSubtaskMissingResultFails {
+    $scenario = New-Scenario -Name 'blocked-subtask-missing-result'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.subtasks[0].status = 'blocked'
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'coordinator identity should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'coordinator identity should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected '协调器身份' -Message 'validate output should reject coordinator authorship'
+    Assert-True ($null -ne $result.Json) 'blocked subtask missing result should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'blocked subtask missing result should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'result' -Message 'validate should mention missing result for blocked subtask'
 }
 
-function Test-ReturnPacketPathHijackFails {
-    $scenario = New-Scenario -Name 'return-packet-path-hijack'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.return_packet_path = 'docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-REVIEW-ACCEPT-001.json'
-    Write-Json -PathValue $workOrderPath -Data $workOrder
+function Test-CompletedSubtaskChangedFilesOutsideWritePathsFails {
+    $scenario = New-Scenario -Name 'completed-subtask-changed-files-outside-write-paths'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.subtasks[0].status = 'completed'
+    $state.subtasks[0].result = [ordered]@{
+        status                   = 'completed'
+        written_by               = 'test-verifier'
+        written_role             = 'test-verifier'
+        summary                  = 'Completed with unauthorized file mutation.'
+        changed_files            = @(
+            'tests/harness/control-plane.integration.ps1',
+            'skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1'
+        )
+        planned_files_not_changed = @()
+        verification             = [ordered]@{
+            commands = @(
+                'pwsh -NoProfile -ExecutionPolicy Bypass -File tests/harness/control-plane.integration.ps1'
+            )
+            result   = 'failed as expected'
+        }
+        deviations               = @()
+        blocked_by               = @()
+        risks                    = @()
+        follow_up                = @()
+    }
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'return_packet path hijack should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'return_packet path hijack should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'return_packet_path 文件名与 work_order 不一致' -Message 'validate output should reject return_packet_path hijacking'
+    Assert-True ($null -ne $result.Json) 'completed subtask changed_files outside write_paths should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'completed subtask changed_files outside write_paths should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'changed_files' -Message 'validate should mention changed_files scope mismatch'
+    Assert-ContainsText -Text $result.Text -Expected 'write_paths' -Message 'validate should mention write_paths scope mismatch'
 }
 
-function Test-DispatchPacketPathOutsideRunFails {
-    $scenario = New-Scenario -Name 'dispatch-packet-path-outside-run'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.dispatch_packet_path = 'docs/ai/runs/other-task/dispatch_packets/DP-B4-TEST-SUITE-001.json'
-    Write-Json -PathValue $workOrderPath -Data $workOrder
+function Test-WrittenRoleMismatchFails {
+    $scenario = New-Scenario -Name 'written-role-mismatch'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    $state.subtasks[0].status = 'completed'
+    $state.subtasks[0].result = [ordered]@{
+        status                   = 'completed'
+        written_by               = 'reviewer'
+        written_role             = 'reviewer'
+        summary                  = 'Completed by an unexpected role.'
+        changed_files            = @(
+            'tests/harness/control-plane.integration.ps1'
+        )
+        planned_files_not_changed = @()
+        verification             = [ordered]@{
+            commands = @(
+                'pwsh -NoProfile -ExecutionPolicy Bypass -File tests/harness/control-plane.integration.ps1'
+            )
+            result   = 'failed as expected'
+        }
+        deviations               = @()
+        blocked_by               = @()
+        risks                    = @()
+        follow_up                = @()
+    }
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'dispatch_packet_path outside run should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'dispatch_packet_path outside run should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected '不在当前 task run 下' -Message 'validate output should mention the task-run boundary violation'
+    Assert-True ($null -ne $result.Json) 'written_role mismatch should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'written_role mismatch should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'written_role' -Message 'validate should mention written_role mismatch'
+    Assert-ContainsText -Text $result.Text -Expected 'subtask.role' -Message 'validate should bind written_role to subtask.role'
 }
 
-function Test-DispatchPacketPathReparsePointFails {
-    $scenario = New-Scenario -Name 'dispatch-packet-path-reparse-point'
-    $outsideDispatchRoot = Join-Path $scenario.RepoRoot 'outside-dispatch-packets'
-    New-Item -ItemType Directory -Path $outsideDispatchRoot -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $scenario.RunDir 'dispatch_packets/DP-B4-TEST-SUITE-001.json') -Destination (Join-Path $outsideDispatchRoot 'DP-B4-TEST-SUITE-001.json') -Force
+function Test-ManifestOrRoleMapExtraRoleFails {
+    foreach ($fixtureKind in @('manifest', 'role-map')) {
+        $scenario = New-Scenario -Name ("{0}-extra-role" -f $fixtureKind)
+        $state = New-StateObject -TaskId $scenario.TaskId
+        Write-StateFixture -Scenario $scenario -State $state
+        Write-TaskMdFixture -Scenario $scenario
+        Write-EventsFixture -Scenario $scenario
 
-    $junctionPath = Join-Path $scenario.RunDir 'dispatch_packets/junction'
-    New-Item -ItemType Junction -Path $junctionPath -Target $outsideDispatchRoot | Out-Null
+        if ($fixtureKind -eq 'manifest') {
+            $manifest = Read-Json -PathValue (Get-ManifestPath -Scenario $scenario)
+            $items = @($manifest.items)
+            $items += [PSCustomObject]@{
+                id          = 'unmapped-reviewer'
+                source      = 'agents/unmapped-reviewer.md'
+                target      = 'unmapped-reviewer.md'
+                description = 'Unmapped reviewer'
+                tools       = @('Read')
+                model       = 'inherit'
+            }
+            $manifest.items = $items
+            Write-Json -PathValue (Get-ManifestPath -Scenario $scenario) -Data $manifest
+        } else {
+            $roleMap = Read-Json -PathValue (Get-RoleMapPath -Scenario $scenario)
+            $roleMap.roles | Add-Member -NotePropertyName 'unmapped-reviewer' -NotePropertyValue ([PSCustomObject]@{
+                agent_type = 'default'
+                label = 'Unmapped Reviewer'
+                allow_write = $false
+                allow_shell = $false
+            })
+            Write-Json -PathValue (Get-RoleMapPath -Scenario $scenario) -Data $roleMap
+        }
 
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.dispatch_packet_path = ("docs/ai/runs/{0}/dispatch_packets/junction/DP-B4-TEST-SUITE-001.json" -f $scenario.TaskId)
-    Write-Json -PathValue $workOrderPath -Data $workOrder
+        $result = Invoke-Validate -Scenario $scenario
+        Assert-True ($null -ne $result.Json) ("{0} extra role should emit parseable JSON" -f $fixtureKind)
+        Assert-True (-not [bool]$result.Json.ok) ("{0} extra role should fail validate" -f $fixtureKind)
+        Assert-ContainsText -Text $result.Text -Expected 'role' -Message ("validate should mention role alignment for {0}" -f $fixtureKind)
+        if ($fixtureKind -eq 'manifest') {
+            Assert-ContainsText -Text $result.Text -Expected 'manifest' -Message 'validate should mention manifest alignment'
+        } else {
+            Assert-ContainsText -Text $result.Text -Expected 'role-map' -Message 'validate should mention role-map alignment'
+        }
+    }
+}
+
+function Test-RootArrayFieldStringFails {
+    foreach ($fieldName in @('scope_in', 'acceptance')) {
+        $scenario = New-Scenario -Name ("root-array-field-string-{0}" -f $fieldName)
+        $state = New-StateObject -TaskId $scenario.TaskId
+        $state.$fieldName = 'tests/harness/control-plane.integration.ps1'
+        Write-StateFixture -Scenario $scenario -State $state
+        Write-TaskMdFixture -Scenario $scenario
+        Write-EventsFixture -Scenario $scenario
+
+        $result = Invoke-Validate -Scenario $scenario
+        Assert-True ($null -ne $result.Json) ("root array field {0} type mismatch should emit parseable JSON" -f $fieldName)
+        Assert-True (-not [bool]$result.Json.ok) ("root array field {0} type mismatch should fail validate" -f $fieldName)
+        Assert-ContainsText -Text $result.Text -Expected $fieldName -Message ("validate should mention root array field {0}" -f $fieldName)
+        Assert-ContainsText -Text $result.Text -Expected 'array' -Message ("validate should mention array type for root field {0}" -f $fieldName)
+    }
+}
+
+function Test-SubtaskArrayFieldStringFails {
+    $cases = @(
+        @{ Field = 'read_paths'; Value = 'tests/README.md' },
+        @{ Field = 'write_paths'; Value = 'tests/harness/control-plane.integration.ps1' },
+        @{ Field = 'must_include'; Value = 'happy path coverage'; Parent = 'assignment' }
+    )
+
+    foreach ($case in $cases) {
+        $scenario = New-Scenario -Name ("subtask-array-field-string-{0}" -f $case.Field)
+        $state = New-StateObject -TaskId $scenario.TaskId
+        if ($case.ContainsKey('Parent')) {
+            $state.subtasks[0].assignment.($case.Field) = $case.Value
+        } else {
+            $state.subtasks[0].($case.Field) = $case.Value
+        }
+        Write-StateFixture -Scenario $scenario -State $state
+        Write-TaskMdFixture -Scenario $scenario
+        Write-EventsFixture -Scenario $scenario
+
+        $result = Invoke-Validate -Scenario $scenario
+        Assert-True ($null -ne $result.Json) ("subtask array field {0} type mismatch should emit parseable JSON" -f $case.Field)
+        Assert-True (-not [bool]$result.Json.ok) ("subtask array field {0} type mismatch should fail validate" -f $case.Field)
+        if ($case.ContainsKey('Parent')) {
+            Assert-ContainsText -Text $result.Text -Expected ("assignment.{0}" -f $case.Field) -Message ("validate should mention assignment array field {0}" -f $case.Field)
+        } else {
+            Assert-ContainsText -Text $result.Text -Expected $case.Field -Message ("validate should mention subtask array field {0}" -f $case.Field)
+        }
+        Assert-ContainsText -Text $result.Text -Expected 'array' -Message ("validate should mention array type for subtask field {0}" -f $case.Field)
+    }
+}
+
+function Test-ResultArrayFieldStringFails {
+    $cases = @(
+        @{ Name = 'result.verification.commands'; Mutate = {
+                param($subtask)
+                $subtask.status = 'completed'
+                $subtask.result = [ordered]@{
+                    status        = 'completed'
+                    written_role  = 'test-verifier'
+                    summary       = 'Completed with malformed verification commands.'
+                    changed_files = @('tests/harness/control-plane.integration.ps1')
+                    verification  = [ordered]@{
+                        commands = 'powershell -File tests/harness/control-plane.integration.ps1'
+                    }
+                    risks         = @()
+                    follow_up     = @()
+                }
+            }
+        },
+        @{ Name = 'blocked_by'; Mutate = {
+                param($subtask)
+                $subtask.status = 'blocked'
+                $subtask.result = [ordered]@{
+                    status        = 'blocked'
+                    summary       = 'Blocked with malformed blocked_by.'
+                    blocked_by    = 'missing-runtime-support'
+                    changed_files = @()
+                    verification  = @(
+                        'validate should reject blocked_by string'
+                    )
+                    risks         = @()
+                    follow_up     = @()
+                }
+            }
+        }
+    )
+
+    foreach ($case in $cases) {
+        $scenario = New-Scenario -Name (($case.Name -replace '[^a-zA-Z0-9]+', '-').ToLowerInvariant())
+        $state = New-StateObject -TaskId $scenario.TaskId
+        & $case.Mutate $state.subtasks[0]
+        Write-StateFixture -Scenario $scenario -State $state
+        Write-TaskMdFixture -Scenario $scenario
+        Write-EventsFixture -Scenario $scenario
+
+        $result = Invoke-Validate -Scenario $scenario
+        Assert-True ($null -ne $result.Json) ("result array field {0} type mismatch should emit parseable JSON" -f $case.Name)
+        Assert-True (-not [bool]$result.Json.ok) ("result array field {0} type mismatch should fail validate" -f $case.Name)
+        Assert-ContainsText -Text $result.Text -Expected $case.Name -Message ("validate should mention result array field {0}" -f $case.Name)
+        Assert-ContainsText -Text $result.Text -Expected 'array' -Message ("validate should mention array type for result field {0}" -f $case.Name)
+    }
+}
+
+function Test-InvalidEventJsonLineFails {
+    $scenario = New-Scenario -Name 'invalid-event-json-line'
+    $state = New-StateObject -TaskId $scenario.TaskId
+    Write-StateFixture -Scenario $scenario -State $state
+    Write-TaskMdFixture -Scenario $scenario
+    Write-EventsFixture -Scenario $scenario -Lines @(
+        '{"ts":"2026-05-29T00:00:00+08:00","actor":"main-coordinator","type":"task_created","summary":"valid line","refs":["docs/ai/tasks/task-invalid-event-json-line/state.json"]}',
+        '{"ts":"2026-05-29T00:00:01+08:00","actor":"main-coordinator",'
+    )
 
     $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'dispatch_packet_path via reparse point should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'dispatch_packet_path via reparse point should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'reparse point' -Message 'validate should reject artifact paths that traverse a reparse point'
+    Assert-True ($null -ne $result.Json) 'invalid JSONL line should emit parseable JSON'
+    Assert-True (-not [bool]$result.Json.ok) 'invalid JSONL line should fail validate'
+    Assert-ContainsText -Text $result.Text -Expected 'events.jsonl' -Message 'validate should mention events.jsonl'
+    Assert-ContainsText -Text $result.Text -Expected 'JSON' -Message 'validate should mention invalid JSON line'
 }
 
-function Test-DispatchPacketTaskIdSpoofStillFails {
-    $scenario = New-Scenario -Name 'dispatch-packet-taskid-spoof'
-    $spoofTaskId = 'spoofed-task-id'
-    $spoofDispatchDir = Join-Path $scenario.RepoRoot ("docs/ai/runs/{0}/dispatch_packets" -f $spoofTaskId)
-    New-Item -ItemType Directory -Path $spoofDispatchDir -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $scenario.RunDir 'dispatch_packets/DP-B4-TEST-SUITE-001.json') -Destination (Join-Path $spoofDispatchDir 'DP-B4-TEST-SUITE-001.json') -Force
-
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.task_id = $spoofTaskId
-    $workOrder.dispatch_packet_path = ("docs/ai/runs/{0}/dispatch_packets/DP-B4-TEST-SUITE-001.json" -f $spoofTaskId)
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'spoofed task_id should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'spoofed task_id should not bypass dispatch_packet_path run boundary'
-    Assert-ContainsText -Text $result.Text -Expected '不在当前 task run 下' -Message 'validate output should reject task_id + path spoofing'
-}
-
-function Test-ExplicitDispatchPacketRequiredOverridesHeuristic {
-    $scenario = New-Scenario -Name 'explicit-dispatch-packet-required'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-REVIEW-ACCEPT-001'
-    $workOrder = Read-Json -PathValue $workOrderPath
-    Set-ObjectProperty -Object $workOrder -Name 'dispatch_packet_required' -Value $true
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'explicit dispatch_packet_required should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'explicit dispatch_packet_required should force validate failure when packet is missing'
-    Assert-ContainsText -Text $result.Text -Expected '复杂任务缺少 dispatch_packet_path' -Message 'validate output should honor the explicit dispatch_packet_required gate'
-}
-
-function Test-ReturnPacketRequiredFalseStillFails {
-    $scenario = New-Scenario -Name 'return-packet-required-false'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $returnPacketPath = Get-ReturnPacketPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.return_packet_required = $false
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-    Remove-Item -LiteralPath $returnPacketPath -Force
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'return_packet_required=false bypass attempt should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'return_packet_required=false should not bypass validate'
-    Assert-ContainsText -Text $result.Text -Expected 'return_packet_required 必须为 true' -Message 'validate should reject return_packet_required=false'
-    Assert-ContainsText -Text $result.Text -Expected '缺少必需 return_packet' -Message 'validate should still hard-fail missing return_packet'
-}
-
-function Test-MissingReturnPacketStillFailsWithoutWorkOrderId {
-    $scenario = New-Scenario -Name 'missing-return-packet-without-workorder-id'
-    $workOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $returnPacketPath = Get-ReturnPacketPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-
-    $workOrder = Read-Json -PathValue $workOrderPath
-    $workOrder.PSObject.Properties.Remove('work_order_id')
-    Write-Json -PathValue $workOrderPath -Data $workOrder
-    Remove-Item -LiteralPath $returnPacketPath -Force
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'missing work_order_id plus missing return_packet should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'missing work_order_id plus missing return_packet should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'work_order 缺少字段 work_order_id' -Message 'validate output should mention missing work_order_id'
-    Assert-ContainsText -Text $result.Text -Expected '缺少必需 return_packet' -Message 'validate should still hard-fail missing return_packet without relying on work_order_id'
-}
-
-function Test-DuplicateWorkOrderIdFails {
-    $scenario = New-Scenario -Name 'duplicate-work-order-id'
-    $sourceWorkOrderPath = Get-WorkOrderPath -Scenario $scenario -WorkOrderId 'WO-B4-TEST-SUITE-001'
-    $duplicateWorkOrderPath = Join-Path $scenario.RunDir 'work_orders/WO-B4-TEST-SUITE-001-DUPLICATE.json'
-    Copy-Item -LiteralPath $sourceWorkOrderPath -Destination $duplicateWorkOrderPath -Force
-
-    $result = Invoke-Validate -Scenario $scenario
-    Assert-True ($null -ne $result.Json) 'duplicate work_order_id should emit parseable JSON'
-    Assert-True (-not [bool]$result.Json.ok) 'duplicate work_order_id should fail validate'
-    Assert-ContainsText -Text $result.Text -Expected 'work_order_id 重复' -Message 'validate output should mention duplicate work_order_id'
-}
-
-Run-TestCase -Name 'Happy path: current run passes validate gate' -Body { Test-HappyPath }
+Run-TestCase -Name 'Happy path: init-task creates state/task/events and validate passes' -Body { Test-InitTaskHappyPath }
+Run-TestCase -Name 'Happy path: new-task produces unique task_id values for the same topic' -Body { Test-NewTaskGeneratesUniqueIds }
+Run-TestCase -Name 'Happy path: sync-task-md rewrites summary' -Body { Test-SyncTaskMdHappyPath }
+Run-TestCase -Name 'Happy path: append-event keeps validate green' -Body { Test-AppendEventHappyPath }
+Run-TestCase -Name 'Happy path: build-subtask-brief outputs a subtask brief' -Body { Test-BuildSubtaskBriefHappyPath }
+Run-TestCase -Name 'Happy path: build-execute-handoff outputs Execute Window handoff text' -Body { Test-BuildExecuteHandoffHappyPath }
 Run-TestCase -Name 'Bad path: missing TaskId should fail validate' -Body { Test-MissingTaskIdFails }
-Run-TestCase -Name 'Happy path: role-map and manifest consistency should pass validate' -Body { Test-RoleMapManifestConsistencyHappyPath }
-Run-TestCase -Name 'Bad path: draft plan should fail validate' -Body { Test-DraftPlanValidate }
-Run-TestCase -Name 'Bad path: frozen run plan content drift from source frozen plan should fail validate' -Body { Test-FrozenRunPlanContentDriftFailsValidate }
-Run-TestCase -Name 'Bad path: run-declared source_plan_json should not bypass frozen plan drift validate' -Body { Test-FrozenRunPlanSourcePlanJsonBypassFailsValidate }
-Run-TestCase -Name 'Bad path: bootstrap should reject draft source plan' -Body { Test-DraftPlanBootstrap }
-Run-TestCase -Name 'Bad path: bootstrap should reject existing run draft plan' -Body { Test-ExistingRunDraftBootstrap }
-Run-TestCase -Name 'Bad path: bootstrap should reject existing run frozen content drift' -Body { Test-ExistingRunFrozenContentDriftBootstrap }
-Run-TestCase -Name 'Bad path: bootstrap should reject existing run source_plan_json bypass' -Body { Test-ExistingRunSourcePlanJsonBypassBootstrap }
-Run-TestCase -Name 'Bad path: role-map invalid agent_type should fail validate' -Body { Test-RoleMapInvalidAgentType }
-Run-TestCase -Name 'Bad path: role-map missing required role should fail validate' -Body { Test-RoleMapMissingRequiredRole }
-Run-TestCase -Name 'Bad path: missing read_paths_mandatory should fail validate' -Body { Test-MissingReadPaths }
-Run-TestCase -Name 'Bad path: missing work_orders directory should fail validate' -Body { Test-MissingWorkOrdersDirectoryFails }
-Run-TestCase -Name 'Bad path: weakened required_return_fields should not bypass minimum return fields' -Body { Test-WeakenedRequiredReturnFields }
-Run-TestCase -Name 'Bad path: dispatch_message_raw inconsistent with contract should fail validate' -Body { Test-DispatchMessageMismatch }
-Run-TestCase -Name 'Bad path: spoofed WO-B3 prefix should still fail dispatch gates' -Body { Test-SpoofedBatch3PrefixStillFails }
-Run-TestCase -Name 'Bad path: complex task missing dispatch_packet should fail validate' -Body { Test-MissingDispatchPacket }
-Run-TestCase -Name 'Bad path: missing return_packet should fail validate' -Body { Test-MissingReturnPacketHardFail }
-Run-TestCase -Name 'Bad path: copied return_packet payload should fail identity binding checks' -Body { Test-ReturnPacketPayloadIdentityMismatchFails }
-Run-TestCase -Name 'Happy path: hydrate should rewrite stale dispatch_message_raw and backfill authorship fields' -Body { Test-HydrateRewritesStaleDispatchMessage }
-Run-TestCase -Name 'Bad path: hydrate compile failure should exit non-zero' -Body { Test-HydrateCompileFailureNonZero }
-Run-TestCase -Name 'Bad path: hydrate invalid JSON should exit non-zero' -Body { Test-HydrateInvalidJsonNonZero }
-Run-TestCase -Name 'Bad path: hydrate missing path should exit non-zero' -Body { Test-HydrateMissingPathNonZero }
-Run-TestCase -Name 'Bad path: hydrate missing task work_orders should exit non-zero' -Body { Test-HydrateMissingTaskWorkOrdersNonZero }
-Run-TestCase -Name 'Bad path: compile-dispatch-message empty target directory should exit non-zero' -Body { Test-CompileDispatchMessageEmptyDirectoryNonZero }
-Run-TestCase -Name 'Bad path: hydrate dispatch_packet_path outside current run should exit non-zero' -Body { Test-HydrateDispatchPacketPathOutsideRunNonZero }
-Run-TestCase -Name 'Bad path: hydrate missing dispatch_packet contract field should exit non-zero' -Body { Test-HydrateMissingDispatchPacketFieldNonZero }
-Run-TestCase -Name 'Bad path: return_packet authorship mismatch should fail validate' -Body { Test-ReturnPacketAuthorshipMismatch }
-Run-TestCase -Name 'Bad path: return_packet written_by must match expected_written_by_patterns contract' -Body { Test-ReturnPacketPatternContractMismatch }
-Run-TestCase -Name 'Bad path: return_packet spoofed alias should fail expected_written_by_patterns contract' -Body { Test-ReturnPacketPatternContractSpoofedAliasFails }
-Run-TestCase -Name 'Bad path: malformed expected_written_by_patterns should fail validate' -Body { Test-InvalidWrittenByPatternFails }
-Run-TestCase -Name 'Bad path: wildcard expected_written_by_patterns should fail validate' -Body { Test-WeakWrittenByPatternFails }
-Run-TestCase -Name 'Bad path: regex escape expected_written_by_patterns should fail validate' -Body { Test-EscapedRegexWrittenByPatternFails }
-Run-TestCase -Name 'Bad path: return_packet coordinator identity should be rejected' -Body { Test-ReturnPacketCoordinatorIdentityRejected }
-Run-TestCase -Name 'Bad path: return_packet_path hijack should fail validate' -Body { Test-ReturnPacketPathHijackFails }
-Run-TestCase -Name 'Bad path: dispatch_packet_path outside current run should fail validate' -Body { Test-DispatchPacketPathOutsideRunFails }
-Run-TestCase -Name 'Bad path: dispatch_packet_path through reparse point should fail validate' -Body { Test-DispatchPacketPathReparsePointFails }
-Run-TestCase -Name 'Bad path: spoofed task_id should not bypass dispatch_packet_path run boundary' -Body { Test-DispatchPacketTaskIdSpoofStillFails }
-Run-TestCase -Name 'Bad path: explicit dispatch_packet_required should force dispatch_packet gate' -Body { Test-ExplicitDispatchPacketRequiredOverridesHeuristic }
-Run-TestCase -Name 'Bad path: return_packet_required=false should not bypass missing return_packet hard fail' -Body { Test-ReturnPacketRequiredFalseStillFails }
-Run-TestCase -Name 'Bad path: missing work_order_id should not bypass missing return_packet hard fail' -Body { Test-MissingReturnPacketStillFailsWithoutWorkOrderId }
-Run-TestCase -Name 'Bad path: duplicate work_order_id should fail validate' -Body { Test-DuplicateWorkOrderIdFails }
+Run-TestCase -Name 'Bad path: duplicate init-task for an existing task_id should fail' -Body { Test-ReinitExistingTaskFails }
+Run-TestCase -Name 'Bad path: state.json missing required fields should fail validate' -Body { Test-StateMissingRequiredFieldsFails }
+Run-TestCase -Name 'Bad path: invalid current_phase should fail validate' -Body { Test-InvalidCurrentPhaseFails }
+Run-TestCase -Name 'Bad path: code_impl without verification_contract should fail validate' -Body { Test-CodeImplMissingVerificationContractFails }
+Run-TestCase -Name 'Bad path: review without evidence slot coverage should fail validate' -Body { Test-ReviewMissingEvidenceCoverageFails }
+Run-TestCase -Name 'Bad path: completed task with unfinished subtasks should fail validate' -Body { Test-CompletedTaskWithOpenSubtasksFails }
+Run-TestCase -Name 'Bad path: duplicate subtask_id should fail validate' -Body { Test-DuplicateSubtaskIdFails }
+Run-TestCase -Name 'Bad path: pending or in_progress subtask missing read_paths/write_paths should fail validate' -Body { Test-PendingSubtaskMissingPathsFails }
+Run-TestCase -Name 'Bad path: completed subtask missing result.summary/changed_files/verification should fail validate' -Body { Test-CompletedSubtaskMissingResultFieldsFails }
+Run-TestCase -Name 'Bad path: blocked subtask missing result should fail validate' -Body { Test-BlockedSubtaskMissingResultFails }
+Run-TestCase -Name 'Bad path: completed subtask changed_files outside write_paths should fail validate' -Body { Test-CompletedSubtaskChangedFilesOutsideWritePathsFails }
+Run-TestCase -Name 'Bad path: written_role mismatch with subtask.role should fail validate' -Body { Test-WrittenRoleMismatchFails }
+Run-TestCase -Name 'Bad path: manifest or role-map extra role should fail validate' -Body { Test-ManifestOrRoleMapExtraRoleFails }
+Run-TestCase -Name 'Bad path: root array field written as string should fail validate' -Body { Test-RootArrayFieldStringFails }
+Run-TestCase -Name 'Bad path: subtask array field written as string should fail validate' -Body { Test-SubtaskArrayFieldStringFails }
+Run-TestCase -Name 'Bad path: result array field written as string should fail validate' -Body { Test-ResultArrayFieldStringFails }
+Run-TestCase -Name 'Bad path: invalid JSON line in events.jsonl should fail validate' -Body { Test-InvalidEventJsonLineFails }
 
 Write-Host ("TOTAL PASS {0}" -f $script:PassCount)
 if ($script:Failures.Count -gt 0) {
@@ -1045,8 +951,11 @@ if ($script:Failures.Count -gt 0) {
     foreach ($failure in $script:Failures) {
         Write-Host ("  {0}" -f $failure)
     }
+    Cleanup-TempRoot
     exit 1
 }
 
 Write-Host 'ALL TESTS PASSED'
+Cleanup-TempRoot
 exit 0
+

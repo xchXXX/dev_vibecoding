@@ -57,8 +57,10 @@ Assert-Match -Value $skillContent -Pattern '## Trigger Checklist /' -Message 'SK
 Assert-Match -Value $skillContent -Pattern '## Usage /' -Message 'SKILL.md must include a usage section'
 Assert-Match -Value $skillContent -Pattern '## Standard Loop /' -Message 'SKILL.md must include the standard failure-memory loop'
 Assert-Match -Value $skillContent -Pattern '## Actions /' -Message 'SKILL.md must document the supported actions'
-Assert-Match -Value $skillContent -Pattern '\$codexHome = if \(\$env:CODEX_HOME\) \{ \$env:CODEX_HOME \} else \{ Join-Path \$env:USERPROFILE ''.codex'' \}' -Message 'SKILL.md must show CODEX_HOME-aware runtime resolution before falling back to USERPROFILE'
-Assert-Match -Value $skillContent -Pattern '\$runner = Join-Path \$codexHome ''skills\\command-failure-memory\\scripts\\command-failure-memory\.cmd''' -Message 'SKILL.md must include the primary runtime launcher path example'
+Assert-Match -Value $skillContent -Pattern '\$workspaceRunner = Join-Path \(Get-Location\) ''skills\\command-failure-memory\\scripts\\command-failure-memory\.cmd''' -Message 'SKILL.md must show workspace-local launcher resolution first'
+Assert-Match -Value $skillContent -Pattern '\$codexHome = if \(\$env:CODEX_HOME\) \{ \$env:CODEX_HOME \} else \{ Join-Path \$env:USERPROFILE ''.codex'' \}' -Message 'SKILL.md must remain CODEX_HOME-aware when workspace-local launcher is absent'
+Assert-Match -Value $skillContent -Pattern '\$runtimeRunner = Join-Path \$codexHome ''skills\\command-failure-memory\\scripts\\command-failure-memory\.cmd''' -Message 'SKILL.md must include the runtime launcher path example'
+Assert-Match -Value $skillContent -Pattern '\$fallbackRunner = Join-Path \$env:USERPROFILE ''.codex\\skills\\command-failure-memory\\scripts\\command-failure-memory\.cmd''' -Message 'SKILL.md must include the explicit USERPROFILE fallback path example'
 Assert-Match -Value $skillContent -Pattern 'command-failure-memory\.py' -Message 'SKILL.md must explain the compatible Python backend'
 Assert-Match -Value $skillContent -Pattern 'command-failure-memory\.ps1' -Message 'SKILL.md must document the PowerShell fallback/backend'
 Assert-Match -Value $skillContent -Pattern '-Action record-failure' -Message 'SKILL.md must show record-failure usage'
@@ -70,6 +72,6 @@ Assert-Match -Value $skillContent -Pattern 'ScopeKind' -Message 'SKILL.md must e
 $openAiYaml = Get-Content -LiteralPath $openAiYamlPath -Raw -Encoding UTF8
 Assert-Match -Value $openAiYaml -Pattern 'display_name:\s*"Command Failure Memory"' -Message 'openai.yaml must expose the expected display name'
 Assert-Match -Value $openAiYaml -Pattern 'short_description:\s*".*failed command.*retry loops.*querying history.*verified fixes.*"' -Message 'openai.yaml short_description must describe failure-memory retry handling'
-Assert-Match -Value $openAiYaml -Pattern 'default_prompt:\s*".*Automatically use.*command-failure-memory\.cmd.*record-failure.*query-before-retry.*record-success.*"' -Message 'openai.yaml default_prompt must describe automatic use, the launcher, and the full loop'
+Assert-Match -Value $openAiYaml -Pattern 'default_prompt:\s*".*Automatically use.*\.\\\\skills\\\\command-failure-memory\\\\scripts\\\\command-failure-memory\.cmd.*%CODEX_HOME%\\\\skills\\\\command-failure-memory\\\\scripts\\\\command-failure-memory\.cmd.*%USERPROFILE%\\\\.codex\\\\skills\\\\command-failure-memory\\\\scripts\\\\command-failure-memory\.cmd.*record-failure.*query-before-retry.*record-success.*"' -Message 'openai.yaml default_prompt must describe workspace-local, runtime, and fallback launcher resolution plus the full loop'
 
 Write-Host 'PASS: command-failure-memory skill metadata and documentation contract'

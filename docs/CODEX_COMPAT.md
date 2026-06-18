@@ -9,15 +9,18 @@
 ## 冻结结论
 
 - Claude 侧依赖：`agents + hooks + settings`
-- Codex 侧依赖：`skills + AGENTS.md + scripts + doctor`
+- Codex 侧最小闭环依赖：`skills + AGENTS.md + scripts + doctor`
+- 截至 `2026-06`，Codex 已支持自身 hooks；当前仓库已落地项目级 `PreToolUse` 最小接线
 
 ## 不做错误假设
 
-- 不假设 Codex 支持 Claude 等价的 hooks 事件
+- 不假设 Codex hooks 与 Claude hooks 完全等价
+- 不假设 Codex hooks 已覆盖所有工具与所有等价写入路径
 - 不假设 Codex 能自动识别任意自定义目录下的 skills
 - 不把 `~/.codex/skills/` 运行时目录当作长期真源
 - 不假设 `codex exec` 内部 PowerShell 一定处于 FullLanguage；关键 skill 需要提供受限会话可用的兼容入口
 - 不假设 Windows 上的 `codex exec` blind forward-test 一定能稳定穿过失败 shell 回合；CLI 诊断与真实子代理盲测要分开验收
+- 不假设“已经切到 `pwsh7`”就等于 Windows 命令不再有 quoting、wrapper 或保留名噪音问题
 
 ## 三层映射
 
@@ -36,6 +39,8 @@
 - 路径：`<project>/AGENTS.md`
 - 路径：`<project>/docs/ai/`
 - 路径：`<project>/config/ai/`
+- 路径：`<project>/rules/registry/*`
+- 路径：`<project>/rules/items/<kind>/*`
 - 职责：提供项目边界、入口、增量规则与项目专属模板
 
 ## 当前最小托管范围
@@ -63,6 +68,15 @@
 - `AGENTS.md`
 - `docs/ai/`
 - `config/ai/`
+- `rules/registry/RULES_ENTRY.md`
+- `rules/registry/*`
+- `rules/items/<kind>/*`
+
+其中：
+
+- `docs/SUBAGENT_GOVERNANCE.md` 继续作为跨项目复用的全局治理真源。
+- `rules/registry/* + rules/items/<kind>/*` 作为项目级 rules system，负责当前仓库的可消费规则入口。
+- 历史上的 `rules/common/SUBAGENT_RULES.md` 不再视为项目规则唯一入口；若仍被旧留痕引用，只按兼容语境保留。
 
 ### 3. 最小闭环
 
@@ -74,6 +88,50 @@ Codex 侧最小闭环由以下组合承担：
 - `sync-codex.ps1`
 - 最小 Codex doctor / validate 校验
 - 项目入口文档与运行留痕
+
+当平台可用时，Codex hooks 可作为额外 guardrail 挂载在这套闭环之前；但 hooks 不代替：
+
+- `scripts/*.ps1` 的统一规则判断
+- doctor / validate 的最终校验
+- CI 或提交前检查的硬闸门
+
+当前推荐分工：
+
+- hooks：前置观测、补提示、补上下文
+- `validate-doc-routing.ps1`：文档分流与实现前闸门真源
+- `validate-plan-docs.ps1`：长任务 `plan.md / execution.md / acceptance.md` 章节真源
+
+当前已落地的 Codex hook 配置落点：
+
+- `<repo>/.codex/config.toml`
+- `hooks/codex/scripts/PreToolUse.ps1`
+
+当前最小接线只负责在 `PreToolUse` 中调用 `validate-doc-routing.ps1` 并输出提示，不把 `validate-plan-docs.ps1` 接入通用写入前闸门。
+
+## Codex hooks 口径
+
+截至 `2026-06` 的官方能力下，Codex hooks 可在 `PreToolUse` 中命中 Bash、`apply_patch` 文件编辑与 MCP 工具调用，并可执行 `deny`、`additionalContext`、`updatedInput` 一类前置守卫动作。
+
+但官方同时明确：hooks 属于 guardrail，而不是完整 enforcement boundary。原因包括：
+
+- 不是所有工具路径都保证被同一类 hook 覆盖
+- 模型可能通过其他等价工具路径完成相近动作
+- 规则判断若只写在 hook 中，跨客户端与离线校验会失去一致性
+
+因此本仓库推荐：
+
+- 把真正的规则判断收口到脚本与规则系统
+- 把 hooks 视为这些脚本的触发器或提示器，而不是替代物
+- 在当前仓库口径里，把 Codex hook 默认定位为“观测/提示”，不把其退出码当作可靠硬闸门
+
+## Windows 命令口径
+
+- Windows 默认执行基线统一为 `pwsh` / PowerShell 7。
+- 复杂命令不要优先写成脆弱 one-liner；遇到多层引号、正则、长文本参数、here-string、跨 shell 转发或 SSH 内嵌脚本时，应优先改为 `.ps1` / `.py` 脚本块或分步执行。
+- `.cmd` 只作为简单参数兼容入口；复杂参数默认直连 `.py` 或 `.ps1`，不要继续让 Windows batch 参与二次拆解。
+- `ghost snapshot` 的 `NUL` 保留名索引失败默认先视为平台噪音候选，不直接等同于任务失败，也不直接等同于任务成功。
+- 只有当用户目标命令本身失败，或证据表明该异常直接破坏目标产物时，才把它升级为任务失败。
+- 若目标命令表面成功但产物不完整，应先判为“可疑状态”并补最小验证，不要仅因看到 `NUL` 日志就自动进入失败闭环，也不要直接宣布成功。
 
 ## `sync-codex.ps1` 最小边界
 
@@ -148,7 +206,7 @@ Codex 侧最小闭环由以下组合承担：
 
 ## 阶段6兼容口径：验证能力收口
 
-- 自阶段6起，`validate-control-plane.ps1` 将角色映射纳入 Codex 兼容闭环验证。
+- 自阶段6起，`skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action validate` 将角色映射纳入 Codex 兼容闭环验证。
 - 最小新增校验能力：
   - `codex-role-map` 的 `agent_type` 枚举合法性校验。
   - 冻结必需角色覆盖校验。

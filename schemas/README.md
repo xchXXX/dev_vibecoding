@@ -1,11 +1,14 @@
 # schemas
 
-本目录保存全局控制面 schema 真源。
+本目录保存当前控制面 schema 真源。
 
-建议包含：
-- `plan.schema.json`
-- `work_order.schema.json`
-- `dispatch_packet.schema.json`
-- `return_packet.schema.json`
+当前关键 schema：
+
+- `task-state.schema.json`
+- `task-event.schema.json`
 - `command-failure-case.schema.json`
-- `session_*` 相关 schema
+
+其中：
+
+- `task-state.schema.json` 定义 `docs/ai/tasks/<task_id>/state.json`
+- `task-event.schema.json` 定义 `events.jsonl` 的单行事件对象

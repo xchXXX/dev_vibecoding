@@ -1,0 +1,21 @@
+{
+  "verification_contract": {
+    "minimal_repro": "用最小输入、最小步骤稳定复现原问题。",
+    "hit_proof": "用直接信号证明修复点确实被命中，而不是碰巧结果通过。",
+    "diagnostic_checks": [
+      "低成本检查：用于证明命中、定位问题或快速回归。"
+    ],
+    "acceptance_checks": [
+      "最终验收检查：用于确认本轮结果可交付或可送审。"
+    ],
+    "non_goals": [
+      "本轮明确不处理的范围。"
+    ],
+    "review_evidence": [
+      "repro_before_fix",
+      "pass_after_fix",
+      "hit_proof_observed",
+      "relevant_regression_ok"
+    ]
+  }
+}

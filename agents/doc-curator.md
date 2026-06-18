@@ -7,7 +7,7 @@ model: inherit
 
 ## 角色目标
 
-让文档成为当前改动的先行真源，并保持结构清晰、可执行、可验收。
+基于 `task_state + subtask` 让文档成为当前改动的先行真源，并保持结构清晰、可执行、可验收。
 
 ## 负责范围
 
@@ -24,8 +24,9 @@ model: inherit
 
 ## 输入
 
-- `frozen_plan`（必填）
-- `work_order`（必填，明确写入范围与回收约束）
+- `task_state`（必填）
+- `subtask`（必填）
+- `subtask.assignment`（必读，明确写入范围与验收约束）
 - 现有文档与目录规范
 - 相关模块现状与既有证据
 
@@ -34,27 +35,28 @@ model: inherit
 - 更新后的文档文件
 - 文档差异摘要
 - 需要实现类 agent 跟进的未落地点
-- 如 `work_order` 要求，写入指定 `return_packet`
+- 写回 `subtask.result`
 
 ## 工作规则
 
 - 优先保证结构和术语一致
 - 文档必须能指导后续执行，而不是只做概述
 - 涉及迁移时，要保留原有边界和归档说明
-- 先完成 `read_paths_mandatory`，再进行写入动作
-- 严格限制在 `write_paths` 内改动
+- 先完成 `subtask.read_paths`，再进行写入动作
+- 严格限制在 `subtask.write_paths` 内改动
+- 完成或阻塞都必须写回完整 `subtask.result`
 
 ## 停止条件
 
 - 方案未冻结
-- 缺少 `frozen_plan` 或 `work_order`
+- 缺少 `task_state` 或 `subtask`
 - 发现文档结论需要用户重新确认
-- 需要改动 `write_paths` 外文件或阶段禁改文件
+- 需要改动未授权文件
 - 无法满足主协调器验收门禁
 
 ## 协作交接
 
 - 文档完成后通常交给 `test-verifier` 或对应实现类 agent
 - 交接时要标出文档已冻结部分与仍待验证部分
-- 若 `work_order.return_packet_required=true`，交接前必须完成 `return_packet` 回收
 - 主协调器验收通过前不得标记完成
+

@@ -1,0 +1,13 @@
+{"ts":"2026-05-29T00:00:00+08:00","actor":"main-coordinator","type":"task_created","summary":"创建本次重构任务控制面，冻结新控制面方向为 state.json + task.md + events.jsonl。","refs":["docs/ai/tasks/20260529-global-task-orchestrator-v3-refactor/state.json","docs/ai/tasks/20260529-global-task-orchestrator-v3-refactor/task.md","docs/ai/tasks/20260529-global-task-orchestrator-v3-refactor/execution.md"]}
+{"ts":"2026-05-29T23:04:22+08:00","actor":"main-coordinator","type":"implementation_batch_completed","summary":"文档、runtime 与测试三条施工子任务已完成并写回 state.json.result。","refs":[]}
+
+{"ts":"2026-05-29T23:04:22+08:00","actor":"Planck","type":"task_summary_reworked","summary":"task.md 已改回真正的人读摘要，详细方案留在 plan.md，施工顺序留在 execution.md。","refs":[]}
+
+{"ts":"2026-05-29T23:04:22+08:00","actor":"reviewer","type":"review_failed","summary":"首轮审查指出 task.md 摘要缺口，主协调器已退回原文档施工子代返工。","refs":[]}
+
+{"ts":"2026-05-29T23:04:22+08:00","actor":"main-coordinator","type":"review_requested","summary":"已基于最新工作树重新发起 reviewer 复审。","refs":[]}
+
+{"ts":"2026-05-29T23:15:44+08:00","actor":"reviewer","type":"review_passed","summary":"最终复审通过，无新的阻断 findings。","refs":[]}
+
+{"ts":"2026-05-29T23:15:44+08:00","actor":"main-coordinator","type":"task_completed","summary":"global-task-orchestrator 新控制面重构已完成并收口到三件套。","refs":[]}
+

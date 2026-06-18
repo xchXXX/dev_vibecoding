@@ -36,6 +36,17 @@ function Remove-PathIfExists {
   }
 }
 
+function Register-TestTempCleanup {
+  param([string]$PathValue)
+  if (-not [string]::IsNullOrWhiteSpace($PathValue)) {
+    $null = Register-EngineEvent PowerShell.Exiting -Action {
+      if (-not [string]::IsNullOrWhiteSpace($event.MessageData) -and (Test-Path -LiteralPath $event.MessageData)) {
+        Remove-Item -LiteralPath $event.MessageData -Recurse -Force -ErrorAction SilentlyContinue
+      }
+    } -MessageData $PathValue
+  }
+}
+
 function Write-Utf8NoBomFile {
   param(
     [string]$PathValue,
@@ -296,6 +307,7 @@ if ([string]::IsNullOrWhiteSpace($CasesPath)) {
 if ([string]::IsNullOrWhiteSpace($TempRoot)) {
   $TempRoot = Join-Path $RepoRoot '.tmp\command-failure-memory-forward-bench'
 }
+Register-TestTempCleanup -PathValue $TempRoot
 
 Assert-True (Test-Path -LiteralPath $RepoRoot) "Repo root missing: $RepoRoot"
 Assert-True (Test-Path -LiteralPath $CasesPath) "Benchmark cases file missing: $CasesPath"
@@ -318,7 +330,7 @@ foreach ($path in @($casesRoot, $homesRoot, $logsRoot)) {
 }
 Initialize-BaseCodexHome -RepoRootValue $RepoRoot -UserCodexHomeValue $UserCodexHome -BaseCodexHomeValue $baseHome
 
-$powershellExe = (Get-Command powershell.exe).Source
+$powershellExe = (Get-Command pwsh).Source
 $results = @()
 
 foreach ($case in $cases) {
@@ -406,7 +418,9 @@ if ($Json) {
 }
 
 if (-not [bool]$summary.ok) {
+  Remove-PathIfExists -PathValue $TempRoot
   exit 1
 }
 
+Remove-PathIfExists -PathValue $TempRoot
 exit 0

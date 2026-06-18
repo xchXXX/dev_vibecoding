@@ -30,6 +30,17 @@ function Get-CodexExePath {
   return $candidate
 }
 
+function Register-TestTempCleanup {
+  param([string]$PathValue)
+  if (-not [string]::IsNullOrWhiteSpace($PathValue)) {
+    $null = Register-EngineEvent PowerShell.Exiting -Action {
+      if (-not [string]::IsNullOrWhiteSpace($event.MessageData) -and (Test-Path -LiteralPath $event.MessageData)) {
+        Remove-Item -LiteralPath $event.MessageData -Recurse -Force -ErrorAction SilentlyContinue
+      }
+    } -MessageData $PathValue
+  }
+}
+
 function Initialize-BenchmarkCodexHome {
   param(
     [string]$RepoRootValue,
@@ -91,6 +102,7 @@ if ([string]::IsNullOrWhiteSpace($CasesPath)) {
 if ([string]::IsNullOrWhiteSpace($TempCodexHome)) {
   $TempCodexHome = Join-Path $RepoRoot '.tmp\command-failure-memory-autotrigger-bench'
 }
+Register-TestTempCleanup -PathValue $TempCodexHome
 if ([string]::IsNullOrWhiteSpace($Workdir)) {
   $Workdir = Split-Path -Parent $RepoRoot
 }
@@ -103,6 +115,7 @@ Assert-True (Test-Path -LiteralPath $Workdir) "Benchmark workdir missing: $Workd
 $codexExe = Get-CodexExePath
 Initialize-BenchmarkCodexHome -RepoRootValue $RepoRoot -UserCodexHomeValue $UserCodexHome -TempCodexHomeValue $TempCodexHome
 $cases = Get-Content -LiteralPath $CasesPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$exitCode = 0
 
 Push-Location $Workdir
 try {
@@ -155,10 +168,13 @@ try {
   }
 
   if (-not [bool]$summary.ok) {
-    exit 1
+    $exitCode = 1
   }
 } finally {
   Pop-Location
+  if (Test-Path -LiteralPath $TempCodexHome) {
+    Remove-Item -LiteralPath $TempCodexHome -Recurse -Force -ErrorAction SilentlyContinue
+  }
 }
 
-exit 0
+exit $exitCode

@@ -1,17 +1,17 @@
-﻿{
-  "schema_version": "1.0",
-  "map_id": "codex-role-map-freeze-phase2-20260407",
-  "task_id": "codex-fixed-subagent-delegation-20260407-145034-kewd",
+{
+  "schema_version": "2.0",
+  "map_id": "codex-role-map-task-state-20260529",
   "source_of_truth": {
     "role_semantics": "agents/*.md",
     "role_to_agent_type_map": "agents/codex-role-map.json",
+    "control_plane": "docs/ai/tasks/<task_id>/state.json",
     "allowed_agent_types": ["default", "explorer", "worker"]
   },
   "selection_order": [
     "select_role",
     "resolve_role_map",
-    "build_work_order_and_dispatch_packet",
-    "compile_dispatch_message"
+    "load_task_state",
+    "resolve_subtask_assignment"
   ],
   "roles": {
     "planner": {
@@ -20,7 +20,7 @@
       "reasoning_effort": "high",
       "allow_write": true,
       "allow_shell": true,
-      "notes": "用于方案冻结、边界收敛、分批拆解。"
+      "notes": "用于方案冻结、边界收敛、subtask 拆解与 state.json 维护。"
     },
     "reader": {
       "agent_type": "explorer",
@@ -36,7 +36,7 @@
       "reasoning_effort": "high",
       "allow_write": false,
       "allow_shell": true,
-      "notes": "以 findings 为主，默认只审查不直接修复。"
+      "notes": "基于 task_state + subtask 做审查，以 findings 为主。"
     },
     "backend-implementer": {
       "agent_type": "worker",
@@ -60,7 +60,7 @@
       "reasoning_effort": "high",
       "allow_write": true,
       "allow_shell": true,
-      "notes": "补测、执行验证并输出验收结论。"
+      "notes": "补测、执行验证并把验收结果写回 subtask.result。"
     },
     "doc-curator": {
       "agent_type": "worker",

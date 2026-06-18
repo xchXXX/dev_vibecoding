@@ -7,7 +7,7 @@
 - 入口文档：`tests/README.md`
 - 套件索引：`tests/harness/README.md`
 - 当前冻结执行方式：
-  - `Get-ChildItem -LiteralPath .\tests\harness -Filter *.ps1 | Sort-Object Name | ForEach-Object { powershell -NoProfile -ExecutionPolicy Bypass -File $_.FullName }`
+  - `Get-ChildItem -LiteralPath .\tests\harness -Filter *.ps1 | Sort-Object Name | ForEach-Object { pwsh -NoProfile -ExecutionPolicy Bypass -File $_.FullName }`
 
 本阶段仅冻结：
 - harness 测试目录：`tests/harness/`

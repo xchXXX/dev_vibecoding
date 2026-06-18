@@ -9,9 +9,20 @@ if (-not [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Syst
 $HarnessRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $TempRoot = Join-Path $env:TEMP ("ai-harness-phase5-tests-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $TempRoot -Force | Out-Null
+$null = Register-EngineEvent PowerShell.Exiting -Action {
+    if (-not [string]::IsNullOrWhiteSpace($event.MessageData) -and (Test-Path -LiteralPath $event.MessageData)) {
+        Remove-Item -LiteralPath $event.MessageData -Recurse -Force -ErrorAction SilentlyContinue
+    }
+} -MessageData $TempRoot
 
 $script:Failures = New-Object System.Collections.Generic.List[string]
 $script:PassCount = 0
+
+function Cleanup-TempRoot {
+    if (Test-Path -LiteralPath $TempRoot) {
+        Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 
 function Assert-True {
     param(
@@ -147,7 +158,7 @@ function Invoke-PowerShellFile {
                 $value
             }
         }) -join " "
-        $process = Start-Process -FilePath (Get-Command powershell.exe).Source -ArgumentList $argumentLine -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList $argumentLine -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
         $output = @()
         if (Test-Path -LiteralPath $stdoutPath) {
             $output += @(Get-Content -LiteralPath $stdoutPath -Encoding UTF8)
@@ -192,7 +203,7 @@ function Invoke-PowerShellFileWithStdin {
     }) -join " "
 
     $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $processInfo.FileName = (Get-Command powershell.exe).Source
+    $processInfo.FileName = (Get-Command pwsh).Source
     $processInfo.Arguments = $argumentLine
     $processInfo.UseShellExecute = $false
     $processInfo.RedirectStandardInput = $true
@@ -848,8 +859,10 @@ if ($script:Failures.Count -gt 0) {
     foreach ($failure in $script:Failures) {
         Write-Host ("  {0}" -f $failure)
     }
+    Cleanup-TempRoot
     exit 1
 }
 
 Write-Host "ALL TESTS PASSED"
+Cleanup-TempRoot
 exit 0

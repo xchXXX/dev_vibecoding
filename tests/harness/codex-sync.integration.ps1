@@ -9,9 +9,20 @@ if (-not [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Syst
 $HarnessRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $TempRoot = Join-Path $env:TEMP ("ai-harness-codex-tests-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $TempRoot -Force | Out-Null
+$null = Register-EngineEvent PowerShell.Exiting -Action {
+    if (-not [string]::IsNullOrWhiteSpace($event.MessageData) -and (Test-Path -LiteralPath $event.MessageData)) {
+        Remove-Item -LiteralPath $event.MessageData -Recurse -Force -ErrorAction SilentlyContinue
+    }
+} -MessageData $TempRoot
 
 $script:Failures = New-Object System.Collections.Generic.List[string]
 $script:PassCount = 0
+
+function Cleanup-TempRoot {
+    if (Test-Path -LiteralPath $TempRoot) {
+        Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 
 function Assert-True {
     param([bool]$Condition, [string]$Message)
@@ -103,7 +114,7 @@ function Invoke-PowerShellFile {
             $envBackup[$key] = [Environment]::GetEnvironmentVariable($key, "Process")
             [Environment]::SetEnvironmentVariable($key, [string]$Environment[$key], "Process")
         }
-        $process = Start-Process -FilePath (Get-Command powershell.exe).Source -ArgumentList $argumentLine -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList $argumentLine -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
         $output = @()
         if (Test-Path -LiteralPath $stdoutPath) { $output += @(Get-Content -LiteralPath $stdoutPath -Encoding UTF8) }
         if (Test-Path -LiteralPath $stderrPath) { $output += @(Get-Content -LiteralPath $stderrPath -Encoding UTF8) }
@@ -163,18 +174,33 @@ function New-Scenario {
     }
 }
 
+function New-LongPathScenario {
+    param([string]$Name)
+    $longSegment = "native-path-fallback-" + ("x" * 72)
+    $scenarioRoot = Join-Path (Join-Path $TempRoot $longSegment) $Name
+    $scenarioHarness = Join-Path $scenarioRoot "harness"
+    Copy-HarnessRoot -SourceRoot $HarnessRoot -DestinationRoot $scenarioHarness
+    return [PSCustomObject]@{
+        Root = $scenarioRoot
+        Harness = $scenarioHarness
+        CodexHome = Join-Path $scenarioRoot "codex-home"
+    }
+}
+
 function Get-CodexPaths {
     param([object]$Scenario)
     $skillsRoot = Join-Path $Scenario.CodexHome "skills"
     $orchestratorSkillDir = Join-Path $skillsRoot "global-task-orchestrator"
     $failureMemorySkillDir = Join-Path $skillsRoot "command-failure-memory"
     $benchmarkSkillDir = Join-Path $skillsRoot "pre-dev-benchmark"
+    $fixClosureSkillDir = Join-Path $skillsRoot "fix-closure-gate"
     return [PSCustomObject]@{
         SkillsRoot = $skillsRoot
         ManagedSkillDir = $orchestratorSkillDir
         OrchestratorSkillDir = $orchestratorSkillDir
         FailureMemorySkillDir = $failureMemorySkillDir
         BenchmarkSkillDir = $benchmarkSkillDir
+        FixClosureSkillDir = $fixClosureSkillDir
         ReceiptPath = Join-Path $Scenario.CodexHome ".ai-harness\codex-sync.receipt.json"
         PluginsRoot = Join-Path $Scenario.CodexHome "plugins"
     }
@@ -281,7 +307,8 @@ Run-TestCase -Name "Bootstrap install writes managed runtime skill, receipt, and
     $sourceOrchestratorSkill = Join-Path $scenario.Harness "skills\global-task-orchestrator"
     $sourceFailureMemorySkill = Join-Path $scenario.Harness "skills\command-failure-memory"
     $sourceBenchmarkSkill = Join-Path $scenario.Harness "skills\pre-dev-benchmark"
-    foreach ($relative in @("SKILL.md", "agents/openai.yaml", "scripts/bootstrap-task.ps1")) {
+    $sourceFixClosureSkill = Join-Path $scenario.Harness "skills\fix-closure-gate"
+    foreach ($relative in @("SKILL.md", "agents/openai.yaml", "references/governance-essentials.md", "references/state-schema.md", "references/usage-modes.md", "scripts/orchestrator_ctl.ps1")) {
         Assert-True (Test-Path -LiteralPath (Join-Path $paths.OrchestratorSkillDir $relative)) ("orchestrator runtime missing {0}" -f $relative)
         Assert-Equal (Get-FileSha256 -PathValue (Join-Path $sourceOrchestratorSkill $relative)) (Get-FileSha256 -PathValue (Join-Path $paths.OrchestratorSkillDir $relative)) ("orchestrator runtime file {0} must match source" -f $relative)
     }
@@ -293,16 +320,23 @@ Run-TestCase -Name "Bootstrap install writes managed runtime skill, receipt, and
         Assert-True (Test-Path -LiteralPath (Join-Path $paths.BenchmarkSkillDir $relative)) ("pre-dev-benchmark runtime missing {0}" -f $relative)
         Assert-Equal (Get-FileSha256 -PathValue (Join-Path $sourceBenchmarkSkill $relative)) (Get-FileSha256 -PathValue (Join-Path $paths.BenchmarkSkillDir $relative)) ("pre-dev-benchmark runtime file {0} must match source" -f $relative)
     }
+    foreach ($relative in @("SKILL.md", "agents/openai.yaml")) {
+        Assert-True (Test-Path -LiteralPath (Join-Path $paths.FixClosureSkillDir $relative)) ("fix-closure-gate runtime missing {0}" -f $relative)
+        Assert-Equal (Get-FileSha256 -PathValue (Join-Path $sourceFixClosureSkill $relative)) (Get-FileSha256 -PathValue (Join-Path $paths.FixClosureSkillDir $relative)) ("fix-closure-gate runtime file {0} must match source" -f $relative)
+    }
     Assert-True (Test-Path -LiteralPath $paths.ReceiptPath) "receipt must exist"
     $receipt = Read-Json -PathValue $paths.ReceiptPath
     Assert-Contains @($receipt.managed_skills) "global-task-orchestrator" "receipt must list orchestrator skill"
     Assert-Contains @($receipt.managed_skills) "command-failure-memory" "receipt must list failure-memory skill"
     Assert-Contains @($receipt.managed_skills) "pre-dev-benchmark" "receipt must list pre-dev-benchmark skill"
+    Assert-Contains @($receipt.managed_skills) "fix-closure-gate" "receipt must list fix-closure-gate skill"
     Assert-True (@($receipt.managed_files | ForEach-Object { $_.target }) -contains "command-failure-memory/scripts/command-failure-memory.cmd") "receipt must track failure-memory launcher"
     Assert-True (@($receipt.managed_files | ForEach-Object { $_.target }) -contains "command-failure-memory/scripts/command-failure-memory.py") "receipt must track failure-memory Python backend"
     Assert-True (@($receipt.managed_files | ForEach-Object { $_.target }) -contains "command-failure-memory/scripts/command-failure-memory.ps1") "receipt must track independent failure-memory script"
     Assert-True (@($receipt.managed_files | ForEach-Object { $_.target }) -contains "pre-dev-benchmark/scripts/scaffold_benchmark.py") "receipt must track pre-dev-benchmark scaffold script"
     Assert-True (@($receipt.managed_files | ForEach-Object { $_.source }) -contains "skills/pre-dev-benchmark/scripts/scaffold_benchmark.py") "receipt must preserve pre-dev-benchmark source path"
+    Assert-True (@($receipt.managed_files | ForEach-Object { $_.target }) -contains "fix-closure-gate/agents/openai.yaml") "receipt must track fix-closure-gate metadata"
+    Assert-True (@($receipt.managed_files | ForEach-Object { $_.source }) -contains "skills/fix-closure-gate/agents/openai.yaml") "receipt must preserve fix-closure-gate source path"
     $doctor = Invoke-CodexDoctor -Scenario $scenario
     Assert-Equal 0 $doctor.ExitCode "codex doctor should succeed after bootstrap"
     Assert-True ([bool]$doctor.Json.ok) "codex doctor should report ok=true after bootstrap"
@@ -322,6 +356,29 @@ Run-TestCase -Name "Doctor still succeeds when native path canonicalization is u
     Assert-True ([bool]$doctor.Json.ok) "doctor should still report ok=true under safe fallback mode"
 }
 
+Run-TestCase -Name "Sync and doctor succeed when native final-path lookup fails and fallback is used" -Body {
+    $scenario = New-Scenario -Name "native-final-path-fallback"
+    $environment = @{ AI_HARNESS_SIMULATE_NATIVE_PATH_FAILURE = "1" }
+    $sync = Invoke-CodexSync -Scenario $scenario -Environment $environment
+    Assert-Equal 0 $sync.ExitCode "sync should succeed when native final-path lookup is forced to fail"
+    $doctor = Invoke-CodexDoctor -Scenario $scenario -Environment $environment
+    Assert-Equal 0 $doctor.ExitCode "doctor should succeed when native final-path lookup is forced to fail"
+    Assert-True ([bool]$doctor.Json.ok) "doctor should report ok=true after forced native final-path fallback"
+}
+
+Run-TestCase -Name "Sync and doctor succeed when long managed paths require native path fallback" -Body {
+    $scenario = New-LongPathScenario -Name "native-path-fallback-explicit"
+    $stageSample = Join-Path $scenario.CodexHome ".ai-harness\s\123456789012\global-task-orchestrator\references\governance-essentials.md"
+    $runtimeSample = Join-Path $scenario.CodexHome "skills\pre-dev-benchmark\assets\fixture-matrix.template.md"
+    Assert-True ($stageSample.Length -gt 260) "test setup must force a >260 staged managed file path"
+    Assert-True ($runtimeSample.Length -gt 260) "test setup must force a >260 runtime managed file path"
+    $sync = Invoke-CodexSync -Scenario $scenario
+    Assert-Equal 0 $sync.ExitCode "sync should succeed when managed paths exceed 260 characters"
+    $doctor = Invoke-CodexDoctor -Scenario $scenario
+    Assert-Equal 0 $doctor.ExitCode "doctor should succeed when managed paths exceed 260 characters"
+    Assert-True ([bool]$doctor.Json.ok) "doctor should report ok=true after long-path sync"
+}
+
 Run-TestCase -Name "Concurrent syncs serialize and leave runtime healthy" -Body {
     $scenario = New-Scenario -Name "parallel-sync-lock"
     $scripts = Get-ScriptPaths -Scenario $scenario
@@ -330,7 +387,7 @@ Run-TestCase -Name "Concurrent syncs serialize and leave runtime healthy" -Body 
         foreach ($index in 1..4) {
             $jobs += Start-Job -ScriptBlock {
                 param($SyncPath, $HarnessPath, $CodexHomePath)
-                & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $SyncPath -HarnessRoot $HarnessPath -CodexHome $CodexHomePath -Json | Out-Null
+                & pwsh -NoProfile -ExecutionPolicy Bypass -File $SyncPath -HarnessRoot $HarnessPath -CodexHome $CodexHomePath -Json | Out-Null
                 if ($LASTEXITCODE -ne 0) {
                     throw ("sync worker exited with code {0}" -f $LASTEXITCODE)
                 }
@@ -589,7 +646,7 @@ Run-TestCase -Name "Doctor fails on runtime hash drift even when paths still exi
     $scenario = New-Scenario -Name "doctor-runtime-drift"
     Assert-Equal 0 (Invoke-CodexSync -Scenario $scenario).ExitCode "initial sync should succeed"
     $paths = Get-CodexPaths -Scenario $scenario
-    Add-Content -LiteralPath (Join-Path $paths.ManagedSkillDir "scripts\bootstrap-task.ps1") -Value "`n# drift" -Encoding UTF8
+    Add-Content -LiteralPath (Join-Path $paths.ManagedSkillDir "scripts\orchestrator_ctl.ps1") -Value "`n# drift" -Encoding UTF8
     $doctor = Invoke-CodexDoctor -Scenario $scenario
     Assert-True (-not [bool]$doctor.Json.ok) "doctor should fail on runtime hash drift"
     Assert-Contains (Get-ManagedIssueTypes -DoctorJson $doctor.Json) "receipt_target_sha256_mismatch" "doctor must report receipt target hash mismatch"
@@ -793,6 +850,7 @@ Run-TestCase -Name "Codex doctor reports only fixed managed skill targets" -Body
     Assert-Contains @($doctor.Json.codex_audit.managed_skills) "global-task-orchestrator" "doctor must report orchestrator as managed skill target"
     Assert-Contains @($doctor.Json.codex_audit.managed_skills) "command-failure-memory" "doctor must report failure-memory as managed skill target"
     Assert-Contains @($doctor.Json.codex_audit.managed_skills) "pre-dev-benchmark" "doctor must report pre-dev-benchmark as managed skill target"
+    Assert-Contains @($doctor.Json.codex_audit.managed_skills) "fix-closure-gate" "doctor must report fix-closure-gate as managed skill target"
     $issueText = $doctor.Text
     Assert-True ($issueText -notlike "*experimental-skill*") "doctor output must not expand managed scope to experimental skill"
 }
@@ -814,8 +872,10 @@ if ($script:Failures.Count -gt 0) {
     foreach ($failure in $script:Failures) {
         Write-Host ("  {0}" -f $failure)
     }
+    Cleanup-TempRoot
     exit 1
 }
 
 Write-Host "ALL TESTS PASSED"
+Cleanup-TempRoot
 exit 0

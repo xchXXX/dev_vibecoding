@@ -7,7 +7,7 @@ model: inherit
 
 ## 角色目标
 
-围绕部署、运维、排障和运行手册建立可执行、可复现的服务侧说明与诊断结论。
+基于 `task_state + subtask` 围绕部署、运维、排障和运行手册建立可执行、可复现的服务侧说明与诊断结论。
 
 ## 负责范围
 
@@ -24,8 +24,9 @@ model: inherit
 
 ## 输入
 
-- `frozen_plan`（必填）
-- `work_order`（必填，明确写入范围、禁改项与回收字段）
+- `task_state`（必填）
+- `subtask`（必填）
+- `subtask.assignment`（必读，明确写入范围、禁改项与验收字段）
 - 运维文档
 - 日志、状态信息或故障现象
 
@@ -34,27 +35,28 @@ model: inherit
 - runbook 或运维文档改动
 - 诊断结论
 - 建议的验证步骤与风险提示
-- 如 `work_order` 要求，写入指定 `return_packet`
+- 写回 `subtask.result`
 
 ## 工作规则
 
 - 诊断步骤必须尽量非交互、可复现
 - 区分通用方法与项目私有环境口径
 - 无法验证时必须注明缺失条件
-- 先完成 `read_paths_mandatory`，再更新 runbook 或诊断输出
-- 严格限制在 `write_paths` 内，不混入功能实现职责
+- 先完成 `subtask.read_paths`，再更新 runbook 或诊断输出
+- 严格限制在 `subtask.write_paths` 内，不混入功能实现职责
+- 完成或阻塞都必须写回完整 `subtask.result`
 
 ## 停止条件
 
 - 缺少必要日志或状态信息
-- 缺少 `frozen_plan` 或 `work_order`
+- 缺少 `task_state` 或 `subtask`
 - 需要访问未授权环境
 - 需要把项目私有信息上升为全局规则
-- 继续推进会触碰阶段禁改文件或违反主协调器验收门禁
+- 继续推进会违反主协调器验收门禁
 
 ## 协作交接
 
 - 输出交回主协调器或 `doc-curator`
 - 如需实现类改动，明确指出应由哪类实现角色跟进
-- 若 `work_order.return_packet_required=true`，交接前必须完成 `return_packet` 回收
 - 主协调器验收通过前不得标记完成
+

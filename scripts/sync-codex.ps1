@@ -21,6 +21,11 @@ $ManagedSkillContracts = @(
         name = "pre-dev-benchmark"
         source_dir = "skills\pre-dev-benchmark"
         source_label = "skills/pre-dev-benchmark"
+    },
+    [ordered]@{
+        name = "fix-closure-gate"
+        source_dir = "skills\fix-closure-gate"
+        source_label = "skills/fix-closure-gate"
     }
 )
 $ManagedSkillNames = @($ManagedSkillContracts | ForEach-Object { [string]$_["name"] })
@@ -295,7 +300,19 @@ function Get-CanonicalPath {
         $probe = $parent
     }
     if ($script:PathNativeAvailable) {
-        $canonicalPath = Normalize-FinalPath -PathValue ([AiHarness.PathNative]::GetFinalPath($probe))
+        try {
+            if ($env:AI_HARNESS_SIMULATE_NATIVE_PATH_FAILURE -eq "1") {
+                throw ("CreateFileW failed for {0}" -f $probe)
+            }
+            $canonicalPath = Normalize-FinalPath -PathValue ([AiHarness.PathNative]::GetFinalPath($probe))
+        } catch {
+            $nativeFailure = $_.Exception.Message
+            if (($nativeFailure -like "*CreateFileW failed*") -or ($nativeFailure -like "*GetFinalPathNameByHandleW failed*")) {
+                $canonicalPath = [System.IO.Path]::GetFullPath($probe)
+            } else {
+                throw
+            }
+        }
     } else {
         $canonicalPath = [System.IO.Path]::GetFullPath($probe)
     }
@@ -709,7 +726,7 @@ $result = Invoke-WithSyncLock -CodexHomeValue $CodexHome -ScriptBlock {
 
     New-Item -ItemType Directory -Path $RuntimeSkillsRoot -Force | Out-Null
     New-Item -ItemType Directory -Path $ReceiptDir -Force | Out-Null
-    $stageRoot = Join-Path $ReceiptDir (".staging\codex-sync-{0}" -f ([guid]::NewGuid().ToString("N")))
+    $stageRoot = Join-Path $ReceiptDir ("s\{0}" -f ([guid]::NewGuid().ToString("N").Substring(0, 12)))
     $stageReceiptPath = Join-Path $stageRoot "codex-sync.receipt.json"
     New-Item -ItemType Directory -Path $stageRoot -Force | Out-Null
     $skillStages = [System.Collections.Generic.List[object]]::new()

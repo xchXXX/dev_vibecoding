@@ -21,30 +21,31 @@ model: inherit
 
 ## 输入
 
-- `frozen_plan`（必填，当前任务冻结方案）
-- `work_order`（必填，任务合同与写入边界真源）
-- `dispatch_packet`（可选；复杂任务时应读取并遵循）
-- `read_paths_mandatory` 对应材料（必读）
+- `task_state`（必填，来自 `docs/ai/tasks/<task_id>/state.json`）
+- `subtask`（必填，当前处理的 `state.json.subtasks[]` 项）
+- `subtask.assignment`（必读，任务合同与写入边界真源）
+- `subtask.read_paths` 对应材料（必读）
 - 角色所需的其他最小上下文
 
 ## 输出
 
 - 该 agent 应产出的文件、结论或验证结果
-- 若 `work_order.return_packet_required=true`，必须写入 `return_packet_path`
-- `return_packet` 至少覆盖 `required_return_fields`
+- 结果必须写回 `state.json.subtasks[].result`
+- `completed` 与 `blocked` 两类终态都必须写 `result`
+- `result` 至少覆盖：`status`、`summary`、`changed_files`、`planned_files_not_changed`、`result.verification.commands`、`result.verification.result`、`deviations`、`blocked_by`、`risks`、`follow_up`、`written_by`、`written_role`
 
 ## 工作规则
 
-- 优先遵守冻结方案
-- 先完成 `read_paths_mandatory` 再执行写入
-- 只在 `write_paths` 允许范围内工作
+- 优先遵守 `task_state` 与 `subtask.assignment`
+- 先完成 `subtask.read_paths` 再执行写入
+- 只在 `subtask.write_paths` 允许范围内工作
 - 发现边界冲突时立即停止并回报
 
 ## 停止条件
 
 - 需求边界不清
-- 缺少 `frozen_plan` 或 `work_order`
-- `frozen_plan` 与 `work_order` 语义冲突
+- 缺少 `task_state` 或 `subtask`
+- `task_state` 与 `subtask.assignment` 语义冲突
 - 需要写入未授权路径或命中禁改路径
 - 发现上游方案与现状冲突，且无法在当前阶段消解
 
@@ -53,4 +54,5 @@ model: inherit
 - 说明通常交给谁继续处理
 - 交接时必须附带范围、改动清单、验证结果、风险与后续动作
 - 主协调器验收通过前不得标记任务完成
-- 若阻塞结束，必须在结构化回收中明确 `blocked_by`
+- 若阻塞结束，必须在结构化结果中明确 `blocked_by`
+

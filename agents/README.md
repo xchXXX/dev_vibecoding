@@ -1,4 +1,4 @@
-﻿# AGENTS Catalog
+# AGENTS Catalog
 
 本目录保存全局 Claude agents 真源。
 
@@ -11,7 +11,7 @@
 ## 选择原则
 
 使用 `planner`
-- 当任务还需要冻结方案、拆边界、生成 plan/work order 时
+- 当任务还需要冻结方案、拆边界、生成或重整 `task_state`
 
 使用 `reader`
 - 当任务目标是补上下文、找证据路径、梳理调用链且暂不改文件时
@@ -37,29 +37,31 @@
 不要使用全局 agent
 - 当角色严重依赖项目私有路径、项目私有服务、项目私有术语或团队私有流程时
 
-## 阶段1冻结口径（角色层规范化）
+## 角色层统一口径
 
 - 角色文件必须保持统一 8 段结构：`角色目标`、`负责范围`、`不负责`、`输入`、`输出`、`工作规则`、`停止条件`、`协作交接`。
-- `输入` 段必须显式包含 `frozen_plan` 与 `work_order`；缺任一项即触发停止条件。
+- `reader`、`reviewer` 与所有 implementer 的 `输入` 必须显式包含 `task_state + subtask`；缺任一项即触发停止条件。
 - `reader` 与 `reviewer` 默认只读，不在角色定义内直接承担实现写入。
-- 角色定义与底层 `agent_type` 不混写：角色语义仅在 `agents/*.md` 维护，底层映射留在阶段 2 处理。
-- 执行型委派必须遵守 `work_order` 合同，不得跳过 `read_paths_mandatory`。
-- 未经授权不得写入 `write_paths` 之外路径，也不得触碰阶段禁改文件。
+- 角色定义与底层 `agent_type` 不混写：角色语义仅在 `agents/*.md` 维护，底层映射留在 `agents/codex-role-map.json`。
+- 执行型委派必须遵守 `subtask.assignment` 合同，不得跳过 `subtask.read_paths`。
+- 未经授权不得写入 `subtask.write_paths` 之外路径，也不得触碰禁改文件。
 
-## 主协调器验收门禁（统一执行条目）
+## 主协调器验收门禁
 
-1. 子代理提交的回收结果必须是结构化结果；执行型任务默认回收 `return_packet`。
-2. 若 `work_order.return_packet_required=true`，必须写入指定 `return_packet_path`，且字段完整覆盖 `required_return_fields`。
-3. `changed_files` 必须全部位于 `work_order.write_paths` 内，越界写入直接判定不通过。
-4. `verification_result` 必须与 `verification_commands` 对齐，无法验证时必须说明原因与风险。
-5. `deviations_from_dispatch`、`blocked_by`、`risks`、`follow_up_needed` 必须保留字段（可为空），不得省略。
-6. 主协调器验收通过前，任务状态不得标记为完成；仅允许 `completed` 或 `blocked` 两类终态。
+1. 子代理提交的回收结果必须是结构化结果，并写回 `state.json.subtasks[].result`。
+2. `completed` 与 `blocked` 两类终态子任务都必须写 `subtask.result`；缺失结果直接判定不通过。
+3. `changed_files` 必须全部位于 `subtask.write_paths` 内，越界写入直接判定不通过。
+4. `written_by`、`written_role` 必须存在，且 `written_role` 必须与子任务角色一致。
+5. `result.verification.result` 必须与 `result.verification.commands` 对齐，无法验证时必须说明原因与风险。
+6. `deviations`、`blocked_by`、`risks`、`follow_up` 必须保留字段，可为空但不得省略。
+7. `blocked` 子任务必须在 `blocked_by` 中写清阻塞来源，并在结果中留下下一步建议。
+8. 主协调器验收通过前，任务状态不得标记为完成；仅允许 `completed` 或 `blocked` 两类终态。
 
 ## Catalog
 
 | name | role | when_to_use | must_not_do | default_tools | notes |
 | --- | --- | --- | --- | --- | --- |
-| `planner` | 冻结方案与拆单 | 需求未冻结、边界不清、需要生成 plan/work order | 直接跳过方案冻结去写实现 | `Read, Write, Bash` | 对齐 `freeze_plan` |
+| `planner` | 冻结方案与拆单 | 需求未冻结、边界不清、需要重整 `task_state` 与 `subtasks` | 直接跳过方案冻结去写实现 | `Read, Write, Bash` | 对齐 `freeze_task_state` |
 | `reader` | 只读补上下文与证据收集 | 需要阅读、定位证据、梳理依赖与未知项 | 越权修改业务文件或代替实现落盘 | `Read, Bash` | 对齐 `context_read` |
 | `reviewer` | 风险审查与验收裁决 | 需要 findings、回归评估、通过/不通过结论 | 默认直接修复实现问题 | `Read, Bash` | 对齐 `risk_review` |
 | `doc-curator` | 文档更新与结构整理 | 先文档后代码、文档迁移、规范补齐 | 越权实现业务代码 | `Read, Write` | 对齐 `update_docs` |
@@ -110,20 +112,10 @@
 - 通用停止条件
 - 通用协作交接方式
 
-## 阶段2冻结口径（角色映射层）
+## 角色映射层
 
-- 新增 `agents/codex-role-map.json` 作为 Codex 角色映射真源，专门承载 `role -> agent_type` 和运行约束。
-- 调度顺序固定为：先选角色，再查映射，再生成 `work_order / dispatch_packet`，最后编译 `dispatch_message_raw`。
+- `agents/codex-role-map.json` 是 Codex 角色映射真源，专门承载 `role -> agent_type` 和运行约束。
+- 调度顺序固定为：先选角色，再查映射，再读取 `task_state`，再锁定 `subtask` 与其 `assignment`。
 - 角色语义真源仍在 `agents/*.md`，`codex-role-map` 只做桥接，不重写角色职责正文。
 - `codex-role-map` 不新增平台原生 `agent_type`，底层类型继续固定为 `default / explorer / worker`。
 
-### 阶段2首批冻结映射
-
-- `planner -> default`
-- `reader -> explorer`
-- `reviewer -> default`
-- `backend-implementer -> worker`
-- `frontend-implementer -> worker`
-- `test-verifier -> worker`
-- `doc-curator -> worker`
-- `ops-runbook -> worker`

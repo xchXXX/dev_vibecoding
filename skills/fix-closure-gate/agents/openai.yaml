@@ -1,0 +1,4 @@
+interface:
+  display_name: "修复闭环闸门"
+  short_description: "为修复任务冻结命中证明、诊断检查和复审证据"
+  default_prompt: "Use $fix-closure-gate when a task is repairing a bug, fallback/catch path, or another issue where passing acceptance alone does not prove the fix landed. Before implementation or re-review, freeze a minimal verification contract covering `minimal_repro`, `hit_proof`, `diagnostic_checks`, `acceptance_checks`, `non_goals`, and root-level `review_evidence` slot names, then collect the actual review proof under `subtask.result.review_evidence.<slot>`. Explicitly decide whether the gate can be skipped because the work is pure feature work, pure copy/style/config churn, or the same contract is already frozen in the current source of truth."

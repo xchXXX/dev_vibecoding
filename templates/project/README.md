@@ -6,7 +6,7 @@
 
 接入时至少应引用：
 - `../../docs/SUBAGENT_GOVERNANCE.md`
-- `../../rules/common/SUBAGENT_RULES.md`
+- `../../rules/items/<kind>/*` 中 `scope=global` 的跨项目基线规则
 - `../../templates/review_report.example.md`
 - `../../templates/review_testcases.example.md`
 - `../../templates/code_worker_iteration_checklist.example.md`
@@ -16,11 +16,17 @@
 2. 在 `docs/ai/README.md` 记录 role-first 委派入口与项目增量边界。
 3. 在 `config/ai/README.md` 记录项目级配置覆盖边界。
 4. 在 `.claude/` 与 `.codex/` 仅放项目增量说明，并指向全局 `../../agents/*.md` 与 `../../agents/codex-role-map.json`。
+5. 按全局目录基线建立 `modules/`、`docs/modules/`、`docs/tasks/`、`tests/fixtures/`、`.tmp/` 与 `.artifacts/`。
 
 模板目录建议包含：
 - `AGENTS.md`
 - `.claude/`
 - `.codex/`
+- `modules/`
+- `docs/modules/`
+- `docs/tasks/`
 - `docs/ai/`
 - `config/ai/`
+- `config/local/`
+- `tests/fixtures/`
 - `scripts/`

@@ -1,4 +1,4 @@
-﻿interface:
+interface:
   display_name: "Global Task Orchestrator"
-  short_description: "动态委派与工单拆分主协调 skill"
-  default_prompt: "Use $global-task-orchestrator to receive a new requirement, freeze a plan, and dynamically split delegated work orders after confirmation."
+  short_description: "基于 state.json 的轻量任务协调 skill"
+  default_prompt: "Use $global-task-orchestrator to manage one formal long task per task_id. Create a new task_id only when starting a new long task, reuse the same task_id across Plan and Execute windows, and read state.json.current_phase instead of asking the user to restate it. In Plan work, only delegate reader subtasks and use the task state plus plan/execution docs to finalize the task contract. In Execute work, never re-run init-task for an existing task_id, first organize core documentation sync and test work, require implementation/review to be delegated to subtasks instead of having the coordinator directly perform them, require a complete verification_contract before entering code_impl or review, and require review_evidence slot coverage from completed execution/test subtasks before review."

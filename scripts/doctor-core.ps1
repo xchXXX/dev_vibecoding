@@ -20,7 +20,7 @@ $ManagedCodexSkillContracts = @(
     name = 'global-task-orchestrator'
     source_dir = 'skills/global-task-orchestrator'
     source_label = 'skills/global-task-orchestrator'
-    required_files = @('SKILL.md','agents/openai.yaml','scripts/bootstrap-task.ps1')
+    required_files = @('SKILL.md','agents/openai.yaml','references/governance-essentials.md','references/state-schema.md','references/usage-modes.md','scripts/orchestrator_ctl.ps1')
   },
   [ordered]@{
     name = 'command-failure-memory'
@@ -33,6 +33,12 @@ $ManagedCodexSkillContracts = @(
     source_dir = 'skills/pre-dev-benchmark'
     source_label = 'skills/pre-dev-benchmark'
     required_files = @('SKILL.md','agents/openai.yaml','references/benchmark-design.md','assets/benchmark-plan.template.md','assets/fixture-matrix.template.md','assets/runbook.template.md','scripts/scaffold_benchmark.py')
+  },
+  [ordered]@{
+    name = 'fix-closure-gate'
+    source_dir = 'skills/fix-closure-gate'
+    source_label = 'skills/fix-closure-gate'
+    required_files = @('SKILL.md','agents/openai.yaml')
   }
 )
 $ExpectedManifestTargets = [ordered]@{
@@ -219,7 +225,19 @@ function Get-CanonicalPath {
   }
 
   if ($script:PathNativeAvailable) {
-    $canonicalPath = Normalize-FinalPath -PathValue ([AiHarness.PathNative]::GetFinalPath($probe))
+    try {
+      if ($env:AI_HARNESS_SIMULATE_NATIVE_PATH_FAILURE -eq "1") {
+        throw ("CreateFileW failed for {0}" -f $probe)
+      }
+      $canonicalPath = Normalize-FinalPath -PathValue ([AiHarness.PathNative]::GetFinalPath($probe))
+    } catch {
+      $nativeFailure = $_.Exception.Message
+      if (($nativeFailure -like "*CreateFileW failed*") -or ($nativeFailure -like "*GetFinalPathNameByHandleW failed*")) {
+        $canonicalPath = [System.IO.Path]::GetFullPath($probe)
+      } else {
+        throw
+      }
+    }
   } else {
     $canonicalPath = [System.IO.Path]::GetFullPath($probe)
   }

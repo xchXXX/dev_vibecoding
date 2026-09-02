@@ -1,14 +1,13 @@
 {
-  "generated_at_utc": "2026-06-16T13:32:54.4953380Z",
-  "repo_root": "C:\\Users\\72385\\dev\\dev_vibecoding",
-  "local_rule_count": 21,
+  "schema_version": "2.0",
+  "source_fingerprint": "e3c059e465c79a61c51d3e46ac7c1dcf01a32de2ff1f06b64c0b54e2fe2cdbdc",
+  "repo_root": "<repo-root>",
+  "local_rule_count": 24,
   "global_rules": {
     "mode": "none",
     "roots": [],
     "discovered": false,
-    "searched": [
-      "C:\\Users\\72385\\dev\\ai-harness\\rules\\items"
-    ]
+    "searched": []
   },
   "rules": [
     {
@@ -18,7 +17,7 @@
       "scope": "global",
       "kind": "architecture",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
         "architecture",
@@ -37,52 +36,84 @@
       "file_path": "rules/items/architecture/通用文件存储位置.md"
     },
     {
-      "id": "project.architecture.仓库目录边界",
-      "title": "仓库目录边界",
-      "subject": "repository-boundaries",
-      "scope": "project",
-      "kind": "architecture",
+      "id": "global.policy.WSL命令构造约束",
+      "title": "WSL 命令构造约束",
+      "subject": "wsl-command-construction",
+      "scope": "global",
+      "kind": "policy",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
-        "architecture",
-        "filesystem",
-        "repository"
+        "shell",
+        "test",
+        "build",
+        "debugging",
+        "automation"
       ],
       "owner": "ai-governance",
       "status": "active",
-      "summary": "仓库关键目录各有真源职责，根目录也有明确收口边界。",
+      "summary": "Codex 正常链在 WSL 中直接使用 Linux 解释器、路径与工作目录，避免多层 shell 和脆弱命令拼接。",
       "linked_skill": "",
       "enforcement": "advisory",
       "overrideable": true,
       "override_mode": "replace",
       "overrides": [],
-      "file_path": "rules/items/architecture/仓库目录边界.md"
+      "file_path": "rules/items/policy/命令构造约束.md"
     },
     {
-      "id": "project.architecture.真源入口",
-      "title": "真源入口",
-      "subject": "source-of-truth-entrypoints",
-      "scope": "project",
-      "kind": "architecture",
+      "id": "global.policy.WSL工具与脚本基线",
+      "title": "WSL 工具与脚本基线",
+      "subject": "wsl-tooling-baseline",
+      "scope": "global",
+      "kind": "policy",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
-        "architecture",
-        "documentation",
-        "governance"
+        "shell",
+        "test",
+        "build",
+        "automation",
+        "maintenance"
       ],
       "owner": "ai-governance",
       "status": "active",
-      "summary": "项目级治理与架构说明应优先从指定真源入口读取。",
+      "summary": "Codex 正常链统一使用 WSL Python 3、Linux 原生命令与批准的通用工具基线。",
       "linked_skill": "",
       "enforcement": "advisory",
       "overrideable": true,
       "override_mode": "replace",
       "overrides": [],
-      "file_path": "rules/items/architecture/真源入口.md"
+      "file_path": "rules/items/policy/脚本运行基线.md"
+    },
+    {
+      "id": "global.policy.WSL工具分层与缺失依赖处理",
+      "title": "WSL 工具分层与缺失依赖处理",
+      "subject": "wsl-tooling-layered-installation",
+      "scope": "global",
+      "kind": "policy",
+      "priority": 100,
+      "activation": "model_decision",
+      "paths": [],
+      "intents": [
+        "shell",
+        "dependency",
+        "environment",
+        "browser",
+        "automation",
+        "test",
+        "build"
+      ],
+      "owner": "ai-governance",
+      "status": "active",
+      "summary": "遇到缺失工具时，按系统层、项目依赖层和浏览器运行时分层决定安装位置、自动安装边界与授权条件。",
+      "linked_skill": "",
+      "enforcement": "advisory",
+      "overrideable": true,
+      "override_mode": "replace",
+      "overrides": [],
+      "file_path": "rules/items/policy/缺失工具分层与依赖处理.md"
     },
     {
       "id": "global.policy.变更约束",
@@ -109,63 +140,13 @@
       "file_path": "rules/items/policy/变更约束.md"
     },
     {
-      "id": "global.policy.测试临时文件必须清理",
-      "title": "测试临时文件必须清理",
-      "subject": "test-temp-cleanup",
-      "scope": "global",
-      "kind": "policy",
-      "priority": 100,
-      "activation": "always_on",
-      "paths": [],
-      "intents": [
-        "testing",
-        "filesystem",
-        "cleanup",
-        "benchmark"
-      ],
-      "owner": "ai-governance",
-      "status": "active",
-      "summary": "自动化测试、集成测试与 benchmark 产生的临时文件和临时目录必须在结束前清理。",
-      "linked_skill": "",
-      "enforcement": "advisory",
-      "overrideable": true,
-      "override_mode": "replace",
-      "overrides": [],
-      "file_path": "rules/items/policy/测试临时文件必须清理.md"
-    },
-    {
-      "id": "global.policy.核心文档与测试先于代码实现",
-      "title": "核心文档与测试先于代码实现",
-      "subject": "docs-tests-before-code",
-      "scope": "global",
-      "kind": "policy",
-      "priority": 100,
-      "activation": "always_on",
-      "paths": [],
-      "intents": [
-        "governance",
-        "documentation",
-        "testing",
-        "implementation"
-      ],
-      "owner": "ai-governance",
-      "status": "active",
-      "summary": "长任务中核心文档与测试的同步更新必须先于代码实现，并由主协调器负责组织。",
-      "linked_skill": "",
-      "enforcement": "advisory",
-      "overrideable": true,
-      "override_mode": "replace",
-      "overrides": [],
-      "file_path": "rules/items/policy/核心文档与测试先于代码实现.md"
-    },
-    {
       "id": "global.policy.命令失败闭环",
       "title": "命令失败闭环",
       "subject": "command-failure-memory",
       "scope": "global",
       "kind": "policy",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
         "shell",
@@ -175,7 +156,7 @@
       ],
       "owner": "ai-governance",
       "status": "active",
-      "summary": "命令失败后先记录，重试前先查询，成功后回写。",
+      "summary": "WSL 命令失败后先记录、重试前查询、成功后回写，并继续使用原位经验库。",
       "linked_skill": "command-failure-memory",
       "enforcement": "executable_backed",
       "overrideable": true,
@@ -184,13 +165,37 @@
       "file_path": "rules/items/policy/命令失败闭环.md"
     },
     {
+      "id": "global.policy.子代理慢任务非异常不得干预",
+      "title": "子代理慢任务非异常不得干预",
+      "subject": "subagent-non-interference",
+      "scope": "global",
+      "kind": "policy",
+      "priority": 100,
+      "activation": "model_decision",
+      "paths": [],
+      "intents": [
+        "subagent",
+        "delegation",
+        "orchestration"
+      ],
+      "owner": "ai-governance",
+      "status": "active",
+      "summary": "子代理执行期间仅因耗时长不得被催促、打断、改派或强行收口。",
+      "linked_skill": "",
+      "enforcement": "advisory",
+      "overrideable": true,
+      "override_mode": "replace",
+      "overrides": [],
+      "file_path": "rules/items/policy/子代理慢任务非异常不得干预.md"
+    },
+    {
       "id": "global.policy.平台噪音与任务失败判定",
       "title": "平台噪音与任务失败判定",
       "subject": "platform-noise-vs-task-failure",
       "scope": "global",
       "kind": "policy",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
         "shell",
@@ -217,7 +222,7 @@
       "scope": "global",
       "kind": "policy",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
         "filesystem",
@@ -236,80 +241,78 @@
       "file_path": "rules/items/policy/文件存储位置强制约束.md"
     },
     {
-      "id": "global.policy.子代理慢任务非异常不得干预",
-      "title": "子代理慢任务非异常不得干预",
-      "subject": "subagent-non-interference",
+      "id": "global.policy.核心文档与测试先于代码实现",
+      "title": "核心文档与测试先于代码实现",
+      "subject": "docs-tests-before-code",
       "scope": "global",
       "kind": "policy",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
-        "subagent",
-        "delegation",
-        "orchestration"
+        "governance",
+        "documentation",
+        "testing",
+        "implementation"
       ],
       "owner": "ai-governance",
       "status": "active",
-      "summary": "子代理执行期间仅因耗时长不得被催促、打断、改派或强行收口。",
+      "summary": "长任务中核心文档与测试的同步更新必须先于代码实现，并由主协调器负责组织。",
       "linked_skill": "",
       "enforcement": "advisory",
       "overrideable": true,
       "override_mode": "replace",
       "overrides": [],
-      "file_path": "rules/items/policy/子代理慢任务非异常不得干预.md"
+      "file_path": "rules/items/policy/核心文档与测试先于代码实现.md"
     },
     {
-      "id": "global.policy.PowerShell7脚本基线",
-      "title": "PowerShell7脚本基线",
-      "subject": "pwsh7-baseline",
+      "id": "global.policy.测试临时文件必须清理",
+      "title": "测试临时文件必须清理",
+      "subject": "test-temp-cleanup",
       "scope": "global",
       "kind": "policy",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
-        "shell",
-        "test",
-        "build",
-        "automation",
-        "maintenance"
+        "testing",
+        "filesystem",
+        "cleanup",
+        "benchmark"
       ],
       "owner": "ai-governance",
       "status": "active",
-      "summary": "项目 PowerShell 脚本与 harness 入口统一以 `pwsh` / PowerShell 7 为执行基线。",
+      "summary": "自动化测试、集成测试与 benchmark 产生的临时文件和临时目录必须在结束前清理。",
       "linked_skill": "",
       "enforcement": "advisory",
       "overrideable": true,
       "override_mode": "replace",
       "overrides": [],
-      "file_path": "rules/items/policy/脚本运行基线.md"
+      "file_path": "rules/items/policy/测试临时文件必须清理.md"
     },
     {
-      "id": "global.policy.Windows命令构造约束",
-      "title": "Windows命令构造约束",
-      "subject": "windows-command-construction",
+      "id": "global.quality.提交与验证",
+      "title": "提交与验证",
+      "subject": "verification-and-commits",
       "scope": "global",
-      "kind": "policy",
+      "kind": "quality",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
-        "shell",
-        "test",
-        "build",
-        "debugging",
-        "automation"
+        "verification",
+        "testing",
+        "commit"
       ],
       "owner": "ai-governance",
       "status": "active",
-      "summary": "Windows 下优先避免脆弱 one-liner，并区分简单 `.cmd` 调用与复杂参数直连脚本。",
+      "summary": "变更后优先做最小相关验证，并对提交与留痕保持统一口径。",
       "linked_skill": "",
       "enforcement": "advisory",
       "overrideable": true,
       "override_mode": "replace",
       "overrides": [],
-      "file_path": "rules/items/policy/命令构造约束.md"
+      "file_path": "rules/items/quality/提交与验证.md"
     },
     {
       "id": "global.quality.方案与施工文档必填字段",
@@ -318,7 +321,7 @@
       "scope": "global",
       "kind": "quality",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
         "planning",
@@ -335,30 +338,6 @@
       "override_mode": "replace",
       "overrides": [],
       "file_path": "rules/items/quality/方案与施工文档必填字段.md"
-    },
-    {
-      "id": "global.quality.提交与验证",
-      "title": "提交与验证",
-      "subject": "verification-and-commits",
-      "scope": "global",
-      "kind": "quality",
-      "priority": 100,
-      "activation": "always_on",
-      "paths": [],
-      "intents": [
-        "verification",
-        "testing",
-        "commit"
-      ],
-      "owner": "ai-governance",
-      "status": "active",
-      "summary": "变更后优先做最小相关验证，并对提交与留痕保持统一口径。",
-      "linked_skill": "",
-      "enforcement": "advisory",
-      "overrideable": true,
-      "override_mode": "replace",
-      "overrides": [],
-      "file_path": "rules/items/quality/提交与验证.md"
     },
     {
       "id": "global.style.说明默认使用中文",
@@ -384,27 +363,80 @@
       "file_path": "rules/items/style/说明默认使用中文.md"
     },
     {
-      "id": "global.workflow.落盘前先给简短计划",
-      "title": "落盘前先给简短计划",
-      "subject": "plan-before-write",
+      "id": "global.workflow.修复闭环闸门",
+      "title": "修复闭环闸门",
+      "subject": "fix-closure-verification-gate",
       "scope": "global",
       "kind": "workflow",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
-        "editing",
-        "implementation"
+        "implementation",
+        "verification",
+        "review",
+        "testing",
+        "bugfix"
       ],
       "owner": "ai-governance",
       "status": "active",
-      "summary": "任何会落盘的改动都应先给出简短计划，再实施修改。",
-      "linked_skill": "",
+      "summary": "对修复类任务先冻结最小命中证明合同，再进入实现或复审，避免把结果通过误当成修复点闭环。",
+      "linked_skill": "fix-closure-gate",
       "enforcement": "advisory",
       "overrideable": true,
       "override_mode": "replace",
       "overrides": [],
-      "file_path": "rules/items/workflow/落盘前先给简短计划.md"
+      "file_path": "rules/items/workflow/修复闭环闸门.md"
+    },
+    {
+      "id": "global.workflow.复杂任务全局编排",
+      "title": "复杂任务全局编排",
+      "subject": "global-task-orchestration",
+      "scope": "global",
+      "kind": "workflow",
+      "priority": 100,
+      "activation": "model_decision",
+      "paths": [],
+      "intents": [
+        "orchestration",
+        "long-task",
+        "subagent",
+        "review"
+      ],
+      "owner": "ai-governance",
+      "status": "active",
+      "summary": "复杂任务统一使用 GTO 单控制面、按需投影、工作区基线与最终审查门禁。",
+      "linked_skill": "global-task-orchestrator",
+      "enforcement": "executable_backed",
+      "overrideable": true,
+      "override_mode": "replace",
+      "overrides": [],
+      "file_path": "rules/items/workflow/复杂任务全局编排.md"
+    },
+    {
+      "id": "global.workflow.子代理委派与协作",
+      "title": "子代理委派与协作",
+      "subject": "subagent-dispatch-and-collaboration",
+      "scope": "global",
+      "kind": "workflow",
+      "priority": 100,
+      "activation": "model_decision",
+      "paths": [],
+      "intents": [
+        "subagent",
+        "delegation",
+        "review",
+        "rework"
+      ],
+      "owner": "ai-governance",
+      "status": "active",
+      "summary": "子代理使用真实无历史派发、真实身份绑定、固定 finding 返修路由与范围化复审。",
+      "linked_skill": "global-task-orchestrator",
+      "enforcement": "executable_backed",
+      "overrideable": true,
+      "override_mode": "replace",
+      "overrides": [],
+      "file_path": "rules/items/workflow/子代理委派与协作.md"
     },
     {
       "id": "global.workflow.审阅返工固定路由",
@@ -413,7 +445,7 @@
       "scope": "global",
       "kind": "workflow",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
         "review",
@@ -438,7 +470,7 @@
       "scope": "global",
       "kind": "workflow",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
         "documentation",
@@ -455,32 +487,6 @@
       "override_mode": "replace",
       "overrides": [],
       "file_path": "rules/items/workflow/文档分流与实现前闸门.md"
-    },
-    {
-      "id": "global.workflow.修复闭环闸门",
-      "title": "修复闭环闸门",
-      "subject": "fix-closure-verification-gate",
-      "scope": "global",
-      "kind": "workflow",
-      "priority": 100,
-      "activation": "always_on",
-      "paths": [],
-      "intents": [
-        "implementation",
-        "verification",
-        "review",
-        "testing",
-        "bugfix"
-      ],
-      "owner": "ai-governance",
-      "status": "active",
-      "summary": "对修复类任务先冻结最小命中证明合同，再进入实现或复审，避免把结果通过误当成修复点闭环。",
-      "linked_skill": "fix-closure-gate",
-      "enforcement": "advisory",
-      "overrideable": true,
-      "override_mode": "replace",
-      "overrides": [],
-      "file_path": "rules/items/workflow/修复闭环闸门.md"
     },
     {
       "id": "global.workflow.用户提问先回答再继续",
@@ -506,13 +512,36 @@
       "file_path": "rules/items/workflow/用户提问先回答再继续.md"
     },
     {
+      "id": "global.workflow.落盘前先给简短计划",
+      "title": "落盘前先给简短计划",
+      "subject": "plan-before-write",
+      "scope": "global",
+      "kind": "workflow",
+      "priority": 100,
+      "activation": "model_decision",
+      "paths": [],
+      "intents": [
+        "editing",
+        "implementation"
+      ],
+      "owner": "ai-governance",
+      "status": "active",
+      "summary": "任何会落盘的改动都应先给出简短计划，再实施修改。",
+      "linked_skill": "",
+      "enforcement": "advisory",
+      "overrideable": true,
+      "override_mode": "replace",
+      "overrides": [],
+      "file_path": "rules/items/workflow/落盘前先给简短计划.md"
+    },
+    {
       "id": "global.workflow.长任务实施顺序",
       "title": "长任务实施顺序",
       "subject": "long-task-sequencing",
       "scope": "global",
       "kind": "workflow",
       "priority": 100,
-      "activation": "always_on",
+      "activation": "model_decision",
       "paths": [],
       "intents": [
         "planning",
@@ -530,6 +559,55 @@
       "override_mode": "replace",
       "overrides": [],
       "file_path": "rules/items/workflow/长任务实施顺序.md"
+    },
+    {
+      "id": "project.architecture.仓库目录边界",
+      "title": "仓库目录边界",
+      "subject": "repository-boundaries",
+      "scope": "project",
+      "kind": "architecture",
+      "priority": 100,
+      "activation": "model_decision",
+      "paths": [],
+      "intents": [
+        "architecture",
+        "filesystem",
+        "repository"
+      ],
+      "owner": "ai-governance",
+      "status": "active",
+      "summary": "仓库关键目录各有真源职责，根目录也有明确收口边界。",
+      "linked_skill": "",
+      "enforcement": "advisory",
+      "overrideable": true,
+      "override_mode": "replace",
+      "overrides": [],
+      "file_path": "rules/items/architecture/仓库目录边界.md"
+    },
+    {
+      "id": "project.architecture.真源入口",
+      "title": "真源入口",
+      "subject": "source-of-truth-entrypoints",
+      "scope": "project",
+      "kind": "architecture",
+      "priority": 100,
+      "activation": "model_decision",
+      "paths": [],
+      "intents": [
+        "architecture",
+        "documentation",
+        "governance"
+      ],
+      "owner": "ai-governance",
+      "status": "active",
+      "summary": "项目级治理与架构说明应优先从指定真源入口读取。",
+      "linked_skill": "",
+      "enforcement": "advisory",
+      "overrideable": true,
+      "override_mode": "replace",
+      "overrides": [],
+      "file_path": "rules/items/architecture/真源入口.md"
     }
-  ]
+  ],
+  "warnings": []
 }

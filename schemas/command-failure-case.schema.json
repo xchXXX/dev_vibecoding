@@ -101,6 +101,27 @@
     "updated_at": {
       "type": "string"
     },
+    "storage_tier": {
+      "type": "string",
+      "enum": [
+        "active",
+        "archived"
+      ],
+      "default": "active"
+    },
+    "archived_at": {
+      "type": "string"
+    },
+    "reactivated_at": {
+      "type": "string"
+    },
+    "archive_reason": {
+      "type": "string",
+      "enum": [
+        "capacity_cold",
+        "capacity_unresolved"
+      ]
+    },
     "last_verified_at": {
       "type": "string"
     },

@@ -1,147 +1,81 @@
 {
-  "task_id": "20260529-example-orchestrator-task",
-  "title": "示例任务：瘦身控制面并更新文档与测试",
+  "task_id": "20300102-030405-template-refresh",
+  "title": "示例任务：同步当前任务模板",
   "status": "active",
   "owner": "main-coordinator",
-  "objective": "把旧多文件控制面收口到 state.json、task.md、events.jsonl，并完成文档、脚本、测试同步。",
-  "scope_in": [
-    "docs/SUBAGENT_GOVERNANCE.md",
-    "skills/global-task-orchestrator/**",
-    "schemas/**",
-    "templates/**",
-    "tests/harness/control-plane.integration.ps1"
-  ],
-  "scope_out": [
-    "历史 run 目录兼容迁移",
-    "与 orchestrator 无关的 hooks 或 sync 行为修改"
-  ],
-  "acceptance": [
-    "state.json 成为唯一真源",
-    "task.md 只保留摘要",
-    "events.jsonl 只保留关键事件",
-    "新测试覆盖核心 happy path 和 bad path"
-  ],
-  "stop_conditions": [
-    "发现必须保留旧控制面兼容层",
-    "发现测试必须依赖旧 run 目录结构"
-  ],
-  "decisions": [
-    "不再持久化 dispatch_message_raw",
-    "子任务合同写在 subtasks[].assignment",
-    "子任务结果写在 subtasks[].result",
-    "verification_contract 根对象负责定义实现前与复审前的最小验证合同"
-  ],
-  "current_phase": "code_impl",
-  "verification_contract": {
-    "minimal_repro": "先用最小复现命令稳定打到旧控制面缺陷，再记录失败表现。",
-    "hit_proof": "证明命中点位于 orchestrator/state/schema/测试 对 verification_contract 的最小接入。",
-    "diagnostic_checks": [
-      "在缺 verification_contract 时执行 validate，确认 code_impl 闸门会阻断。",
-      "在 review 前故意缺少 evidence slot，确认 validate 会阻断复审。"
-    ],
-    "acceptance_checks": [
-      "schema、模板、skill 文档与 orchestrator validate 同步支持 verification_contract。",
-      "control-plane 集成测试覆盖实现前 contract 缺失与 review 前 evidence 缺失。"
-    ],
-    "non_goals": [
-      "不新增 phase。",
-      "不改 agents manifest 或 role-map。"
-    ],
-    "review_evidence": [
-      "repro_before_fix",
-      "pass_after_fix",
-      "hit_proof_observed",
-      "relevant_regression_ok"
-    ]
+  "six_points": {
+    "do": "把当前任务模板同步到 version=3 与六工件合同。",
+    "do_not": ["不修改历史任务证据。"],
+    "change_areas": ["templates", "skills/pre-dev-benchmark"],
+    "implementation": "先用聚焦测试确认模板漂移，再最小修改并执行独立审查。",
+    "acceptance": ["状态模板通过当前 schema，文档命令可从仓库根直接运行。"],
+    "risks": ["工作树中的既有改动可能与目标文件重叠。"]
   },
+  "approval": {
+    "status": "approved",
+    "approved_by": "user",
+    "approved_at": "2030-01-02T03:04:05Z",
+    "contract_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "artifact_sha256": {
+    "task.md": "2222222222222222222222222222222222222222222222222222222222222222",
+    "plan.md": "3333333333333333333333333333333333333333333333333333333333333333",
+    "execution.md": "4444444444444444444444444444444444444444444444444444444444444444",
+    "acceptance.md": "5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "objective": "把当前任务模板同步到 version=3 与六工件合同。",
+  "scope_in": ["templates", "skills/pre-dev-benchmark"],
+  "scope_out": ["不修改历史任务证据。"],
+  "acceptance": ["状态模板通过当前 schema，文档命令可从仓库根直接运行。"],
+  "stop_conditions": ["发现目标文件存在未裁决的重叠改动。"],
+  "decisions": ["先用聚焦测试确认模板漂移，再最小修改并执行独立审查。"],
+  "current_phase": "code_impl",
+  "workspace": {
+    "repo_root": "<repo-root>",
+    "checkout_kind": "primary",
+    "branch": "main",
+    "head": "0000000000000000000000000000000000000000",
+    "dirty_paths": ["templates/task-state.example.json"],
+    "write_overlap": [],
+    "overlap_decision": {
+      "status": "resolved",
+      "summary": "已确认仅做任务范围内的窄修改并保留既有内容。",
+      "baseline_hashes": {
+        "templates/task-state.example.json": "6666666666666666666666666666666666666666666666666666666666666666"
+      }
+    }
+  },
+  "review_policy": {
+    "require_independent_final_review": true,
+    "max_fix_rounds": 3,
+    "scope_expansion_requires_escalation": true
+  },
+  "verification_contract": {
+    "minimal_repro": "运行模板合同单测并观察 schema 或命令漂移断言。",
+    "hit_proof": "断言报告具体模板路径与缺失字段或退休命令。",
+    "diagnostic_checks": ["逐份解析 JSON 并列出 schema errors。"],
+    "acceptance_checks": ["运行当前模板合同单测。", "运行 benchmark 仓库根入口单测。"],
+    "non_goals": ["不在本子任务中同步用户 runtime。"],
+    "review_evidence": ["repro_before_fix", "pass_after_fix", "hit_proof_observed", "relevant_regression_ok"]
+  },
+  "findings": {},
+  "next_action": {"kind": "dispatch_ready_subtask"},
   "subtasks": [
     {
-      "subtask_id": "ST-runtime",
-      "title": "重写 orchestrator skill 与脚本",
+      "subtask_id": "IMPL-TEMPLATE-001",
+      "title": "同步模板与 benchmark 入口",
       "role": "backend-implementer",
-      "status": "completed",
+      "status": "ready",
       "dependencies": [],
-      "read_paths": [
-        "skills/global-task-orchestrator/SKILL.md",
-        "schemas/task-state.schema.json"
-      ],
-      "write_paths": [
-        "skills/global-task-orchestrator/SKILL.md",
-        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
-        "schemas/task-state.schema.json"
-      ],
+      "read_paths": ["schemas/orchestrator-task-state.schema.json", "tests/harness"],
+      "write_paths": ["templates", "skills/pre-dev-benchmark"],
       "assignment": {
-        "goal": "删除旧控制面脚本并切换到 state.json 模型。",
-        "must_include": [
-          "init-task",
-          "sync-task-md",
-          "append-event",
-          "build-subtask-brief",
-          "validate"
-        ],
-        "verification": [
-          "脚本可以创建 task 文件",
-          "脚本可以生成 subtask brief",
-          "validate 能抓到关键坏路径"
-        ]
-      },
-      "result": {
-        "status": "completed",
-        "summary": "已切换到最小 task 控制面，并补齐 validate 硬校验。",
-        "changed_files": [
-          "skills/global-task-orchestrator/SKILL.md",
-          "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
-          "schemas/task-state.schema.json"
-        ],
-        "planned_files_not_changed": [],
-        "verification": {
-          "commands": [
-            "powershell -NoProfile -ExecutionPolicy Bypass -File tests/harness/control-plane.integration.ps1"
-          ],
-          "result": "通过"
-        },
-        "deviations": [],
-        "blocked_by": [],
-        "risks": [],
-        "follow_up": [
-          "等待 reviewer 做最终一致性审查"
-        ],
-        "review_evidence": {
-          "repro_before_fix": "实现前 validate 对缺 verification_contract 的 state 会失败。",
-          "pass_after_fix": "补齐 verification_contract 后，code_impl 阶段 validate 可继续通过。",
-          "hit_proof_observed": "失败与通过都直接命中 orchestrator/state/schema 的新接入口径。 "
-        },
-        "written_by": "backend-implementer",
-        "written_role": "backend-implementer"
-      }
-    },
-    {
-      "subtask_id": "ST-review",
-      "title": "审查控制面口径一致性",
-      "role": "reviewer",
-      "status": "pending",
-      "dependencies": [
-        "ST-runtime"
-      ],
-      "read_paths": [
-        "docs/SUBAGENT_GOVERNANCE.md",
-        "skills/global-task-orchestrator/**",
-        "tests/harness/control-plane.integration.ps1"
-      ],
-      "write_paths": [],
-      "assignment": {
-        "goal": "确认文档、skill 和测试都已切到新模型。",
-        "must_include": [
-          "结论 pass/fail",
-          "按严重度排序的 findings"
-        ],
-        "verification": [
-          "不再存在旧控制面作为正式路径",
-          "新控制面对象只有 state.json/task.md/events.jsonl"
-        ]
+        "goal": "让当前模板与 benchmark 文档只使用有效合同和真实 WSL Python 入口。",
+        "must_include": ["version=3 状态字段完整。", "events.jsonl 作为必备工件。"],
+        "verification": ["python3 skills/global-task-orchestrator/scripts/orchestrator_ctl.py --action validate --repo-root <repo-root> --task-id 20300102-030405-template-refresh --json"]
       }
     }
   ],
-  "updated_at": "2026-05-29T00:00:00+08:00",
-  "version": 1
+  "updated_at": "2030-01-02T03:04:05Z",
+  "version": 3
 }

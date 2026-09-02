@@ -2,6 +2,7 @@
 import argparse
 import ctypes
 import datetime as dt
+import errno
 import hashlib
 import json
 import math
@@ -11,7 +12,11 @@ import re
 import stat
 import sys
 import tempfile
+import time
 from typing import Any, Dict, List, Optional
+
+if os.name == "posix":
+    import fcntl
 
 
 MAX_SIGNATURE_SOURCE_LENGTH = 4096
@@ -21,7 +26,6 @@ MAX_STORED_ERROR_LENGTH = 512
 MAX_STORED_RESOLUTION_LENGTH = 768
 MAX_STORED_REASON_LENGTH = 256
 MAX_PROJECTS_SEEN = 32
-MAX_PENDING_FAILURE_EVENTS = 128
 MAX_CASE_COUNT = 1024
 MEMORY_LOCK_TIMEOUT_MS = 15000
 VALID_SCOPE_KINDS = {"candidate_global", "candidate_project", "global", "project"}
@@ -302,19 +306,85 @@ def get_timestamp_sort_key(timestamp: str) -> float:
 
 
 def limit_failure_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    filtered = [event for event in events if event is not None]
-    if len(filtered) <= MAX_PENDING_FAILURE_EVENTS:
-        return filtered
-    filtered.sort(
-        key=lambda event: get_timestamp_sort_key(event.get("last_failed_at") or event.get("first_failed_at") or ""),
-        reverse=True,
+    # Pending failures are unresolved work, not a cache. Dropping old entries can
+    # silently remove the only retry-gate evidence for a failure.
+    return [event for event in events if event is not None]
+
+
+def get_storage_tier(case_data: Dict[str, Any]) -> str:
+    tier = str(case_data.get("storage_tier", "active"))
+    if tier not in {"active", "archived"}:
+        raise MemoryErrorRuntime(f"case has invalid storage_tier: {case_data.get('case_id')}")
+    return tier
+
+
+def get_active_case_count(case_by_id: Dict[str, Dict[str, Any]]) -> int:
+    return sum(1 for case_data in case_by_id.values() if get_storage_tier(case_data) == "active")
+
+
+def archive_cold_active_case(
+    storage: Dict[str, str],
+    catalog: Dict[str, Any],
+    changed_cases: Dict[str, Dict[str, Any]],
+    *,
+    excluded_case_ids: Optional[set[str]] = None,
+) -> Dict[str, Any]:
+    excluded = excluded_case_ids or set()
+    candidates = [
+        entry
+        for entry in catalog["by_id"].values()
+        if entry.get("case_id") not in excluded
+        and get_storage_tier(entry) == "active"
+    ]
+    candidates.sort(
+        key=lambda entry: (
+            0 if entry.get("has_solution") is False else (1 if "has_solution" not in entry else 2),
+            get_timestamp_sort_key(
+                str(
+                    entry.get("last_hit_at")
+                    or entry.get("last_verified_at")
+                    or entry.get("updated_at")
+                    or entry.get("created_at")
+                    or ""
+                )
+            ),
+            str(entry.get("case_id", "")),
+        )
     )
-    return filtered[:MAX_PENDING_FAILURE_EVENTS]
+    for entry in candidates:
+        case_id = entry["case_id"]
+        case_data = changed_cases.get(case_id) or load_case_data(storage, entry)
+        if not str(case_data.get("solution", "")).strip():
+            case_data["storage_tier"] = "archived"
+            case_data["archived_at"] = get_iso_timestamp()
+            case_data["archive_reason"] = "capacity_unresolved"
+            changed_cases[case_id] = case_data
+            put_case_in_catalog(catalog, case_data)
+            return case_data
+        if int(case_data.get("stats", {}).get("verify_count", 0)) <= 0:
+            entry["has_solution"] = True
+            continue
+        case_data["storage_tier"] = "archived"
+        case_data["archived_at"] = get_iso_timestamp()
+        case_data["archive_reason"] = "capacity_cold"
+        changed_cases[case_id] = case_data
+        put_case_in_catalog(catalog, case_data)
+        return case_data
+    raise MemoryErrorRuntime("active case capacity reached and no stable cold case can be archived.")
 
 
-def assert_case_capacity(case_by_id: Dict[str, Dict[str, Any]]) -> None:
-    if len(case_by_id) >= MAX_CASE_COUNT:
-        raise MemoryErrorRuntime(f"case capacity limit reached: {MAX_CASE_COUNT}")
+def ensure_active_capacity(
+    storage: Dict[str, str],
+    catalog: Dict[str, Any],
+    changed_cases: Dict[str, Dict[str, Any]],
+    *,
+    excluded_case_ids: Optional[set[str]] = None,
+) -> Optional[Dict[str, Any]]:
+    if get_active_case_count(catalog["by_id"]) < MAX_CASE_COUNT:
+        return None
+    return archive_cold_active_case(
+        storage, catalog, changed_cases, excluded_case_ids=excluded_case_ids
+    )
 
 
 def coerce_projects_seen(value: Any) -> List[str]:
@@ -342,6 +412,7 @@ def assert_valid_case_data(case_data: Dict[str, Any]) -> None:
         raise MemoryErrorRuntime("case data is null")
     if not case_data.get("schema_version"):
         case_data["schema_version"] = "1.0"
+    case_data["storage_tier"] = get_storage_tier(case_data)
     case_id = str(case_data.get("case_id", ""))
     signature = str(case_data.get("signature", ""))
     if not CASE_ID_PATTERN.match(case_id):
@@ -426,7 +497,26 @@ def invoke_with_memory_lock(memory_root: str, callback):
     if os.name == "nt":
         with NamedMutex(lock_name, MEMORY_LOCK_TIMEOUT_MS):
             return callback()
-    return callback()
+    os.makedirs(memory_root, exist_ok=True)
+    lock_path = os.path.join(memory_root, ".store.lock")
+    with open(lock_path, "a+b") as lock_handle:
+        deadline = time.monotonic() + (MEMORY_LOCK_TIMEOUT_MS / 1000.0)
+        while True:
+            try:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError as exc:
+                if exc.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                if time.monotonic() >= deadline:
+                    raise MemoryErrorRuntime(
+                        f"timed out waiting for failure-memory lock after {MEMORY_LOCK_TIMEOUT_MS} ms."
+                    ) from exc
+                time.sleep(0.05)
+        try:
+            return callback()
+        finally:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
 
 
 def new_memory_storage(memory_root: str) -> Dict[str, str]:
@@ -468,52 +558,88 @@ def new_case_id(signature: str, case_by_id: Dict[str, Dict[str, Any]]) -> str:
             return candidate
 
 
-def get_case_maps(storage: Dict[str, str]) -> Dict[str, Any]:
+def get_case_catalog(storage: Dict[str, str]) -> Dict[str, Any]:
     index_data = read_json_object(storage["index_path"], get_empty_index_data())
     cases_value = index_data.get("cases")
     if not isinstance(cases_value, list):
         index_data["cases"] = []
-    case_by_id: Dict[str, Dict[str, Any]] = {}
-    case_by_signature: Dict[str, List[Dict[str, Any]]] = {}
+    entry_by_id: Dict[str, Dict[str, Any]] = {}
+    entry_by_signature: Dict[str, List[Dict[str, Any]]] = {}
     for entry in index_data["cases"]:
         if not isinstance(entry, dict):
             continue
+        entry = dict(entry)
         case_id = str(entry.get("case_id", ""))
-        if not case_id:
+        signature = str(entry.get("signature", ""))
+        if not CASE_ID_PATTERN.match(case_id) or not HEX64_PATTERN.match(signature):
             continue
-        case_path = resolve_case_file_path(storage["cases_root"], case_id)
-        case_data = read_json_object(case_path, None)
-        if not isinstance(case_data, dict):
-            continue
-        signature = str(case_data.get("signature", ""))
-        if not signature:
-            continue
-        assert_valid_case_data(case_data)
-        case_by_id[case_id] = case_data
-        case_by_signature.setdefault(signature, []).append(case_data)
-    return {"index_data": index_data, "by_id": case_by_id, "by_signature": case_by_signature}
+        entry["case_id"] = case_id
+        entry["signature"] = signature
+        entry["storage_tier"] = get_storage_tier(entry)
+        ensure_stats(entry)
+        entry_by_id[case_id] = entry
+        entry_by_signature.setdefault(signature, []).append(entry)
+    index_data["cases"] = [entry_by_id[case_id] for case_id in sorted(entry_by_id)]
+    return {"index_data": index_data, "by_id": entry_by_id, "by_signature": entry_by_signature}
 
 
-def save_case_maps(storage: Dict[str, str], case_by_id: Dict[str, Dict[str, Any]]) -> None:
-    case_entries: List[Dict[str, Any]] = []
-    for case_id in sorted(case_by_id.keys()):
-        case_data = case_by_id[case_id]
+def load_case_data(storage: Dict[str, str], entry: Dict[str, Any]) -> Dict[str, Any]:
+    case_path = resolve_case_file_path(storage["cases_root"], entry["case_id"])
+    case_data = read_json_object(case_path, None)
+    if not isinstance(case_data, dict):
+        raise MemoryErrorRuntime(f"case file is missing or invalid: {entry['case_id']}")
+    if "storage_tier" not in case_data:
+        case_data["storage_tier"] = get_storage_tier(entry)
+    assert_valid_case_data(case_data)
+    if case_data["case_id"] != entry["case_id"] or case_data["signature"] != entry["signature"]:
+        raise MemoryErrorRuntime(f"case index metadata mismatch: {entry['case_id']}")
+    return case_data
+
+
+def case_to_index_entry(case_data: Dict[str, Any]) -> Dict[str, Any]:
+    assert_valid_case_data(case_data)
+    entry = {
+        "case_id": case_data["case_id"],
+        "signature": case_data["signature"],
+        "scope_kind": case_data["scope_kind"],
+        "scope_confidence": case_data["scope_confidence"],
+        "scope_reason": case_data["scope_reason"],
+        "projects_seen": list(case_data["projects_seen"]),
+        "stats": dict(case_data["stats"]),
+        "created_at": case_data["created_at"],
+        "updated_at": case_data["updated_at"],
+        "storage_tier": case_data["storage_tier"],
+        "has_solution": bool(str(case_data.get("solution", "")).strip()),
+        "last_verified_at": str(case_data.get("last_verified_at", "")),
+        "last_hit_at": str(case_data.get("last_hit_at", "")),
+    }
+    for field in ("archived_at", "reactivated_at", "archive_reason"):
+        if str(case_data.get(field, "")):
+            entry[field] = str(case_data[field])
+    return entry
+
+
+def put_case_in_catalog(catalog: Dict[str, Any], case_data: Dict[str, Any]) -> None:
+    entry = case_to_index_entry(case_data)
+    old_entry = catalog["by_id"].get(entry["case_id"])
+    if old_entry is not None:
+        old_signature_entries = catalog["by_signature"].get(old_entry["signature"], [])
+        catalog["by_signature"][old_entry["signature"]] = [
+            item for item in old_signature_entries if item["case_id"] != entry["case_id"]
+        ]
+    catalog["by_id"][entry["case_id"]] = entry
+    catalog["by_signature"].setdefault(entry["signature"], []).append(entry)
+
+
+def save_case_catalog(
+    storage: Dict[str, str], catalog: Dict[str, Any], changed_cases: Dict[str, Dict[str, Any]]
+) -> None:
+    for case_id in sorted(changed_cases):
+        case_data = changed_cases[case_id]
         assert_valid_case_data(case_data)
-        case_path = resolve_case_file_path(storage["cases_root"], case_id)
-        write_json_object(case_path, case_data)
-        case_entries.append(
-            {
-                "case_id": case_data["case_id"],
-                "signature": case_data["signature"],
-                "scope_kind": case_data["scope_kind"],
-                "scope_confidence": case_data["scope_confidence"],
-                "scope_reason": case_data["scope_reason"],
-                "projects_seen": list(case_data["projects_seen"]),
-                "stats": case_data["stats"],
-                "created_at": case_data["created_at"],
-                "updated_at": case_data["updated_at"],
-            }
-        )
+        write_json_object(resolve_case_file_path(storage["cases_root"], case_id), case_data)
+        put_case_in_catalog(catalog, case_data)
+    case_entries = [catalog["by_id"][case_id] for case_id in sorted(catalog["by_id"])]
     index_data = {"schema_version": "1.0", "updated_at": get_iso_timestamp(), "cases": case_entries}
     write_json_object(storage["index_path"], index_data)
 
@@ -551,17 +677,17 @@ def update_case_scope_convergence(case_data: Dict[str, Any], current_project_id:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("-Action", required=True, choices=["record-failure", "query-before-retry", "record-success", "inspect"])
-    parser.add_argument("-CodexHome", default="")
-    parser.add_argument("-ProjectId", default="")
-    parser.add_argument("-CommandText", default="")
-    parser.add_argument("-ErrorText", default="")
-    parser.add_argument("-Resolution", default="")
-    parser.add_argument("-ScopeKind", default="")
-    parser.add_argument("-ScopeConfidence", type=float, default=None)
-    parser.add_argument("-ScopeReason", default="")
-    parser.add_argument("-ProjectSpecific", action="store_true")
-    parser.add_argument("-Json", action="store_true")
+    parser.add_argument("--action", dest="Action", required=True, choices=["record-failure", "query-before-retry", "record-success", "inspect"])
+    parser.add_argument("--codex-home", dest="CodexHome", default="")
+    parser.add_argument("--project-id", dest="ProjectId", default="")
+    parser.add_argument("--command-text", dest="CommandText", default="")
+    parser.add_argument("--error-text", dest="ErrorText", default="")
+    parser.add_argument("--resolution", dest="Resolution", default="")
+    parser.add_argument("--scope-kind", dest="ScopeKind", default="")
+    parser.add_argument("--scope-confidence", dest="ScopeConfidence", type=float, default=None)
+    parser.add_argument("--scope-reason", dest="ScopeReason", default="")
+    parser.add_argument("--project-specific", dest="ProjectSpecific", action="store_true")
+    parser.add_argument("--json", dest="Json", action="store_true")
     parser.add_argument("-h", "--help", action="help")
     return parser
 
@@ -639,9 +765,20 @@ def main() -> int:
                 }
             event["last_query_at"] = now
             save_failure_events_data(storage, events_data)
-            maps = get_case_maps(storage)
+            catalog = get_case_catalog(storage)
+            changed_cases: Dict[str, Dict[str, Any]] = {}
             suggestions: List[Dict[str, Any]] = []
-            for case_data in maps["by_signature"].get(sig["signature"], []):
+            exact_entries = catalog["by_signature"].get(sig["signature"], [])
+            exact_case_ids = {entry["case_id"] for entry in exact_entries}
+            for entry in exact_entries:
+                case_data = load_case_data(storage, entry)
+                reactivated = get_storage_tier(case_data) == "archived"
+                if reactivated:
+                    ensure_active_capacity(
+                        storage, catalog, changed_cases, excluded_case_ids=exact_case_ids
+                    )
+                    case_data["storage_tier"] = "active"
+                    case_data["reactivated_at"] = now
                 case_data["updated_at"] = now
                 ensure_stats(case_data)
                 case_data["stats"]["hit_count"] = int(case_data["stats"]["hit_count"]) + 1
@@ -655,10 +792,14 @@ def main() -> int:
                         "solution": case_data["solution"],
                         "stats": case_data["stats"],
                         "projects_seen": list(case_data["projects_seen"]),
+                        "storage_tier": case_data["storage_tier"],
+                        "reactivated": reactivated,
                     }
                 )
+                changed_cases[case_data["case_id"]] = case_data
+                put_case_in_catalog(catalog, case_data)
             if suggestions:
-                save_case_maps(storage, maps["by_id"])
+                save_case_catalog(storage, catalog, changed_cases)
             return {
                 "ok": True,
                 "action": action,
@@ -671,20 +812,23 @@ def main() -> int:
             }
 
         if action == "record-success":
+            if not str(args.Resolution).strip():
+                raise MemoryErrorRuntime("resolution is required for record-success.")
             sig = get_case_signature(args.CommandText, args.ErrorText)
-            maps = get_case_maps(storage)
+            catalog = get_case_catalog(storage)
+            changed_cases: Dict[str, Dict[str, Any]] = {}
             case_data = None
-            existing_cases = maps["by_signature"].get(sig["signature"], [])
-            if existing_cases:
-                case_data = existing_cases[0]
+            existing_entries = catalog["by_signature"].get(sig["signature"], [])
+            if existing_entries:
+                case_data = load_case_data(storage, existing_entries[0])
             created_new_case = False
             if case_data is None:
-                assert_case_capacity(maps["by_id"])
                 if not args.ScopeKind:
                     raise MemoryErrorRuntime("scope_kind is required when no equivalent case exists.")
                 if args.ScopeKind not in VALID_SCOPE_KINDS:
                     raise MemoryErrorRuntime(f"invalid scope_kind: {args.ScopeKind}")
-                case_id = new_case_id(sig["signature"], maps["by_id"])
+                ensure_active_capacity(storage, catalog, changed_cases)
+                case_id = new_case_id(sig["signature"], catalog["by_id"])
                 confidence = (
                     get_normalized_scope_confidence(args.ScopeConfidence)
                     if args.ScopeConfidence is not None
@@ -713,8 +857,8 @@ def main() -> int:
                     "updated_at": now,
                     "last_verified_at": "",
                     "last_hit_at": "",
+                    "storage_tier": "active",
                 }
-                maps["by_id"][case_data["case_id"]] = case_data
                 created_new_case = True
 
             assert_valid_case_data(case_data)
@@ -725,7 +869,9 @@ def main() -> int:
             case_data["last_verified_at"] = now
             case_data["updated_at"] = now
             update_case_scope_convergence(case_data, project, args.ProjectSpecific)
-            save_case_maps(storage, maps["by_id"])
+            changed_cases[case_data["case_id"]] = case_data
+            put_case_in_catalog(catalog, case_data)
+            save_case_catalog(storage, catalog, changed_cases)
 
             events_data = get_failure_events_data(storage)
             events_data["events"] = [
@@ -753,17 +899,20 @@ def main() -> int:
                 "memory_root": memory_root,
             }
 
-        maps = get_case_maps(storage)
+        catalog = get_case_catalog(storage)
         events_data = get_failure_events_data(storage)
+        active_case_count = get_active_case_count(catalog["by_id"])
         return {
             "ok": True,
             "action": action,
             "memory_root": memory_root,
             "index_path": storage["index_path"],
             "failure_events_path": storage["failure_events_path"],
-            "case_count": len(maps["by_id"]),
+            "case_count": len(catalog["by_id"]),
+            "active_case_count": active_case_count,
+            "archived_case_count": len(catalog["by_id"]) - active_case_count,
             "pending_failure_count": len(events_data["events"]),
-            "cases": list(maps["index_data"].get("cases", [])),
+            "cases": list(catalog["index_data"].get("cases", [])),
         }
 
     payload = invoke_with_memory_lock(memory_root, run_action)

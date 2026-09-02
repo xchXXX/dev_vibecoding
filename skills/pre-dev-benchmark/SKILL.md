@@ -39,7 +39,7 @@ description: "在开始实现前设计 benchmark。适用于 Codex 将要构建�
 6. 决定哪些步骤需要脚本化。
 - 对重复打分、fixture 搭建、结果收集、报告生成优先脚本化。
 - 真正的 blind evaluation 要和任何会泄露隐藏上下文的准备步骤隔离。
-- 需要快速起一套骨架时，运行 `python scripts/scaffold_benchmark.py --output <dir> --slug <name> --title <title>`。
+- 需要快速起一套骨架时，从仓库根运行 `python3 skills/pre-dev-benchmark/scripts/scaffold_benchmark.py --output <dir> --slug <name> --title <title>`。
 
 7. 开始编码前先产出具体文件。
 - 至少留下 `benchmark plan`、`fixture matrix` 和 `runbook`。
@@ -59,15 +59,15 @@ description: "在开始实现前设计 benchmark。适用于 Codex 将要构建�
 ## 资源导航
 
 - 阅读 `references/benchmark-design.md`，了解可复用方法、判定规则和常见反模式。
-- 用 `scripts/scaffold_benchmark.py` 从模板生成 starter benchmark bundle。
+- 用 `skills/pre-dev-benchmark/scripts/scaffold_benchmark.py` 从模板生成 starter benchmark bundle。
 - 优先复用 `assets/benchmark-plan.template.md`、`assets/fixture-matrix.template.md` 和 `assets/runbook.template.md`，不要每次手写结构。
 
 ## 最小使用方式
 
-```powershell
-python scripts/scaffold_benchmark.py `
-  --output C:\repo\benchmark\my-change `
-  --slug my-change `
+```bash
+python3 skills/pre-dev-benchmark/scripts/scaffold_benchmark.py \
+  --output benchmark/my-change \
+  --slug my-change \
   --title "我的改动"
 ```
 

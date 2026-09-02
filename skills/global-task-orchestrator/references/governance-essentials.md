@@ -16,7 +16,8 @@
 
 ## 实施顺序
 
-- 长任务必须先定稿方案文档与施工文档。
+- 长任务必须先冻结六要点：要做什么、不做什么、改哪些地方、怎么实现落地、怎么验收、有什么风险。
+- 必须保留并交叉校验六工件：`state.json / task.md / events.jsonl / plan.md / execution.md / acceptance.md`。
 - 正式代码实施前，必须先完成当前批次相关的核心文档同步。
 - 核心文档同步后，必须先完成测试补齐与测试执行。
 - 进入 `code_impl` 前，必须先让 `validate` 通过 `verification_contract` 完整性闸门。
@@ -54,6 +55,7 @@
 - 审查不通过时，一律退回原执行型子代理返工。
 - 主协调器只负责转发 findings、等待返工、重新组织复验。
 - 主协调器不直接代修失败项。
+- 复审必须回到同一原 reviewer。`max_fix_rounds=3` 按 `finding_id` 独立计数，只有实际 fix dispatch 递增；第三轮后仍 open 则 `blocked`/人工裁决。
 
 ## 等待与收口
 

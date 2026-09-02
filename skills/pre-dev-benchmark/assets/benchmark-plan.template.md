@@ -13,7 +13,7 @@
 | layer | question | artifact or signal | success criterion | notes |
 | --- | --- | --- | --- | --- |
 | contract | [这一层要证明什么？] | [doc / prompt / metadata / schema] | [可观测通过规则] | [可选] |
-| component | [这一层要证明什么？] | [script / function / matcher / scorer] | [可观测通过规则] | [可选] |
+| component | [这一层要证明什么？] | [script / function / parser / scorer] | [可观测通过规则] | [可选] |
 | forward | [这一层要证明什么？] | [端到端命令或完整运行] | [可观测通过规则] | [可选] |
 | blind | [这一层要证明什么？] | [fresh agent / hidden-hint run] | [可观测通过规则] | [可选] |
 

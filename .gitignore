@@ -10,3 +10,10 @@ config/local/
 
 # PoC runtime outputs
 modules/arch-poc/debug/out/
+
+# Generated local tooling artifacts
+.playwright-cli/
+**/__pycache__/
+*.py[cod]
+docs/ai/tasks/*/.control.lock
+/nul*

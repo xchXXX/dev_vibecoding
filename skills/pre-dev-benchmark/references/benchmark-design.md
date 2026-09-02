@@ -18,7 +18,7 @@
 每层只回答一个问题。好的问题示例：
 
 - `contract`："description 是否表达了正确触发语义？"
-- `component`："matcher 面对这个输入时，是否返回正确的 case id？"
+- `component`："parser 面对这个输入时，是否返回正确的 case id？"
 - `forward`："完整链路从 setup 到结束，是否产出了预期 artifact？"
 - `blind`："不给提示时，agent 是否会自主采取预期动作？"
 

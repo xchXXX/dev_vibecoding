@@ -1,0 +1,644 @@
+{
+  "task_id": "20260824-144730-global-agents-new-pc-audit-9012d9",
+  "title": "全局 AGENTS 与新电脑迁移审计",
+  "status": "completed",
+  "owner": "main-coordinator",
+  "objective": "基于当前 harness 生成简洁高效的全局 AGENTS.md，并详细检查新电脑上的路径、配置、依赖与 Codex 集成迁移问题。",
+  "scope_in": [
+    "审计当前仓库中会影响新电脑运行的旧绝对路径与 Codex 配置",
+    "在当前 Codex home 生成简洁、跨项目复用的全局 AGENTS.md",
+    "修正当前仓库少量直接影响规则发现和全局入口的活动态路径约定",
+    "运行 harness 的最小同步、doctor、规则与指令发现验证",
+    "形成按优先级分类的迁移后续事项"
+  ],
+  "scope_out": [
+    "机械替换历史 run、复盘、benchmark 夹具和已归档任务中的旧路径",
+    "接管或覆盖未由本仓库托管的第三方 Codex skills、plugins 与 MCP 配置",
+    "修改 Codex 认证文件、密钥或账号配置",
+    "未经需要执行大范围 Claude 运行时迁移"
+  ],
+  "acceptance": [
+    "当前 Codex home 下存在非空且简洁的 AGENTS.md，并且不存在同层 AGENTS.override.md 遮蔽它",
+    "全局 AGENTS.md 只保留跨项目工作约定、harness 发现入口和安全边界，不复制项目规则正文",
+    "活动态入口不再依赖 C:/Users/72385 或旧仓库绝对路径",
+    "规则索引、文档路由、计划文档、Codex sync/doctor 的最小相关验证通过",
+    "迁移审计明确区分必须修复、建议修复和仅历史留痕三类问题"
+  ],
+  "stop_conditions": [
+    "目标 Codex home 无法安全解析或存在非空 AGENTS.override.md 且用户未授权处理",
+    "现有全局 AGENTS.md 包含无法判断归属的用户内容，覆盖会造成数据丢失",
+    "修复需要修改认证信息、系统级安全策略或仓库外大范围文件"
+  ],
+  "decisions": [
+    "以 CODEX_HOME 为优先、USERPROFILE/.codex 为回退解析全局文件位置",
+    "历史证据中的旧路径保留原貌；只修正活动态真源、生成物和当前测试合同",
+    "全局 AGENTS.md 除一行本机 harness 真源定位外保持机器无关，具体项目规则由各仓库 AGENTS.md 与 rules registry 叠加",
+    "本轮不扩展规则发现脚本；跨项目规则解析由全局入口给出当前 harness 根，并在调用时显式传 GlobalRulesRoot"
+  ],
+  "current_phase": "review",
+  "verification_contract": {
+    "minimal_repro": "从仓库根和 Codex home 搜索 C:/Users/72385、C:\\Users\\72385，并检查全局 AGENTS.md/AGENTS.override.md 与 RULES_INDEX 的当前路径。",
+    "hit_proof": "全局 AGENTS.md 被写入实际解析出的 Codex home；活动态入口与生成的规则索引不再包含旧用户路径；doctor 报告目标 runtime 状态。",
+    "diagnostic_checks": [
+      "检查 CODEX_HOME、USERPROFILE 与目标全局指令文件",
+      "对旧路径命中按活动真源、生成物、历史留痕分类",
+      "检查 pwsh、git、node、python、codex、rg 可用性"
+    ],
+    "acceptance_checks": [
+      "scripts/validate-plan-docs.ps1",
+      "scripts/validate-doc-routing.ps1",
+      "scripts/generate-rules-index.ps1 与 scripts/validate-rules.ps1",
+      "scripts/sync-codex.ps1 与 scripts/doctor-core.ps1 的最小 Codex 检查",
+      "全局 AGENTS.md 内容与遮蔽文件检查"
+    ],
+    "non_goals": [
+      "不要求历史留痕中的旧绝对路径归零",
+      "不修改 auth.json 或输出敏感配置值",
+      "不全盘接管 ~/.codex"
+    ],
+    "review_evidence": [
+      "global_agents_content",
+      "path_migration_classification",
+      "runtime_validation"
+    ]
+  },
+  "subtasks": [
+    {
+      "subtask_id": "READ-PATHS-001",
+      "title": "旧路径与迁移风险审计",
+      "role": "explorer",
+      "status": "completed",
+      "dependencies": [],
+      "read_paths": [
+        "AGENTS.md",
+        "rules/",
+        "docs/",
+        "scripts/",
+        "tests/"
+      ],
+      "write_paths": [
+        "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+      ],
+      "assignment": {
+        "goal": "区分会影响运行的旧路径与仅作历史证据的旧路径。",
+        "must_include": [
+          "精确文件和行号",
+          "严重性",
+          "是否应修改"
+        ],
+        "verification": [
+          "全仓 rg 搜索并按类别复核"
+        ]
+      },
+      "result": {
+        "status": "completed",
+        "summary": "已完成旧路径与新机迁移风险审计。活动态高优先级问题包括：当前全局 C:\\Users\\Laptop\\.codex\\AGENTS.md 为空；根 AGENTS.md:18,24,30、RULES_ENTRY.md:18、仓库目录边界.md:32、真源入口.md:22 仍引用 C:/Users/72385；windows-command-guardrails.contract.ps1:6 硬编码旧全局 AGENTS；RULES_INDEX/RESOLVED 仍保存旧 repo_root 和全局搜索根。当前规则自动发现仅查找 RepoRoot 同级 ai-harness，而实际仓库名为 dev_vibecoding，因此跨项目自动发现需要显式 GlobalRulesRoot、可配置根或目录布局决策。旧路径命中已区分为活动真源、生成物、长期文档、历史 run/任务/benchmark/sandbox 证据；历史证据不应机械替换。仓库脚本主体普遍使用脚本位置、USERPROFILE、CODEX_HOME 或 RepoRoot 动态解析，.codex/config.toml 也通过 git 根定位。",
+        "changed_files": [
+          "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "rg --hidden --no-ignore -l -I -g '!.git/**' -g '!NUL' -e '72385' .",
+            "rg --hidden --no-ignore -l -a -g '!.git/**' -g '!NUL' -e '72385' .",
+            "rg --hidden --no-ignore -n -S -g '*.ps1' -g '*.cmd' -g '*.py' -e 'ai-harness|USERPROFILE|CODEX_HOME|RepoRoot' scripts skills hooks tests",
+            ". scripts/rules-index.common.ps1; Get-GlobalRulesDiscovery -RepoRoot (git rev-parse --show-toplevel)",
+            "只读核对有效 Codex home、AGENTS.md/AGENTS.override.md、工具命令解析、Git 根与规则生成物。"
+          ],
+          "result": "通过：72385 命中 44 个文本文件，二进制模式未发现额外命中；仓库未发现 C:\\Users\\Laptop 或当前 D 盘根的硬编码；活动态、生成物、长期文档与历史证据已完成分类并给出精确路径和行号。"
+        },
+        "deviations": [
+          "只读环境核对发现系统 python/py 不在 PATH；该项属于新机工具链风险，不属于本子任务的路径修复范围。",
+          "审计中一次 rg look-behind 正则不被默认引擎支持，已按命令失败闭环改用无 look-around 表达式完成复核；未影响审计结论。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "若只把旧路径替换成新的 D 盘绝对路径，下一次迁移仍会复发，应采用 repo-relative、CODEX_HOME、USERPROFILE 或显式 harness root。",
+          "若仓库继续命名为 dev_vibecoding，其他项目不会命中现有 sibling ai-harness 自动发现约定。",
+          "历史 run、冻结评测和 benchmark 中的旧路径是证据，机械替换会破坏可追溯性。",
+          "生成索引必须在活动真源修正后重新生成，直接手改 RULES_INDEX/RESOLVED 会造成再次漂移。"
+        ],
+        "follow_up": [
+          "优先便携化 AGENTS.md、RULES_ENTRY.md、两个 architecture 规则叶子和全局 AGENTS 合同测试。",
+          "定稿跨项目规则根发现策略：显式 GlobalRulesRoot、可配置 AI_HARNESS_ROOT 或 sibling ai-harness 布局三选一。",
+          "修正长期真源文档中的现行路径后重新生成 RULES_INDEX.json、RULES_INDEX.md 与 RULES_RESOLVED.json。",
+          "保留当前任务 minimal_repro、历史 docs/ai/runs、旧任务 state、sandbox 评测与 benchmark 中的原始旧路径。"
+        ],
+        "written_by": "path-audit-explorer",
+        "written_role": "explorer"
+      }
+    },
+    {
+      "subtask_id": "READ-DESIGN-002",
+      "title": "harness 设计与安装链路审计",
+      "role": "doc-curator",
+      "status": "completed",
+      "dependencies": [],
+      "read_paths": [
+        "docs/",
+        "scripts/",
+        "rules/",
+        "tests/"
+      ],
+      "write_paths": [
+        "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+      ],
+      "assignment": {
+        "goal": "确定全局 AGENTS.md 的最小内容及新电脑安装、同步、doctor 顺序。",
+        "must_include": [
+          "真源边界",
+          "命令入口",
+          "验证建议"
+        ],
+        "verification": [
+          "对照核心文档和脚本参数"
+        ]
+      },
+      "result": {
+        "status": "completed",
+        "summary": "已完成 harness 设计与安装链路审计。全局 AGENTS.md 应保持为约 25 至 35 行的跨项目稳定入口，只保留中文说明、答问优先、落盘前简短计划、项目规则装配入口、Windows 命令安全、命令失败闭环、quiet long-run 与 harness 真源/运行时分层；项目目录边界、部署和语言增量留在项目 AGENTS.md 与 rules system，完整子代理控制面、失败恢复、修复闭环和编排流程留在对应治理文档或 skill。新电脑当前全局 AGENTS.md 为空、仓库托管的四个 Codex skills 尚未同步、python/py 与 claude 未发现；pwsh、Git、Node 和 Codex 已可解析，但 pwsh 来自 Codex 缓存 runtime，建议补系统级 PowerShell 7 与 Python。推荐顺序为：工具盘点与依赖补齐、写全局 AGENTS、便携化活动态路径和测试合同、同步四个受管 skills、运行严格 Codex doctor、验证规则并重生索引、最后运行 Windows 合同和全套 harness 回归。另确认规则自动发现只查找同级 ai-harness，而当前仓库名为 dev_vibecoding，消费项目需显式传 GlobalRulesRoot，或后续增加 AI_HARNESS_ROOT 发现策略。",
+        "changed_files": [
+          "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "完整读取 docs/ARCHITECTURE.md、docs/CODEX_COMPAT.md、docs/INSTALL.md、docs/PROJECT_TEMPLATE.md、docs/SUBAGENT_GOVERNANCE.md、scripts/doctor-core.ps1、scripts/sync-codex.ps1、scripts/README.md 与 rules registry。",
+            "rg -n -F 'C:/Users/72385' -g '!docs/ai/runs/**' -g '!docs/ai/tasks/**' .",
+            "rg -n -F 'C:\\Users\\72385' -g '!docs/ai/runs/**' -g '!docs/ai/tasks/**' .",
+            "Get-Command pwsh,powershell,git,python,py,node,npm,codex,claude,rg -ErrorAction SilentlyContinue",
+            "检查 C:\\Users\\Laptop\\.codex\\AGENTS.md、AGENTS.override.md、config.toml、skills 与 .ai-harness receipt 状态。",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\\validate-rules.ps1 -RepoRoot D:\\prj\\harnesss\\dev_vibecoding -Json",
+            "对照 scripts/sync-codex.ps1 与 scripts/doctor-core.ps1 的 ManagedSkillContracts、HarnessRoot、CodexHome、AuditTarget 和 Strict 参数。"
+          ],
+          "result": "通过：文档、脚本与规则注册表已逐项核对；只读规则验证返回 ok=true、local_rule_count=21、global_rule_count=0，并明确报告当前 sibling ai-harness 未发现。实际脚本和 doctor 均托管四个 skills，且默认 Codex home 为 USERPROFILE/.codex；文档中仍存在旧用户路径和三 skill 旧口径，已给出精确证据与迁移顺序。仓库文件在本结果回写前未被修改。"
+        },
+        "deviations": [
+          "本子任务只负责设计与安装链路审计，未执行会写入 ~/.codex 的 sync，也未运行预期因受管 runtime 尚未安装而报告失败的严格 doctor；二者已作为安装后的验收命令提供。",
+          "一次只读 rg 检索误包含不存在的 docs/README.md，已按 command-failure-memory 完成记录、重试前查询、移除无效目标后的验证及成功回写；未影响审计结论或仓库内容。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "若只把旧路径替换成当前 D 盘绝对路径，下一次换机仍会漂移；仓库真源应优先使用相对路径、CODEX_HOME、USERPROFILE 或显式可配置 harness root。",
+          "sync-codex.ps1 与 doctor-core.ps1 默认使用 USERPROFILE/.codex，不自动读取进程 CODEX_HOME；自定义 Codex home 时必须显式传 -CodexHome。",
+          "CODEX_COMPAT.md 与 INSTALL.md 仍描述三个受管 skill，而脚本、doctor 和 scripts/README.md 已是四个，继续保留会误导新机安装和验收。",
+          "windows-command-guardrails.contract.ps1 硬编码旧用户的全局 AGENTS 路径，在新电脑上会产生确定性失败。",
+          "当前 pwsh 来自 Codex 缓存 runtime，普通终端或 Codex runtime 更新后路径可能变化；缺少系统级 Python 会阻断 pre-dev-benchmark 的 Python 脚本入口。",
+          "历史 run、冻结评测和 sandbox 夹具中的旧路径属于证据，机械全仓替换会破坏可追溯性。"
+        ],
+        "follow_up": [
+          "在实际 Codex home 写入简洁全局 AGENTS.md，并确认同层不存在非空 AGENTS.override.md 遮蔽。",
+          "把根 AGENTS.md、RULES_ENTRY.md、两个 architecture 规则叶子、活动态核心文档和 Windows 合同测试改为便携路径；历史证据保持原貌。",
+          "统一 CODEX_COMPAT.md、INSTALL.md 与实际四 skill 托管合同，并删除已经过期的已知漂移描述。",
+          "定稿跨项目规则根策略：消费项目显式传 GlobalRulesRoot，或为发现脚本增加 AI_HARNESS_ROOT 后再回退 sibling ai-harness。",
+          "安装系统级 PowerShell 7 与 Python 后，运行 sync-codex.ps1、doctor-core.ps1 -AuditTarget codex_minimal -Strict、validate-rules.ps1、generate-rules-index.ps1 和全套 tests/harness 回归。"
+        ],
+        "written_by": "harness-design-audit",
+        "written_role": "doc-curator"
+      }
+    },
+    {
+      "subtask_id": "READ-ENV-003",
+      "title": "本机 Codex home 与工具链审计",
+      "role": "test-verifier",
+      "status": "completed",
+      "dependencies": [],
+      "read_paths": [
+        "~/.codex 非敏感配置",
+        "当前仓库",
+        "工具版本"
+      ],
+      "write_paths": [
+        "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+      ],
+      "assignment": {
+        "goal": "确认新电脑实际目标路径、遮蔽文件、运行时 skills 与必要工具可用性。",
+        "must_include": [
+          "不读取或输出认证秘密",
+          "工具版本",
+          "缺失项"
+        ],
+        "verification": [
+          "只读路径和版本检查"
+        ]
+      },
+      "result": {
+        "status": "completed",
+        "summary": "已完成新电脑 Codex home、全局指令、非敏感配置、运行时 skills、仓库 .codex、Git 状态与工具链审计。USERPROFILE 与 ~ 均解析为 C:\\Users\\Laptop，进程未设置 CODEX_HOME，因此实际 Codex home 正确回退到 C:\\Users\\Laptop\\.codex。AGENTS.override.md 不存在；AGENTS.md 存在但为 0 bytes，按官方发现语义会被跳过，因此当前没有有效全局指令。config.toml 未发现旧用户 72385 路径，其 CODEX_HOME、CODEX_CLI_PATH、Node runtime、marketplace source 和当前仓库 trusted-project 路径均指向新电脑且目标存在；auth.json 只确认存在，未读取。仓库 .codex/config.toml 使用 git 根动态定位 PreToolUse hook，目标脚本存在。Codex doctor 命令正常完成但审计结果 ok=false：仓库四个受管 skills 均未投放到约定的 ~/.codex/skills/<skill> 直装目录，且 codex-sync.receipt.json 缺失。Git 2.55.0.windows.5、Node v24.19.0、Codex CLI 0.149.1、ripgrep 15.2.0 与 PowerShell 7.6.4 可用；Python、python3、py、pip、pip3、uv 均缺失。当前 pwsh、rg、pnpm 依赖 Codex bundled runtime，未发现系统级 PowerShell 7。~/.gitconfig 不存在，全局与仓库 local 的 user.name/user.email 均未配置。仓库 main 分支仅有本任务两个未跟踪任务目录。",
+        "changed_files": [
+          "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "读取根 AGENTS.md、最新 state.json、RULES_ENTRY.md、RULES_INDEX.json 与 always_on 规则。",
+            "解析 USERPROFILE、~、CODEX_HOME 回退与 ~/.codex/AGENTS.override.md、AGENTS.md、config.toml、auth.json、skills 的存在性；config 仅输出键名与路径/项目发现安全字段。",
+            "对 ~/.codex/config.toml 中 marketplace、Node、CODEX_HOME、CODEX_CLI_PATH 与 trusted-project 路径逐项执行 Test-Path。",
+            "git --version；pwsh --version；node --version；codex --version；rg --version；Get-Command 检查 python、python3、py、pip、pip3、uv、npm、npx、pnpm。",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/doctor-core.ps1 -AuditTarget codex_minimal -Json",
+            "git rev-parse --show-toplevel；git branch --show-current；git status --short；脱敏核对 global/local Git 配置存在性。",
+            "rg -l --hidden -F '72385' --glob '!.git/**' --glob '!auth.json' .，并区分活动态候选与历史/夹具。"
+          ],
+          "result": "通过：已确认实际 Codex home、全局指令遮蔽状态、配置安全路径和项目发现条目；所有配置引用的新机路径均存在且 config.toml 无旧用户路径。工具版本与缺失项已逐一取证。Codex doctor 本身 exit 0，但返回预期诊断 ok=false，明确证明四个受管 skill 直装目录与 sync receipt 尚未建立。未读取 auth.json 内容，未输出 token、密钥或敏感配置值。"
+        },
+        "deviations": [
+          "为验证 Codex CLI 版本，受限沙箱内 WindowsApps 可执行文件被拒绝后，按命令失败闭环在沙箱外只读运行 codex --version，成功获得版本 0.149.1。",
+          "按仓库 command-failure-memory 强制规则，审计期间的文档搜索语法、Codex 沙箱执行、PowerShell 表达式和缺失 ~/.gitconfig 探测失败被记录到 ~/.codex/memories/command-failure-memory；未修改项目文件。",
+          "doctor 使用非 Strict 模式，因此进程退出码为 0，但结构化审计结果 ok=false；结论按结构化结果判定。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "空的 ~/.codex/AGENTS.md 会被跳过，在写入非空内容前全局约定实际不生效。",
+          "四个仓库受管 skills 未按 sync-codex 合同直装且 receipt 缺失，后续运行时一致性与 doctor 验收无法通过。",
+          "Python 工具链完全缺失，会阻断 pre-dev-benchmark 的 scaffold_benchmark.py 等入口。",
+          "pwsh、rg 与 pnpm 当前依赖 Codex bundled runtime，离开 Codex Desktop 或 runtime 更新后不保证普通终端可用。",
+          "Git 全局与 local 身份均未配置，首次提交前必须设置 user.name 和 user.email。",
+          "活动态入口、测试合同和规则生成物仍含旧用户路径；历史 run、sandbox 与冻结夹具不应机械改写。"
+        ],
+        "follow_up": [
+          "在实际 Codex home 写入非空且简洁的 AGENTS.md，并再次确认同层不存在非空 AGENTS.override.md。",
+          "修复活动态路径真源与 Windows 合同测试后重新生成 RULES_INDEX.json、RULES_INDEX.md 和 RULES_RESOLVED.json。",
+          "执行 scripts/sync-codex.ps1 正式投放四个受管 skills，再以 doctor-core.ps1 -AuditTarget codex_minimal -Strict 复验。",
+          "安装系统级 Python 3；若需要脱离 Codex Desktop 使用 harness，同时安装系统级 PowerShell 7，并确认 rg、pnpm 的普通终端 PATH。",
+          "在首次 commit 前配置 Git user.name 与 user.email。"
+        ],
+        "written_by": "local-env-audit",
+        "written_role": "test-verifier"
+      }
+    },
+    {
+      "subtask_id": "DOC-SYNC-004",
+      "title": "活动入口与现行合同文档便携化",
+      "role": "doc-curator",
+      "status": "completed",
+      "dependencies": [
+        "READ-PATHS-001",
+        "READ-DESIGN-002",
+        "READ-ENV-003"
+      ],
+      "read_paths": [
+        "AGENTS.md",
+        "rules/registry/RULES_ENTRY.md",
+        "rules/items/architecture/仓库目录边界.md",
+        "rules/items/architecture/真源入口.md",
+        "docs/ARCHITECTURE.md",
+        "docs/CODEX_COMPAT.md",
+        "docs/INSTALL.md",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+        "skills/README.md",
+        "scripts/README.md",
+        "scripts/sync-codex.ps1",
+        "scripts/doctor-core.ps1",
+        "tests/harness/README.md"
+      ],
+      "write_paths": [
+        "AGENTS.md",
+        "rules/registry/RULES_ENTRY.md",
+        "rules/items/architecture/仓库目录边界.md",
+        "rules/items/architecture/真源入口.md",
+        "docs/ARCHITECTURE.md",
+        "docs/CODEX_COMPAT.md",
+        "docs/INSTALL.md",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+        "skills/README.md",
+        "tests/harness/README.md",
+        "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+      ],
+      "assignment": {
+        "goal": "把仍作为现行入口或长期合同的旧机路径改为 repo-relative、<harness-root>、~/.codex、~/.claude 等便携表达，并把 Codex 受管 skill 口径同步为脚本实际的四个。",
+        "must_include": [
+          "根 AGENTS 与 rules 入口不再引用 72385",
+          "CODEX_COMPAT 与 INSTALL 使用四个受管 skill",
+          "ARCHITECTURE 不再把旧业务仓称为当前项目，并删除过期漂移事实",
+          "master plan 仅迁移现行路径与现行入口，保留明确的历史验收证据路径",
+          "tests/harness/README 使用动态 Codex home 说明",
+          "不得改历史 run、旧 task、sandbox 或复盘证据"
+        ],
+        "verification": [
+          "对 write_paths 搜索 72385 并逐项解释剩余命中",
+          "核对四 skill 名单与 sync-codex.ps1/doctor-core.ps1 一致",
+          "运行 validate-plan-docs 与 validate-doc-routing"
+        ]
+      },
+      "result": {
+        "status": "completed",
+        "summary": "已完成活动入口与现行合同文档便携化。根 AGENTS、RULES_ENTRY、仓库目录边界与真源入口均不再绑定旧用户名或旧用户目录，仓库内真源入口改为 repo-relative，跨项目规则根统一表示为 <harness-root> 并明确由消费项目显式传入 -GlobalRulesRoot。ARCHITECTURE 已把旧业务仓改为抽象 <project>，将全局真源路径改为 <harness-root>，把 sibling 自动发现降为满足目录约定时的回退，并用历史证据边界替换已过期的本机漂移事实。CODEX_COMPAT、INSTALL、skills/README 与 master plan 的当前 Codex 口径已和 sync-codex.ps1、doctor-core.ps1 对齐为 global-task-orchestrator、command-failure-memory、pre-dev-benchmark、fix-closure-gate 四个受管 skill。SUBAGENT_GOVERNANCE 与 master plan 的现行入口已改为便携表达，master plan 中指向旧业务仓正式验收、run 和 session 的四条路径作为明确历史证据原样保留。tests/harness/README 已改为 CODEX_HOME 优先、~/.codex 回退的动态全局 AGENTS 说明，并修正两个规则叶子文件名。未修改历史 run、旧 task、sandbox、复盘证据、脚本实现、测试合同脚本或规则生成物。",
+        "changed_files": [
+          "AGENTS.md",
+          "rules/registry/RULES_ENTRY.md",
+          "rules/items/architecture/仓库目录边界.md",
+          "rules/items/architecture/真源入口.md",
+          "docs/ARCHITECTURE.md",
+          "docs/CODEX_COMPAT.md",
+          "docs/INSTALL.md",
+          "docs/SUBAGENT_GOVERNANCE.md",
+          "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+          "skills/README.md",
+          "tests/harness/README.md",
+          "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "rg -n -F '72385' AGENTS.md rules/registry/RULES_ENTRY.md rules/items/architecture/仓库目录边界.md rules/items/architecture/真源入口.md docs/ARCHITECTURE.md docs/CODEX_COMPAT.md docs/INSTALL.md docs/SUBAGENT_GOVERNANCE.md docs/plans/AI_HARNESS_MASTER_PLAN.md skills/README.md tests/harness/README.md",
+            "rg -n 'global-task-orchestrator|command-failure-memory|pre-dev-benchmark|fix-closure-gate' docs/CODEX_COMPAT.md docs/INSTALL.md skills/README.md docs/plans/AI_HARNESS_MASTER_PLAN.md scripts/sync-codex.ps1 scripts/doctor-core.ps1",
+            "逐 skill 检查 CODEX_COMPAT、INSTALL、skills/README、sync-codex.ps1 与 doctor-core.ps1 是否同时包含四个固定白名单名称。",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-plan-docs.ps1 -RepoRoot D:\\prj\\harnesss\\dev_vibecoding -Json",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-doc-routing.ps1 -RepoRoot D:\\prj\\harnesss\\dev_vibecoding -Json",
+            "git diff --check",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-rules.ps1 -RepoRoot D:\\prj\\harnesss\\dev_vibecoding -Json",
+            "git status --short 与 git diff 复核实际变更边界。"
+          ],
+          "result": "通过：指定活动态 write paths 中 72385 命中为 0；四个 skill 在三份合同文档与 sync/doctor 脚本中逐项均为 True。master plan 仅剩四条 C:\\projects\\pdf_ai\\paddle_ocr 路径，分别是 Phase 7 正式验收、主线 run 与主线 session 的明确历史证据，符合保留边界。validate-plan-docs 返回 ok=true、6 份文档全部通过；validate-doc-routing 返回 ok=true、2 个任务通过且零错误/零警告；validate-rules 返回 ok=true、21 条本地规则有效，仅保留已知 sibling ai-harness 未发现警告；git diff --check 未发现空白错误。"
+        },
+        "deviations": [
+          "按子任务边界未修改 tests/harness/windows-command-guardrails.contract.ps1；动态路径实现由依赖本任务的 TEST-SYNC-005 负责，本轮只同步其 README 合同说明。",
+          "按子任务边界未运行 generate-rules-index.ps1，也未手工修改 RULES_INDEX.json、RULES_INDEX.md 或 RULES_RESOLVED.json；这些生成物由 IMPL-GLOBAL-006 使用正式生成脚本刷新。",
+          "master plan 中旧业务仓的正式验收、run 和 session 绝对路径被明确识别为历史证据并原样保留，没有为了搜索归零而改写。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "规则生成物仍保存旧机 repo_root 与搜索根，必须等待 IMPL-GLOBAL-006 通过 generate-rules-index.ps1 刷新后才完成活动态路径闭环。",
+          "Windows 合同测试脚本仍硬编码旧用户路径，必须由 TEST-SYNC-005 改为 CODEX_HOME 优先、USERPROFILE/.codex 回退后再运行基线测试。",
+          "当前新机全局 AGENTS.md 仍为空，四个受管 runtime skills 与 receipt 仍未投放；这些机器级变更属于 IMPL-GLOBAL-006。",
+          "规则自动发现实现仍只支持显式 GlobalRulesRoot 或 sibling ai-harness 回退；当前任务已决定本轮不扩展脚本，消费项目必须遵循显式参数约定。"
+        ],
+        "follow_up": [
+          "由 TEST-SYNC-005 修改 Windows 全局 AGENTS 合同的动态路径解析，并记录全局文件写入前的预期失败与其余基线测试结果。",
+          "由 IMPL-GLOBAL-006 安全写入实际 Codex home 的全局 AGENTS.md、刷新规则生成物、同步四个受管 skills，并运行 strict doctor 与合同复验。",
+          "最终 REVIEW-007 应复查本轮文档差异、历史证据保留边界、规则生成物和机器级运行时证据。"
+        ],
+        "written_by": "harness-design-audit",
+        "written_role": "doc-curator"
+      }
+    },
+    {
+      "subtask_id": "TEST-SYNC-005",
+      "title": "动态全局 AGENTS 路径合同与基线测试",
+      "role": "test-verifier",
+      "status": "completed",
+      "dependencies": [
+        "DOC-SYNC-004"
+      ],
+      "read_paths": [
+        "tests/harness/windows-command-guardrails.contract.ps1",
+        "tests/harness/README.md",
+        "rules/items/policy/命令构造约束.md",
+        "rules/items/policy/平台噪音与任务失败判定.md",
+        "rules/items/policy/脚本运行基线.md",
+        "docs/CODEX_COMPAT.md"
+      ],
+      "write_paths": [
+        "tests/harness/windows-command-guardrails.contract.ps1",
+        "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+      ],
+      "assignment": {
+        "goal": "让全局 AGENTS 合同按 CODEX_HOME 优先、USERPROFILE/.codex 回退解析，并在全局文件写入前证明其余 Windows 规则基线稳定。",
+        "must_include": [
+          "不硬编码用户名或盘符",
+          "保留六个全局偏好精确短语合同",
+          "先运行合同测试记录全局文件为空导致的预期失败，再由实现阶段写入后复验"
+        ],
+        "verification": [
+          "tests/harness/windows-command-guardrails.contract.ps1",
+          "tests/harness/plan-docs.integration.ps1",
+          "tests/harness/rules-validation.integration.ps1"
+        ]
+      },
+      "result": {
+        "status": "completed",
+        "summary": "已完成动态全局 AGENTS 路径合同与 RED 基线验证。windows-command-guardrails.contract.ps1 不再硬编码旧用户名或盘符；测试现在优先使用非空 CODEX_HOME，否则回退到 USERPROFILE/.codex，再拼接 AGENTS.md。六个全局偏好精确短语断言全部原样保留。修改前合同测试为 3 项通过、1 项失败，失败原因是旧硬编码路径下 global AGENTS.md must exist；修改后仍为 3 项通过、1 项失败，但失败已推进为当前实际 ~/.codex/AGENTS.md 内容为空而缺少首个精确短语，证明动态路径分支已命中且其余 Windows 命令构造、平台噪音和 pwsh7 基线稳定。plan-docs 集成测试 19/19 通过，rules-validation 集成测试 8/8 通过。当前阶段保持 test_sync，未推进 review。",
+        "changed_files": [
+          "tests/harness/windows-command-guardrails.contract.ps1",
+          "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File tests\\harness\\windows-command-guardrails.contract.ps1（修改前 RED 基线）",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File tests\\harness\\windows-command-guardrails.contract.ps1（修改后命中证明）",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File tests\\harness\\plan-docs.integration.ps1",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File tests\\harness\\rules-validation.integration.ps1",
+            "固定字符串核对 CODEX_HOME 优先、USERPROFILE/.codex 回退、72385 与 C:\\Users\\ 硬编码均不存在、六个精确短语均存在；git diff --check -- tests/harness/windows-command-guardrails.contract.ps1"
+          ],
+          "result": "符合 TEST-SYNC-005 合同：修改前 Windows 合同 TOTAL PASS 3 / TOTAL FAIL 1，唯一失败为 global AGENTS.md must exist；修改后 TOTAL PASS 3 / TOTAL FAIL 1，唯一失败改为 global AGENTS 缺少‘说明性内容默认使用中文’，直接证明脚本已读到当前空的 ~/.codex/AGENTS.md。plan-docs TOTAL PASS 19、ALL TESTS PASSED；rules-validation TOTAL PASS 8、ALL TESTS PASSED。静态合同核对显示 CODEX_HOME 分支=True、USERPROFILE 回退=True、旧用户名=False、硬编码用户根=False、六个精确短语 6/6 存在；目标文件 git diff --check 退出码 0。"
+        },
+        "deviations": [
+          "按任务合同保留全局 AGENTS 内容测试的预期 RED 状态；当前非零不是本子任务未完成，而是为依赖本任务的 IMPL-GLOBAL-006 冻结可复现验收信号。",
+          "未写入 ~/.codex/AGENTS.md、未刷新规则生成物、未同步 runtime skills；这些均属于 IMPL-GLOBAL-006。",
+          "一次补丁不变量核对因 PowerShell 正则引号解析失败，已严格执行 command-failure-memory 的 record-failure、query-before-retry、简化命令结构重试和 record-success；不影响测试结论。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "在 IMPL-GLOBAL-006 写入包含六个精确短语的非空全局 AGENTS.md 前，Windows 合同测试会按设计保持 1 项失败。",
+          "command-failure-memory 中仍保留当前‘缺少说明性内容短语’的 pending failure；实现阶段重跑同一合同前必须先 query-before-retry，成功后再 record-success。",
+          "Git 报告目标测试文件下次触碰时 LF 将转换为 CRLF；当前 git diff --check 已通过，未发现空白错误。"
+        ],
+        "follow_up": [
+          "IMPL-GLOBAL-006 写入全局 AGENTS.md 前再次确认 CODEX_HOME 解析目标、AGENTS.override.md 不存在且现有 AGENTS.md 仍可安全覆盖。",
+          "实现阶段写入六个精确短语后，先对当前 pending failure 执行 query-before-retry，再重跑 Windows 合同并在通过后 record-success。",
+          "实现阶段继续刷新规则生成物、同步四个受管 skills，并运行 strict doctor；最终 reviewer 复用本子任务的 runtime_validation 证据。"
+        ],
+        "review_evidence": {
+          "runtime_validation": "TEST-SYNC-005 提供可复用 RED/命中/回归证据：动态路径修改前 Windows 合同 3/4 通过且只因旧路径找不到全局 AGENTS 失败；修改后仍为 3/4，但唯一失败转为当前 ~/.codex/AGENTS.md 为空而缺少首个精确短语，证明 CODEX_HOME/USERPROFILE 回退路径已命中。其余 Windows 三项基线持续通过，plan-docs 19/19、rules-validation 8/8 通过，六个精确短语 6/6 保留且目标测试无 72385 或 C:\\Users\\ 硬编码。"
+        },
+        "written_by": "windows-contract-test-sync",
+        "written_role": "test-verifier"
+      }
+    },
+    {
+      "subtask_id": "IMPL-GLOBAL-006",
+      "title": "写入全局 AGENTS、刷新规则索引并同步 Codex skills",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "TEST-SYNC-005"
+      ],
+      "read_paths": [
+        "C:/Users/Laptop/.codex/AGENTS.md",
+        "C:/Users/Laptop/.codex/AGENTS.override.md",
+        "scripts/sync-codex.ps1",
+        "scripts/doctor-core.ps1",
+        "scripts/generate-rules-index.ps1",
+        "rules/registry/",
+        "tests/harness/windows-command-guardrails.contract.ps1"
+      ],
+      "write_paths": [
+        "C:/Users/Laptop/.codex/AGENTS.md",
+        "C:/Users/Laptop/.codex/skills/global-task-orchestrator/",
+        "C:/Users/Laptop/.codex/skills/command-failure-memory/",
+        "C:/Users/Laptop/.codex/skills/pre-dev-benchmark/",
+        "C:/Users/Laptop/.codex/skills/fix-closure-gate/",
+        "C:/Users/Laptop/.codex/.ai-harness/codex-sync.receipt.json",
+        "rules/registry/RULES_INDEX.json",
+        "rules/registry/RULES_INDEX.md",
+        "rules/registry/RULES_RESOLVED.json",
+        "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+      ],
+      "assignment": {
+        "goal": "写入约 25 至 35 行的简洁全局 AGENTS.md，包含当前 harness 根定位；通过项目脚本生成当前规则视图，并正式投放四个受管 Codex skills。",
+        "must_include": [
+          "写入前再次确认 AGENTS.override.md 不存在且 AGENTS.md 仍为空或可安全覆盖",
+          "全局文件满足六个精确短语并不复制项目规则正文",
+          "本机 harness 真源写为 D:/prj/harnesss/dev_vibecoding，跨项目规则调用显式使用 GlobalRulesRoot",
+          "生成物只能由 generate-rules-index.ps1 刷新",
+          "sync 只允许本仓四个受管 skill，不接管 .system、plugins 或其他目录",
+          "严格 doctor 与 Windows 合同通过"
+        ],
+        "verification": [
+          "generate-rules-index.ps1 与 validate-rules.ps1",
+          "sync-codex.ps1 与 doctor-core.ps1 -AuditTarget codex_minimal -Strict",
+          "windows-command-guardrails.contract.ps1",
+          "全局 AGENTS/override 状态与 72385 活动态搜索"
+        ]
+      },
+      "result": {
+        "status": "completed",
+        "summary": "已安全写入实际 Codex home C:\\Users\\Laptop\\.codex 下的全局 AGENTS.md。写入前和同一写入操作内均确认进程未设置 CODEX_HOME、USERPROFILE 回退目标正确、AGENTS.md 仍为 0 bytes 且同层 AGENTS.override.md 不存在；写后文件为 32 行、非空，包含六个精确偏好短语、当前 harness 真源 D:/prj/harnesss/dev_vibecoding 与跨项目显式 -GlobalRulesRoot 调用，同时只保留跨项目入口和安全边界，没有复制项目规则正文。规则生成物仅由 generate-rules-index.ps1 刷新，repo_root 已更新为当前 D 盘仓库且三个生成物无 72385。sync-codex.ps1 只投放 global-task-orchestrator、command-failure-memory、pre-dev-benchmark、fix-closure-gate 四个受管 skill 和 receipt；strict Codex doctor 对四项 source/runtime/receipt 全部返回 ok=true。Windows 合同在按 pending 事件完成 query-before-retry 后由 3/4 RED 转为 4/4 通过，并已 record-success 闭合。计划文档、文档路由、规则校验和 git diff --check 均通过。",
+        "changed_files": [
+          "C:/Users/Laptop/.codex/AGENTS.md",
+          "C:/Users/Laptop/.codex/skills/global-task-orchestrator/",
+          "C:/Users/Laptop/.codex/skills/command-failure-memory/",
+          "C:/Users/Laptop/.codex/skills/pre-dev-benchmark/",
+          "C:/Users/Laptop/.codex/skills/fix-closure-gate/",
+          "C:/Users/Laptop/.codex/.ai-harness/codex-sync.receipt.json",
+          "rules/registry/RULES_INDEX.json",
+          "rules/registry/RULES_INDEX.md",
+          "rules/registry/RULES_RESOLVED.json",
+          "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "写入前解析 CODEX_HOME/USERPROFILE，并检查 C:\\Users\\Laptop\\.codex\\AGENTS.md 长度与 AGENTS.override.md 存在性；写入命令内再次执行同样的拒绝式检查。",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\\generate-rules-index.ps1 -RepoRoot D:\\prj\\harnesss\\dev_vibecoding -Json",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\\validate-rules.ps1 -RepoRoot D:\\prj\\harnesss\\dev_vibecoding -Json",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\\sync-codex.ps1 -HarnessRoot D:\\prj\\harnesss\\dev_vibecoding -CodexHome C:\\Users\\Laptop\\.codex -Json",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\\doctor-core.ps1 -AuditTarget codex_minimal -CodexHome C:\\Users\\Laptop\\.codex -Strict -Json",
+            "command-failure-memory inspect 后按 signature=448c5e7a3003340225e47c13d2f9f56d875f1e706f047f5b6f434e44482c6d0a 执行 query-before-retry；合同通过后对同一签名执行 record-success。",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File tests\\harness\\windows-command-guardrails.contract.ps1",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\\validate-plan-docs.ps1 -RepoRoot D:\\prj\\harnesss\\dev_vibecoding -Json",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\\validate-doc-routing.ps1 -RepoRoot D:\\prj\\harnesss\\dev_vibecoding -Json",
+            "静态核对全局 AGENTS 行数、六个短语、harness 根、显式 GlobalRulesRoot、override、receipt 受管 skill 白名单及三个规则生成物中的 72385 命中。",
+            "git diff --check 与 git status --short"
+          ],
+          "result": "全部通过：全局 AGENTS 32 行、非空、无 override，六个精确短语 6/6，harness 根与显式 GlobalRulesRoot 均存在；generate-rules-index 返回 ok=true、local/resolved=21/21，validate-rules 返回 ok=true、local/global/resolved=21/0/21，唯一警告为预期的 sibling ai-harness 未发现；sync 返回四个固定 managed_skills、updated=true、conflicts=[]；strict doctor 返回 ok=true，四个 skill 的 source_issues/runtime_issues/receipt_issues 均为空；Windows 合同 TOTAL PASS 4 / ALL TESTS PASSED；validate-plan-docs 检查 6 份文档且零错误零警告；validate-doc-routing 检查 2 个任务且零错误零警告；三个规则生成物的 72385 命中为 0；git diff --check 退出码 0，仅有行尾转换提示。"
+        },
+        "deviations": [
+          "规则生成与校验保留预期警告：当前仓库不满足 sibling ai-harness 命名约定，因此没有自动发现外部全局规则；全局 AGENTS 已明确要求消费项目传入 -GlobalRulesRoot D:/prj/harnesss/dev_vibecoding。",
+          "首次 query-before-retry 使用从摘要推断的 project_id/error 文本时返回 retry_gate_not_met，因此未重跑合同；随后按协调器指示 inspect failure_events_path，唯一定位原 pending 的 project_id=ai-harness、command_signature 与 error_signature，再查询得到 retry_gate_passed 后才复验并 record-success。",
+          "按子任务边界未修改任何认证信息、系统级配置、.system、plugins 或其他非受管 skill。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "跨项目自动发现仍依赖 sibling ai-harness 目录布局；当前布局下消费项目必须显式提供 GlobalRulesRoot。",
+          "新机仍缺少系统级 Python，且 pwsh/rg/pnpm 主要来自 Codex bundled runtime；脱离 Codex Desktop 的普通终端稳定性仍需补齐。",
+          "Git user.name 与 user.email 尚未配置，首次提交前需要用户设置。",
+          "历史 run、旧 task、benchmark 和 sandbox 证据中的旧绝对路径按审计边界保留，不应机械替换。"
+        ],
+        "follow_up": [
+          "由 REVIEW-007 独立复查全局文件是否足够简洁、活动态路径与历史证据边界、sync receipt、strict doctor、规则生成物和合同结果。",
+          "用户后续安装系统级 Python 3；若需要脱离 Codex Desktop 使用 harness，再安装系统级 PowerShell 7，并确认 rg/pnpm 的普通终端 PATH。",
+          "首次 commit 前配置 Git user.name 与 user.email。"
+        ],
+        "review_evidence": {
+          "global_agents_content": "C:/Users/Laptop/.codex/AGENTS.md 已从 0 bytes 写为 32 行非空文件；同层 AGENTS.override.md 不存在。六个精确短语全部存在：说明性内容默认使用中文、先回答问题再继续、quiet long-run、避免复杂 one-liner、复杂参数直调 .py/.ps1、ghost snapshot/NUL 噪音判定。文件包含 D:/prj/harnesss/dev_vibecoding 和 -GlobalRulesRoot D:/prj/harnesss/dev_vibecoding，只描述跨项目协作、规则装配入口、安全边界与失败闭环，未复制 rules/items 正文。",
+          "path_migration_classification": "必须修复项已闭环：全局 AGENTS 空文件、活动态入口与规则生成物中的旧用户路径、Windows 合同动态 Codex home、四 skill runtime/receipt；三个规则生成物 72385 命中为 0且 repo_root 为当前 D 盘。建议修复项保留为新机工具链与 Git 身份、以及未来可选的 AI_HARNESS_ROOT 自动发现。仅历史留痕项继续保留在 docs/ai/runs、旧 tasks、benchmark/sandbox 和明确的历史验收路径中，未做机械替换。",
+          "runtime_validation": "sync-codex 仅返回四个固定 managed_skills，updated=true、adopted=false、conflicts=[]；doctor-core -AuditTarget codex_minimal -Strict 返回整体 ok=true，四项 source/runtime/receipt issues 均为空。Windows 合同在精确 query-before-retry 后 TOTAL PASS 4 并 record-success；规则 generate/validate、plan-docs、doc-routing 与 git diff --check 全部通过。"
+        },
+        "written_by": "global-runtime-implementation",
+        "written_role": "backend-implementer"
+      }
+    },
+    {
+      "subtask_id": "REVIEW-007",
+      "title": "迁移闭环独立审查",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "IMPL-GLOBAL-006"
+      ],
+      "read_paths": [
+        "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json",
+        "docs/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/",
+        "C:/Users/Laptop/.codex/AGENTS.md",
+        "AGENTS.md",
+        "rules/",
+        "docs/ARCHITECTURE.md",
+        "docs/CODEX_COMPAT.md",
+        "docs/INSTALL.md",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+        "skills/README.md",
+        "tests/harness/windows-command-guardrails.contract.ps1"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "独立判断全局文件、路径迁移分类、运行时同步与验证证据是否完整，给出通过/不通过结论。",
+        "must_include": [
+          "检查是否过度复制项目规则到全局 AGENTS",
+          "检查活动态真源是否仍有旧用户路径",
+          "检查历史证据是否被错误改写",
+          "核对 sync receipt、strict doctor、规则与合同测试证据",
+          "回填 global_agents_content、path_migration_classification、runtime_validation 三个 review_evidence slot"
+        ],
+        "verification": [
+          "复查 Git diff、目标全局文件和所有验收命令结果"
+        ]
+      },
+      "result": {
+        "status": "completed",
+        "summary": "结论：通过。独立审查未发现阻断 findings。全局 AGENTS.md 保持 32 行简洁入口，只承载跨项目协作、harness 发现、安全边界与失败闭环，没有过度复制项目规则；活动态入口、规则生成物、动态 Windows 合同、四个受管 runtime skills 与 receipt 均已迁移到新机实际路径；历史 run、旧任务、复盘、benchmark 与 sandbox 证据未被误改。",
+        "conclusion": "通过",
+        "findings": [],
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "完整读取最新 state.json、REVIEW-007 assignment/read_paths 与被分配的全局/项目入口、规则、核心文档、任务文档和 Windows 合同。",
+            "git status --short；git diff --stat；git diff --name-status；git diff 逐文件审查；git diff --check。",
+            "解析实际 Codex home，核对 C:/Users/Laptop/.codex/AGENTS.md 的存在性、字节数、行数、六个合同短语、harness 根、显式 GlobalRulesRoot 与 AGENTS.override.md。",
+            "读取 C:/Users/Laptop/.codex/.ai-harness/codex-sync.receipt.json，并运行 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\\doctor-core.ps1 -AuditTarget codex_minimal -CodexHome C:\\Users\\Laptop\\.codex -Strict -Json。",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File tests\\harness\\windows-command-guardrails.contract.ps1。",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\\validate-rules.ps1 -RepoRoot D:\\prj\\harnesss\\dev_vibecoding -Json；validate-plan-docs.ps1；validate-doc-routing.ps1。",
+            "解析 RULES_INDEX.json、RULES_INDEX.md、RULES_RESOLVED.json，核对当前 repo_root、21 条规则、0 个 override relation、0 个 72385 命中，并逐条比较 21 个 resolved body 与规则叶子真源。",
+            "对活动态 16 个入口/合同/生成物执行 72385 精确搜索；全仓搜索排除 auth.json 后分类剩余旧路径；核对 Git diff 中历史业务路径变更数为 0。",
+            "检查 pwsh、git、node、codex、rg、pnpm、python/python3/py/pip/uv 的解析来源，以及 Git 全局/本地身份配置状态。",
+            "回执落盘后执行 state.json JSON 解析与 orchestrator_ctl.ps1 -Action validate。"
+          ],
+          "result": "独立复验通过：全局 AGENTS.md 为 2011 bytes、32 行、无 AGENTS.override.md、无 72385，六个精确短语、当前 harness 根与显式 GlobalRulesRoot 均存在；strict doctor 返回 ok=true，四个 managed skill 的 source/runtime/receipt issues 均为空；Windows 合同 TOTAL PASS 4；validate-rules 返回 ok=true、21/0/21；plan-docs 检查 6 份文档且零错误零警告；doc-routing 检查 2 个任务且零错误零警告；git diff --check 退出码 0。三个规则生成物 repo_root 均为当前 D 盘仓库，规则数一致、72385 命中为 0，21 个 resolved body 与叶子真源全部一致。活动态 16 个目标文件旧用户名命中为 0；Git 变更仅删除活动态旧用户路径，历史 C:\\projects\\pdf_ai 路径变更为 0。"
+        },
+        "deviations": [
+          "作为只读 reviewer，未重跑会写入运行时或刷新时间戳的 sync-codex.ps1 / generate-rules-index.ps1；改用 receipt 全量核对、strict doctor、生成物元数据与逐规则 body 一致性比较提供独立证据。",
+          "按审查合同未读取 auth.json，也未修改产品、文档、测试或配置；仅回填本 REVIEW-007 控制面回执。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "全局 AGENTS.md 中的 D:/prj/harnesss/dev_vibecoding 是本机定位锚点；仓库再次移动或改名后需要同步更新该行并重新运行 sync/doctor。",
+          "当前布局不满足 sibling ai-harness 自动发现约定，其他项目必须显式传入 -GlobalRulesRoot D:/prj/harnesss/dev_vibecoding。",
+          "新机仍缺少系统级 Python、python3、py、pip 与 uv，pre-dev-benchmark 的 Python 脚本入口会因此受阻。",
+          "pwsh、rg 与 pnpm 当前主要来自 Codex bundled runtime，脱离 Codex Desktop 的普通终端可用性未建立稳定保证。",
+          "Git 全局与仓库本地 user.name/user.email 均未配置，首次提交前仍需补齐。",
+          "历史文档、旧 task、run、benchmark 与 sandbox 中保留 72385 等旧路径是有意的证据边界；后续全仓搜索不能把这些命中直接当作活动态回归。"
+        ],
+        "follow_up": [
+          "安装系统级 Python 3，并确认 python/pip 可从普通终端解析。",
+          "首次提交前配置 Git user.name 与 user.email。",
+          "若需要脱离 Codex Desktop 使用 harness，再安装系统级 PowerShell 7，并确认 rg、pnpm 的普通终端 PATH。",
+          "仓库移动或改名后更新全局 AGENTS.md 的 harness 根，重新运行 sync-codex.ps1 与 strict doctor。"
+        ],
+        "review_evidence": {
+          "global_agents_content": "独立读取 C:/Users/Laptop/.codex/AGENTS.md：文件存在、2011 bytes、32 行，同层 AGENTS.override.md 不存在；六个 Windows/协作合同短语全部命中，包含当前 harness 根和显式 -GlobalRulesRoot，且无 72385。内容按沟通与协作、规则装配、实施与安全、Windows 命令与失败闭环四段组织，未复制 rules/items 规则正文或项目目录边界。",
+          "path_migration_classification": "活动态 16 个目标文件（全局/项目 AGENTS、规则入口与三个生成物、两个 architecture 叶子、核心长期文档、skills/README、Windows README/合同）中 72385 命中为 0。全仓剩余命中仅位于明确的历史复盘/迁移方案、旧 task/run、当前任务的 minimal repro/审计说明与 sandbox 夹具；这些对象未出现在产品变更清单。Git diff 中涉及旧路径的 43 条变更全部是活动态 72385 删除，C:\\projects\\pdf_ai 历史业务路径变更为 0。",
+          "runtime_validation": "receipt schema_version=2.0，harness_root/codex_home/runtime_root 指向当前新机，managed_skills 精确为 command-failure-memory、fix-closure-gate、global-task-orchestrator、pre-dev-benchmark。fresh strict doctor 返回整体 ok=true，四个 skill 的 source_issues/runtime_issues/receipt_issues 全为空；Windows 合同 4/4、validate-rules 21/0/21、plan-docs 6/6、doc-routing 2/2、git diff --check 均通过。"
+        },
+        "written_by": "migration-reviewer",
+        "written_role": "reviewer"
+      }
+    }
+  ],
+  "updated_at": "2026-08-24T17:40:58+08:00",
+  "version": 1
+}

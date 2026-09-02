@@ -1,8 +1,8 @@
-﻿# project/config/ai
+# project/config/ai
 
 项目侧配置覆盖入口。
 
-只记录项目级配置覆盖边界，不复制全局治理正文；全局角色映射真源仍是 `../../../../agents/codex-role-map.json`。
+只记录项目级配置覆盖边界，不复制全局治理正文。普通模型直接消费 `task.md` 与显式子任务 `assignment`；主协调器调用 `spawn_agent`，并把返回的 `platform_agent_id` 绑定为该子任务的 `dispatch` 实时身份。
 
 最小应包含：
 - 与 `docs/ai/README.md` 对齐的项目级配置差异。

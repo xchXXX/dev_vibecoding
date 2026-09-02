@@ -1,22 +1,7 @@
 # hooks/codex
 
-本目录保存 Codex hooks 真源。
+当前开发环境不托管 Codex hooks，也不安装 `PreToolUse` 命令网关。
 
-当前最小落地范围：
+`scripts/bootstrap-local.py` 只按稳定 managed id 从用户级 `hooks.json` 删除已退休 command-safety 项，保留其他 hook 与顶层字段；`scripts/doctor-core.py --strict` 同时检查用户级 `hooks.json`、用户级 `config.toml` 和项目 `.codex/config.toml` 不再引用退休路径。
 
-- 项目级配置落点：`<repo>/.codex/config.toml`
-- 已接事件：`PreToolUse`
-- 已接脚本：`hooks/codex/scripts/PreToolUse.ps1`
-
-当前职责边界：
-
-- 只拦高风险写入相关工具：`apply_patch` 与 Bash
-- 只调用 `scripts/validate-doc-routing.ps1`
-- 校验失败时阻断写入
-- 不复制规则正文，不在 hook 中重写目录分流逻辑
-
-当前明确不做：
-
-- 不接 `validate-plan-docs.ps1` 到通用 `PreToolUse`
-- 不新增 `PostToolUse`、`PermissionRequest` 等其他事件
-- 不做用户级 `~/.codex/config.toml` 安装或同步
+规则索引、文档校验、GTO、bootstrap、sync、doctor 和 session 入口由 `scripts/*.py` 的 WSL Python 标准库控制面负责。语义判断仍由 Codex 根据提示词、规则和 skill 完成，脚本只处理结构化输入与机械校验。

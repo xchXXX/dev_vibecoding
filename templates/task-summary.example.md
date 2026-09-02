@@ -1,62 +1,36 @@
-# 任务摘要
+# 示例任务：同步当前任务模板
 
-## 基本信息
+Task ID: `20300102-030405-template-refresh`
 
-- `task_id`: `20260529-example-orchestrator-task`
-- `title`: 示例任务：瘦身控制面并更新文档与测试
-- `status`: `active`
-- `owner`: `main-coordinator`
+## 要做什么
 
-## 目标
+把当前任务模板同步到 version=3 与六工件合同。
 
-- 把旧多文件控制面收口到 state.json、task.md、events.jsonl，并完成文档、脚本、测试同步。
+## 不做什么
 
-## 范围
+- 不修改历史任务证据。
 
-### Scope In
+## 改哪些地方
 
-- docs/SUBAGENT_GOVERNANCE.md
-- skills/global-task-orchestrator/**
-- schemas/**
-- templates/**
-- tests/harness/control-plane.integration.ps1
+- `templates/`
+- `skills/pre-dev-benchmark/`
 
-### Scope Out
+## 怎么实现落地
 
-- 历史 run 目录兼容迁移
-- 与 orchestrator 无关的 hooks 或 sync 行为修改
+先用聚焦测试确认模板漂移，再最小修改并执行独立审查。
 
-## 验收标准
+## 怎么验收
 
-- state.json 成为唯一真源
-- task.md 只保留摘要
-- events.jsonl 只保留关键事件
-- 新测试覆盖核心 happy path 和 bad path
+- 状态模板通过当前 schema。
+- 文档命令可从仓库根直接运行。
+- 六工件内容保持一致。
 
-## 停止条件
+## 有什么风险
 
-- 发现必须保留旧控制面兼容层
-- 发现测试必须依赖旧 run 目录结构
+- 工作树中的既有改动可能与目标文件重叠。
 
-## 关键决定
+## 当前状态
 
-- 不再持久化 dispatch_message_raw
-- 子任务合同写在 subtasks[].assignment
-- 子任务结果写在 subtasks[].result
-
-## 当前阶段
-
-- `current_phase`: `execution`
-
-## 子任务
-
-### ST-runtime
-
-- `title`: 重写 orchestrator skill 与脚本
-- `role`: `backend-implementer`
-- `status`: `in_progress`
-- `goal`: 删除旧控制面脚本并切换到 state.json 模型。
-
-## 更新时间
-
-- `2026-05-29T00:00:00+08:00`
+- status: `active`
+- current_phase: `code_impl`
+- next_action: `dispatch_ready_subtask`

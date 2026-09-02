@@ -3,12 +3,12 @@
 ## 目标
 
 本文定义新控制面下主协调器、执行型子代理、审查型子代理的统一治理口径。
-本轮迁移已彻底切离旧控制面，不保留兼容层；任何流程、模板、说明都必须以 task 控制面三件套为准。
+本轮迁移已彻底切离旧控制面，不保留兼容层；任何流程、模板、说明都必须以当前 GTO 六份工件为准。
 
 ## 适用范围
 
 - 全局真源：`ai-harness/`
-- 运行时投放：Claude / Codex 相关同步与 doctor 流程
+- 运行时投放：Codex skills、managed `AGENTS.md`、规则索引与 doctor 流程
 - 项目适配层：各项目 `AGENTS.md`、`docs/ai/`、`config/ai/`
 
 项目规则系统兼容说明：
@@ -19,10 +19,10 @@
 
 ## 角色分工
 
-- 主协调器：维护 `state.json` 真源、选择角色、分配 `subtask`、等待完成、回收结果、推进整体状态。
-- 阅读型子代理：只读补上下文，基于 `task_state + subtask` 产出证据化摘要。
-- 执行型子代理：在允许写入范围内修改文档、配置、测试、代码，并把结果写回 `state.json.subtasks[].result`。
-- 审查型子代理：基于 `task_state + subtask` 做多维度审查与验收，不代替执行型子代理直接补做实现。
+- 主协调器：由 Codex 完成语义判断、选择角色、组织真实派遣 prompt、等待完成和回收结果；控制器只机械维护 `state.json`、`events.jsonl` 与确定性状态推进。
+- 阅读型子代理：先读取 `task.md` 六要点，再按主协调器真实派遣 prompt 中显式给出的 `assignment`、`read_paths`、`write_paths` 与验收要求补充上下文并产出证据化摘要。
+- 执行型子代理：先读取 `task.md` 六要点，再按真实派遣 prompt 中显式给出的 `assignment`、`read_paths`、`write_paths` 与验收要求修改授权文件，并把结果交回控制器写入 `state.json.subtasks[].result`。
+- 审查型子代理：基于控制器真实实现的 `build-review-brief` 结果做多维度审查与验收，不读取无关子任务，也不代替执行型子代理直接补做实现。
 
 ## 双窗口模式
 
@@ -30,6 +30,8 @@
 
 - `Plan Window`：方案裁决窗口
 - `Execute Window`：方案执行协调窗口
+
+长任务在批准前必须用大白话冻结六个要点：要做什么、不做什么、改哪些地方、怎么实现落地、怎么验收、有什么风险。Codex 负责理解对话语义并决定本轮需要读取哪些非必读规则；Python 控制器只负责结构校验、比对、状态推进和持久化，不自行理解自然语言，也不拼装规则套餐。
 
 ### `Plan Window`
 
@@ -39,7 +41,7 @@
 - 委派阅读型子代理引入上下文
 - 基于阅读回报与用户反馈修订方案
 - 冻结正式任务状态
-- 同步落盘 `state.json` 与 `task.md`
+- 同步维护 `state.json`、`task.md`、`events.jsonl`、`plan.md`、`execution.md` 与 `acceptance.md`
 
 规则：
 
@@ -55,7 +57,7 @@
 
 职责：
 
-- 完整阅读 `task_state`
+- 读取 `task.md` 六要点，并由主协调器从冻结合同组织本轮真实派遣 prompt
 - 委派阅读型子代理补齐本轮局部上下文
 - 细化当前阶段工作
 - 在 `state.json.subtasks[].assignment` 中写入执行合同
@@ -63,7 +65,8 @@
 
 规则：
 
-- `Execute Window` 必须先完整阅读 `state.json`，再按需读取 `task.md` 获取人读摘要。
+- `Execute Window` 的模型默认先读取 `task.md` 六要点，再按需读取方案与施工真源；普通委派不得把完整 `state.json` 作为输入。
+- 完整 state 由机器侧控制器用于机械校验、持久化和状态推进；普通委派只接收主协调器在真实派遣 prompt 中显式给出的 `assignment`、`read_paths`、`write_paths` 与验收要求。
 - 在派发执行型或审查型子代理前，必须先确认目标 `subtask` 已存在且 `assignment` 完整。
 - 当前阶段的具体工作、详细合同与验收门禁，统一在 `subtask` 中细化；其中执行说明写在 `subtask.assignment`，读写边界写在顶层 `subtask.read_paths / subtask.write_paths`。
 - 不允许脱离 `task_state` 单独生成散落在仓库其他位置的执行合同。
@@ -106,11 +109,14 @@
 
 ## 统一控制面对象合同
 
-### task 控制面三件套
+### 长任务六份工件
 
 - `docs/ai/tasks/<task_id>/state.json`：唯一真源。
 - `docs/ai/tasks/<task_id>/task.md`：人读摘要。
-- `docs/ai/tasks/<task_id>/events.jsonl`：可选 append-only 事件流。
+- `docs/ai/tasks/<task_id>/events.jsonl`：append-only 关键事件流。
+- `docs/tasks/<task_id>/plan.md`：冻结目标、范围、非目标、方案、风险和验收标准。
+- `docs/tasks/<task_id>/execution.md`：冻结施工顺序、批次、写入范围、验证命令和返工路由。
+- `docs/tasks/<task_id>/acceptance.md`：回填验收证据、未决项和最终结论。
 
 约束：
 
@@ -119,6 +125,25 @@
 - 若需要记录执行合同，必须写入 `state.json.subtasks[].assignment`。
 - 若需要记录执行结果，必须写入 `state.json.subtasks[].result`。
 - `events.jsonl` 只追加事件，不承担当前状态真源职责。
+- 六份工件在长任务中全部必备，不按窗口数或并行度缩减。控制器应交叉校验 `task_id`、六要点、验收标准和批准状态；合同变更后旧批准自动失效。
+- 当前 state 只接受 `version=3`；CLI 只接受 `orchestrator_ctl.py --help` 当前公开并实际实现的 action 与 GNU 双横线参数。
+- 机器侧控制器解析完整 state 以执行机械校验和状态推进；它只为审查场景实现 `build-review-brief`。普通委派 prompt 由主协调器显式组织。
+- state 只保留流程判断所需的短摘要、仓库相对路径、哈希、commit range、命令名与结论；不得保存完整 stdout、完整 diff、完整 prompt 或聊天记录。
+- 不生成独立 implementer report、test report、review package 或其他承担当前状态职责的 package；已有正式证据保持在原位置，state 只记录路径、哈希与短摘要。
+
+## 真实隔离派发与身份
+
+- 无历史派发必须由平台实际调用参数实现，例如平台支持时使用 `fork_turns="none"`；提示词只能描述边界，不能冒充隔离机制。
+- 主协调器先在真实派遣 prompt 中明确 `task.md` 六要点、`assignment`、`read_paths`、`write_paths` 与验收要求，再由平台以无历史模式派发；控制器通过 `bind-dispatch` 把平台返回值绑定到 `subtask.dispatch`。绑定记录至少包含 `agent_key`、真实 `platform_agent_id`、`context_mode=isolated`、`brief_kind` 与 `brief_sha256`。
+- `platform_agent_id` 只能取自派发工具返回值，不接受子代理自报身份作为证明。高风险审查与最终审查的 reviewer 必须与被审实现者使用不同的真实 `platform_agent_id`。
+- 子代理只能按真实派遣 prompt 中的当前合同工作。若平台不支持真实无历史派发，当前派发必须阻塞并升级给主协调器，不能降级为提示词隔离。
+
+## Workspace 基线
+
+- 进入写入阶段前，控制器只读检查并记录当前 workspace 是 primary checkout 还是 linked worktree，以及 branch、`HEAD`、dirty paths、计划 write paths 与既有 dirty paths 的 overlap。
+- state 中只保存 `<repo-root>` 和仓库相对路径等逻辑位置，不保存盘符、用户名或本机绝对仓库根。
+- write overlap 未归属或未裁决时不得进入 `code_impl`。裁决只记录采用的基线与边界，不授权覆盖、清理或还原用户改动。
+- workspace 动作只检查、捕获和校验；控制器和子代理不得自动创建、切换、移动、删除或清理 worktree，也不得扫描或同步其他 clone。
 
 ### `task_state`
 
@@ -182,9 +207,12 @@
 
 - `docs/ai/tasks/<task_id>/state.json`
 - `docs/ai/tasks/<task_id>/task.md`
-- `docs/ai/tasks/<task_id>/events.jsonl`（可选）
+- `docs/ai/tasks/<task_id>/events.jsonl`（必备）
+- `docs/tasks/<task_id>/plan.md`
+- `docs/tasks/<task_id>/execution.md`
+- `docs/tasks/<task_id>/acceptance.md`
 
-项目侧可以补充本仓目录、模块与运维口径，但不再承担上述对象的通用合同正文。
+项目侧可以补充本仓目录、模块与运维口径，但不再承担上述对象的通用合同正文，也不为当前 GTO 新建第二套状态或历史 run 路由。
 
 ## 落盘语言规则
 
@@ -204,11 +232,22 @@
 
 - 复验不得由主协调器自行完成，必须由专门审查型子代理负责。
 - 审查必须是多维度的；不能用“测试通过”替代代码审查、合同审查、运行时审查。
-- 同一轮任务的后续复审默认复用同一个专门审查型子代理；只有崩溃或不可恢复异常时才允许更换。
+- finding 必须使用任务内稳定且唯一的 `finding_id`，并记录严重级别、目标路径、短摘要、必要证据与状态。
+- finding 必须沿 lineage 返回原实现者返修；主协调器不得改派新的实现者或自行代修。
+- 后续复审默认复用产生该 finding 的原 reviewer；只有崩溃或不可恢复异常时才允许更换，并必须升级给主协调器、记录原因和新的身份绑定。
+- 原 reviewer 的 re-review 默认只接收目标 finding、fix delta 与必要证据。若返修扩大文件或语义范围，必须记录原因并升级为新的 task review scope，不得伪装成局部复审。
+- `max_fix_rounds=3` 按稳定 `finding_id` 独立计数，同一 finding 可跨 reviewer subtask 复用 ID。只有真正向原实现者派发 fix 时才递增；补证据、review 和 re-review 不计轮。第三轮后仍 open 时必须进入 `blocked` 或人工裁决。
 - 审查不通过时：
   - 一律退回原执行型子代理返工
   - 主协调器必须完整转发 findings、等待返工、重新组织复验
   - 主协调器不直接代修失败项
+
+## 最终整体审查门禁
+
+- 局部 task review 或 re-review 通过不能替代最终整体审查。
+- 任务标记 `completed` 前，必须由独立 reviewer 对最新 `HEAD` 或控制器确认的最终变更哈希给出 `result.review.kind=final` 且 `result.review.verdict=pass`。
+- final reviewer 的真实 `platform_agent_id` 必须与所有被审实现者不同；review 证据必须能证明其覆盖的 `HEAD` 或最终变更哈希仍是当前待完成版本。
+- 若 final review 后 workspace、`HEAD` 或最终变更哈希再次变化，原 `final/pass` 失效，必须重新审查最新版本。
 
 ## 审查触发规则
 
@@ -272,9 +311,9 @@
 ## 总体方案与 Phase 路线图规则
 
 - 凡中大规模实施，必须先落一份“总体方案 + 实施计划 / phase 路线图”文档，再进入正式代码实施。
-- 长任务默认至少落两份文档：方案文档与施工文档；两者都应满足项目定义的固定必填字段。
+- 长任务必须完整维护六份工件；方案、施工与验收文档均满足固定必填章节，`state.json`、`task.md` 与 `events.jsonl` 同时通过一致性校验。
 - 该文档必须在正式代码实施前冻结，并反映到 `state.json`。
-- 跨项目或机器级事项，默认使用项目总纲文档；当前约定入口为：`C:\Users\72385\dev\ai-harness\docs\plans\AI_HARNESS_MASTER_PLAN.md`
+- 跨项目或机器级事项，默认使用项目总纲文档；当前约定入口为：`<harness-root>/docs/plans/AI_HARNESS_MASTER_PLAN.md`
 - 仓库级事项可使用对应仓库根目录或已约定的全局真源位置，但必须在入口文档中显式引用。
 
 ## 推荐模板
@@ -283,25 +322,8 @@
 - 审查测试用例模板：`templates/review_testcases.example.md`
 - 执行迭代清单：`templates/code_worker_iteration_checklist.example.md`
 
-## 角色优先调度顺序
+## 角色选择与派发
 
-- 执行型委派必须遵循固定顺序：`先选角色 -> 查 codex-role-map -> 读取 task_state -> 锁定 subtask -> 写入 assignment -> 下发执行`。
-- 禁止跳过角色层直接按裸 `default/explorer/worker` 委派执行任务。
-- 若角色在 `agents/codex-role-map.json` 中无映射，必须阻断派发并回退到方案或映射修订流程。
-
-## 映射变更最小审查要求
-
-- 任何 `agents/codex-role-map.json` 变更都必须附带：变更角色清单、映射前后差异、风险说明。
-- 审查必须确认 `agent_type` 仍仅来自 `default / explorer / worker`，不得引入新平台原生类型。
-- 审查必须确认文档口径一致：`agents/*.md` 负责角色语义，`codex-role-map` 负责底层映射。
-- 审查结论需明确是否需要同步更新 `task_state/subtask` 调度规则。
-
-## 角色映射有效性与回退
-
-- `skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action validate` 必须在任务验收前校验 `agents/codex-role-map.json` 与 `agents/manifest.json`。
-- 角色映射有效性至少包含三类硬门禁：
-  - `agent_type` 只能是 `default / explorer / worker`。
-  - `codex-role-map` 必须覆盖冻结必需角色：`planner`、`reader`、`reviewer`、`backend-implementer`、`frontend-implementer`、`test-verifier`、`doc-curator`、`ops-runbook`。
-  - `codex-role-map` 与 `manifest` 双向一致（角色集合、`allow_write` 与 `allow_shell` 对应 `tools` 能力）。
-- 任一角色映射门禁失败时，当前批次必须判定为未通过，不得继续派发执行型子代理。
-
+- 主协调器先根据已冻结的 subtask 合同选择阅读、实施、测试、文档或审查职责，再使用平台实际可用的代理能力派发。
+- 角色语义、读写边界、允许的 shell 操作和验收要求由主协调器从冻结合同提取，并在平台真实派遣 prompt 中显式给出；普通委派不依赖独立 agents catalog 或角色映射兼容层。
+- 平台不支持合同要求的隔离、权限或独立 reviewer 身份时，当前派发必须阻塞并交回主协调器裁决。

@@ -2,12 +2,11 @@
 name: frontend-implementer
 description: 负责前端页面、组件、交互与样式实现；不越权定义后端契约或运维策略。
 tools: Read, Write, Bash
-model: inherit
 ---
 
 ## 角色目标
 
-基于 `task_state + subtask` 完成前端界面与交互改动，并保持与既有设计语言一致。
+基于 `task.md` 和显式子任务提示完成前端界面与交互改动，并保持与既有设计语言一致。
 
 ## 负责范围
 
@@ -24,9 +23,8 @@ model: inherit
 
 ## 输入
 
-- `task_state`（必填）
-- `subtask`（必填）
-- `subtask.assignment`（必读，明确写入范围、禁改项与验收字段）
+- `task.md`（必读）
+- 显式子任务提示中的 assignment、读写范围、禁改项与验收字段（必读）
 - 前端相关文档
 - 设计约束与验收标准
 
@@ -49,7 +47,7 @@ model: inherit
 ## 停止条件
 
 - 页面行为定义不清
-- 缺少 `task_state` 或 `subtask`
+- 缺少 `task.md` 或显式子任务提示
 - 依赖的接口契约不稳定
 - 需要改动未授权路径
 - 继续推进会违反主协调器验收门禁

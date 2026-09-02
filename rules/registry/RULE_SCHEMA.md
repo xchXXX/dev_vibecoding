@@ -11,7 +11,7 @@ subject: command-failure-memory
 scope: project
 kind: policy
 priority: 100
-activation: always_on
+activation: model_decision
 paths: []
 intents: ["shell", "test", "build", "retry"]
 owner: ai-governance
@@ -33,13 +33,13 @@ override_reason: ""
 - `scope`：规则作用域，合法值为 `global | project | path`。
 - `kind`：规则主类，合法值为 `policy | workflow | architecture | quality | stack | style`。
 - `priority`：同层冲突时的辅助优先级，数值越大优先级越高。
-- `activation`：装配触发方式，合法值为 `always_on | model_decision | path | manual`。
-- `paths`：路径匹配集合；仅在 `scope=path` 或 `activation=path` 时填写具体匹配项。
-- `intents`：命中意图标签列表，用于按任务场景装配规则。
+- `activation`：供 Codex 判断读取优先级的提示，合法值为 `always_on | model_decision | path | manual`；`always_on` 仅用于入口批准的最小必读集合。
+- `paths`：相关路径提示；仅在 `scope=path` 或 `activation=path` 时填写具体项，不由 Python 自动匹配本轮规则。
+- `intents`：相关语义或操作提示，供 Codex 结合当前上下文判断，不组成固定任务套餐。
 - `owner`：维护人或维护域。
 - `status`：规则状态，合法值为 `active | deprecated | draft`。
-- `summary`：单句摘要，用于索引和 resolved 视图。
-- `linked_skill`：命中后优先读取的 skill 名称；无 skill 时填空字符串。
+- `summary`：单句摘要，用于唯一机器元数据索引和人读视图。
+- `linked_skill`：供 Codex 进一步判断是否适用的 skill 名称；无 skill 时填空字符串，不自动触发 skill。
 - `enforcement`：执行方式，合法值为 `advisory | executable_backed`。
 - `overrideable`：是否允许被更小作用域规则覆盖。
 - `override_mode`：覆盖模式，首版支持 `merge | replace`。

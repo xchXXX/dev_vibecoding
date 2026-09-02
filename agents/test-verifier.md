@@ -2,12 +2,11 @@
 name: test-verifier
 description: 负责测试设计、执行验证和验收判断；不直接承担业务功能实现。
 tools: Read, Write, Bash
-model: inherit
 ---
 
 ## 角色目标
 
-基于 `task_state + subtask` 用测试与验证结论证明改动是否达到验收标准。
+基于 `task.md` 和主协调器给出的显式子任务提示，用测试与验证结论证明改动是否达到验收标准。
 
 ## 负责范围
 
@@ -24,9 +23,8 @@ model: inherit
 
 ## 输入
 
-- `task_state`（必填）
-- `subtask`（必填）
-- `subtask.assignment`（必读，明确验证范围与验收字段）
+- `task.md`（必读）
+- 显式子任务提示中的 assignment、读写边界、依赖结果摘要与 verification contract（必读）
 - 相关代码和文档
 - 历史验证记录（如有）
 
@@ -36,10 +34,12 @@ model: inherit
 - 执行结果摘要
 - 是否通过验收的明确判断
 - 写回 `subtask.result`
+- 不生成 test package、return package 或独立 report 第二控制面
 
 ## 工作规则
 
 - 测试设计要直接对应验收点
+- 普通验证期间不自行读取完整 `state.json`
 - 失败时要指出最小复现路径
 - 若无法运行验证，要明确说明原因和风险
 - 先完成 `subtask.read_paths`，再新增或更新验证产物
@@ -49,7 +49,7 @@ model: inherit
 ## 停止条件
 
 - 验收标准不清
-- 缺少 `task_state` 或 `subtask`
+- 缺少 `task.md` 或显式子任务提示
 - 需要的运行环境不可用
 - 测试所依赖的实现尚不存在且无法继续
 - 需要改动未授权路径

@@ -1,0 +1,1207 @@
+{
+  "task_id": "20260901-185530-wsl-python-control-plane-automation",
+  "title": "WSL Python 控制面自动化与理想流程验收",
+  "status": "completed",
+  "owner": "main-coordinator",
+  "six_points": {
+    "do": "将 ai-harness 的 Codex 开发控制面迁移为 WSL 原生 Python，并把六要点、六工件、按 finding_id 的 review 循环和共享 Command Failure Memory 落成可执行自动化。",
+    "do_not": [
+      "不迁移或重写历史 docs/ai/runs 与既有任务审计记录",
+      "不迁移 Claude hooks，不把 Claude 客户端改造并入本任务",
+      "不保留 Python 与 PowerShell 两份完整业务实现",
+      "不新增 Codex PreToolUse hook、命令安全网关、受控 command runner 或常驻服务",
+      "不让 Python 从用户自然语言自行推断任务语义",
+      "不把 Command Failure Memory 搬到第二个物理目录"
+    ],
+    "change_areas": [
+      "AGENTS.md",
+      "rules",
+      "schemas",
+      "scripts",
+      "skills/global-task-orchestrator",
+      "skills/command-failure-memory",
+      "skills/pre-dev-benchmark",
+      "hooks/codex",
+      "tests",
+      "templates",
+      "docs/ARCHITECTURE.md",
+      "docs/CODEX_COMPAT.md",
+      "docs/EVALS.md",
+      "docs/HOOKS.md",
+      "docs/INSTALL.md",
+      "docs/MIGRATION.md",
+      "docs/SUBAGENT_GOVERNANCE.md",
+      "docs/ai/tasks/20260901-185530-wsl-python-control-plane-automation",
+      "docs/tasks/20260901-185530-wsl-python-control-plane-automation"
+    ],
+    "implementation": "Python 3.12 标准库作为控制面唯一真源；Codex 做语义判断，脚本只做结构化验证、匹配、状态推进和持久化。",
+    "acceptance": [
+      "Codex 负责语义分类，Python 只对结构化 profile 做机械匹配和门禁",
+      "大型任务六份工件完整且一致，小任务和问答不会误启完整 GTO",
+      "同一 finding_id 可跨 fix/re-review 子任务稳定复用并独立计算最多三次实际返修",
+      "所有正式 Codex 控制面命令在 WSL 使用 Python 或 Linux 原生命令，不依赖 Windows PowerShell、cmd 或 Windows Python",
+      "Command Failure Memory 继续使用 Windows 与 WSL 可见的同一物理目录，并通过 WSL Python 安全并发访问",
+      "理想行为 blind tests、相关集成测试与独立 final review 全部通过"
+    ],
+    "risks": [
+      "发现必须覆盖或删除无法归属的既有未提交修改",
+      "WSL 对现有 Windows 可见 Memory Store 无法提供经验证的安全原子写与并发锁",
+      "Codex 平台能力无法支持已冻结的子代理身份或独立 review 证据",
+      "第三轮实际返修后同一 finding 仍未关闭且用户尚未裁决"
+    ]
+  },
+  "objective": "将 ai-harness 的 Codex 开发控制面迁移为 WSL 原生 Python，并把六要点、六工件、按 finding_id 的 review 循环和共享 Command Failure Memory 落成可执行自动化。",
+  "scope_in": [
+    "AGENTS.md",
+    "rules",
+    "schemas",
+    "scripts",
+    "skills/global-task-orchestrator",
+    "skills/command-failure-memory",
+    "skills/pre-dev-benchmark",
+    "hooks/codex",
+    "tests",
+    "templates",
+    "docs/ARCHITECTURE.md",
+    "docs/CODEX_COMPAT.md",
+    "docs/EVALS.md",
+    "docs/HOOKS.md",
+    "docs/INSTALL.md",
+    "docs/MIGRATION.md",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "docs/ai/tasks/20260901-185530-wsl-python-control-plane-automation",
+    "docs/tasks/20260901-185530-wsl-python-control-plane-automation"
+  ],
+  "scope_out": [
+    "不迁移或重写历史 docs/ai/runs 与既有任务审计记录",
+    "不迁移 Claude hooks，不把 Claude 客户端改造并入本任务",
+    "不保留 Python 与 PowerShell 两份完整业务实现",
+    "不新增 Codex PreToolUse hook、命令安全网关、受控 command runner 或常驻服务",
+    "不让 Python 从用户自然语言自行推断任务语义",
+    "不把 Command Failure Memory 搬到第二个物理目录"
+  ],
+  "acceptance": [
+    "Codex 负责语义分类，Python 只对结构化 profile 做机械匹配和门禁",
+    "大型任务六份工件完整且一致，小任务和问答不会误启完整 GTO",
+    "同一 finding_id 可跨 fix/re-review 子任务稳定复用并独立计算最多三次实际返修",
+    "所有正式 Codex 控制面命令在 WSL 使用 Python 或 Linux 原生命令，不依赖 Windows PowerShell、cmd 或 Windows Python",
+    "Command Failure Memory 继续使用 Windows 与 WSL 可见的同一物理目录，并通过 WSL Python 安全并发访问",
+    "理想行为 blind tests、相关集成测试与独立 final review 全部通过"
+  ],
+  "stop_conditions": [
+    "发现必须覆盖或删除无法归属的既有未提交修改",
+    "WSL 对现有 Windows 可见 Memory Store 无法提供经验证的安全原子写与并发锁",
+    "Codex 平台能力无法支持已冻结的子代理身份或独立 review 证据",
+    "第三轮实际返修后同一 finding 仍未关闭且用户尚未裁决"
+  ],
+  "decisions": [
+    "Python 3.12 标准库作为控制面唯一真源；Codex 做语义判断，脚本只做结构化验证、匹配、状态推进和持久化。",
+    "实现方案：Python 3.12 标准库作为控制面唯一真源；Codex 做语义判断，脚本只做结构化验证、匹配、状态推进和持久化。",
+    "实现方案：保留 state.json、task.md、events.jsonl、plan.md、execution.md、acceptance.md 六份大型任务工件。",
+    "实现方案：review next_action 由控制器计算并持久化，实际平台代理调用由主协调器执行。",
+    "实现方案：移除 Codex command-safety hook 的开发运行面，不迁移 Claude hooks。",
+    "风险：当前工作区在全部核心目录存在大量未提交修改，必须基于实时哈希增量施工。",
+    "风险：当前 GTO 对跨 reviewer subtask 重用 finding_id 的校验与目标 review 循环冲突。",
+    "风险：当前 CFM 在 case=1024 时拒绝写入，Linux 路径无可靠锁，需要先以 Red 测试冻结。",
+    "风险：本任务需要一次性从 v2 bootstrap state 升级到新的 Python 控制器合同。"
+  ],
+  "approval": {
+    "status": "approved",
+    "approved_by": "user",
+    "approved_at": "2026-09-01T18:55:30+08:00",
+    "contract_sha256": "5561d84eda0b4d55384adb4de6f924bcb13a0c45d70a998789ccbba5897042ad"
+  },
+  "artifact_sha256": {
+    "task.md": "0b46698a0ef9ecfe74b7682f92d69b30f93a1a71aa2152d3ca6ca2a715d4507b",
+    "plan.md": "cc5406b4c0ea39b762d511764de290065195a8927c9228e9909bd2aecf9e57b7",
+    "execution.md": "1a19e5fcce0ac73a9bc72ef30e755ee3c3a064c7f70fa9e1728b95b1d0334189",
+    "acceptance.md": "ba76111432f0d8e88787a9f65f7094abaa013b8d9a3829ed8f45cc6df320ff3c"
+  },
+  "current_phase": "review",
+  "workspace": {
+    "repo_root": "<repo-root>",
+    "checkout_kind": "primary",
+    "branch": "main",
+    "head": "bebf35ff6501a92103f48f6b6bb48e9ade1040dc",
+    "dirty_paths": [
+      "AGENTS.md",
+      "rules",
+      "schemas",
+      "scripts",
+      "skills",
+      "hooks",
+      "tests",
+      "templates",
+      "docs"
+    ],
+    "write_overlap": [
+      "AGENTS.md",
+      "rules",
+      "schemas",
+      "scripts",
+      "skills",
+      "hooks/codex",
+      "tests",
+      "templates",
+      "docs"
+    ],
+    "overlap_decision": {
+      "status": "resolved",
+      "summary": "用户批准在高度脏工作区内按互斥路径增量施工；bootstrap 前基线与最终 git status 已留哈希，子代理均未清理或覆盖范围外改动。",
+      "baseline_hashes": {
+        "bootstrap_git_status_sha256": "d49091612feee61d352ff3d1369f6d9efb49bd73a54fe559892526de1e7d8e8f",
+        "verification_git_status_sha256": "71b10d9e6ef5e3a41ee744d72c184f74bc6b80753b8d122f51450e948b30ef3d"
+      }
+    }
+  },
+  "review_policy": {
+    "require_independent_final_review": true,
+    "max_fix_rounds": 3,
+    "scope_expansion_requires_escalation": true
+  },
+  "verification_contract": {
+    "minimal_repro": "以最小 GTO fixture 证明同一 finding_id 跨 reviewer subtask 当前被 duplicate 校验拒绝；以隔离 CFM Store fixture 证明 case 达到 1024 后 record-success 当前失败。",
+    "hit_proof": "修复后相同 fixture 分别完成同 finding_id 的 R1/R2 re-review 状态推进，以及容量满时仍可记录并从 active/archive 查询；回退实现后测试应重新失败。",
+    "diagnostic_checks": [
+      "运行单 finding 跨 subtask 的最小 review 状态机测试",
+      "运行双 finding 独立 fix_round 测试",
+      "运行 CFM 满容量、并发锁和同物理 Store 路径测试",
+      "运行 task profile 到规则匹配的结构化合同测试"
+    ],
+    "acceptance_checks": [
+      "运行全部 WSL Python 单元与集成测试",
+      "运行问答、小任务、大型任务三类 blind behavior tests",
+      "运行完整 review-fix-re-review-final E2E fixture",
+      "运行跨进程与跨会话 CFM 共享验收",
+      "验证正式 Codex 控制面不再依赖 Windows 命令或 Codex hook"
+    ],
+    "non_goals": [
+      "不迁移 Claude hooks",
+      "不建立自然语言规则分类脚本",
+      "不建立透明命令拦截 hook",
+      "不迁移 Command Failure Memory 物理目录"
+    ],
+    "review_evidence": [
+      "repro_before_fix",
+      "pass_after_fix",
+      "hit_proof_observed",
+      "relevant_regression_ok",
+      "docs_and_rules_synced",
+      "ideal_behavior_acceptance",
+      "independent_final_review"
+    ]
+  },
+  "findings": {
+    "CFM-PERF-001": {
+      "finding_id": "CFM-PERF-001",
+      "severity": "high",
+      "paths": [
+        "skills/command-failure-memory/scripts/command-failure-memory.py",
+        "tests/harness/test_command_failure_memory.py"
+      ],
+      "summary": "真实 1028-case Store 的 CFM 操作因全量正文 I/O 耗时十几至三十秒。",
+      "evidence": "R1 改为 index metadata 与正文按需访问后，真实只读 inspect 0.27 秒、同类完整 query 0.658 秒、临时 1028-case record-success 0.394 秒；原测试代理复审通过。",
+      "status": "closed",
+      "fix_round": 1,
+      "routed_to": {
+        "agent_key": "impl_cfm",
+        "platform_agent_id": "/root/impl_cfm"
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "impl_cfm",
+          "platform_agent_id": "/root/impl_cfm"
+        },
+        "original_reviewer": {
+          "agent_key": "test_cfm_red",
+          "platform_agent_id": "/root/test_cfm_red"
+        }
+      },
+      "fix_delta": {
+        "summary": "以轻量 index metadata 支撑常用动作，只按需读取或写入命中/归档 case 正文。",
+        "changed_files": [
+          "skills/command-failure-memory/scripts/command-failure-memory.py",
+          "tests/harness/test_command_failure_memory.py"
+        ],
+        "sha256": "66d3a9741c0b7dd3a498287ba12fcd9c131ea3dc5858d84a7a9c5cbf79ef6677",
+        "verification": "CFM 专项 8/8；原测试代理 R1 re-review pass。"
+      }
+    },
+    "GTO-V3-GATE-001": {
+      "finding_id": "GTO-V3-GATE-001",
+      "severity": "high",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "tests/harness/test_control_plane.py",
+        "docs/ai/tasks/20260901-185530-wsl-python-control-plane-automation/state.json"
+      ],
+      "summary": "GTO v3 validate 未完整阻断非法 phase、依赖、投影与派发结果矛盾，存在假绿。",
+      "evidence": "终审构造非法状态时校验仍可能通过。",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "impl_gto",
+        "platform_agent_id": "/root/impl_gto"
+      },
+      "fix_round": 2,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "impl_gto",
+          "platform_agent_id": "/root/impl_gto"
+        },
+        "original_reviewer": {
+          "agent_key": "final_review",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "validate 从正式 v3 schema 递归执行 root/嵌套 object allowlist、array items、allOf 与本地 $ref；语义门禁保留跨对象逻辑。",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_control_plane.py"
+        ],
+        "sha256": "566eb8c05ee19ba06c400c12689a23bd26308e2410ac4c2c6fe028fa54b5c364",
+        "verification": "GTO 12/12；未知根字段与 approval 未知嵌套字段均被拒绝；生命周期状态继续通过 Draft202012Validator。"
+      },
+      "closed_at": "2026-09-01T12:43:46.605821Z"
+    },
+    "GTO-FINAL-COVERAGE-002": {
+      "finding_id": "GTO-FINAL-COVERAGE-002",
+      "severity": "high",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "tests/harness/test_control_plane.py",
+        "docs/ai/tasks/20260901-185530-wsl-python-control-plane-automation/task.md",
+        "docs/tasks/20260901-185530-wsl-python-control-plane-automation/acceptance.md"
+      ],
+      "summary": "review hash 未覆盖真实源码，且 final/fail 无法按审查语义落账。",
+      "evidence": "源码变化未改变 review target；带 finding 的 final/fail 受旧分支约束。",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "impl_gto",
+        "platform_agent_id": "/root/impl_gto"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "impl_gto",
+          "platform_agent_id": "/root/impl_gto"
+        },
+        "original_reviewer": {
+          "agent_key": "final_review",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "review target 加入真实源码 manifest，并允许 final/fail 结构化落账。",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_control_plane.py",
+          "skills/global-task-orchestrator/references/state-schema.md"
+        ],
+        "sha256": "9671cf6d1bf249dc8b64a51ee84fa492cf063f448f2d936601edb753233edb42",
+        "verification": "GTO 专项 10/10 pass；源码改变导致 hash 改变，陈旧 final 被拒绝。"
+      },
+      "closed_at": "2026-09-01T12:38:53.085341Z"
+    },
+    "CFM-CAPACITY-002": {
+      "finding_id": "CFM-CAPACITY-002",
+      "severity": "high",
+      "paths": [
+        "skills/command-failure-memory/scripts/command-failure-memory.py",
+        "tests/harness/test_command_failure_memory.py"
+      ],
+      "summary": "active 满载且所有 case 的 solution 为空时，新有效 record-success 仍被拒绝。",
+      "evidence": "容量淘汰只选择已有 solution 的 case，无法处理全未解决集合。",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "impl_cfm",
+        "platform_agent_id": "/root/impl_cfm"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "impl_cfm",
+          "platform_agent_id": "/root/impl_cfm"
+        },
+        "original_reviewer": {
+          "agent_key": "final_review",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "容量满且全为未解决 case 时，将最旧未解决项安全归档并接纳新成功记录。",
+        "changed_files": [
+          "skills/command-failure-memory/scripts/command-failure-memory.py",
+          "tests/harness/test_command_failure_memory.py"
+        ],
+        "sha256": "246e5e217b7bedd7116626db44112b5311bb7bed2bcbe5dd264cce0396187ef8",
+        "verification": "CFM 专项 11/11 pass；空 solution 容量边界回归通过。"
+      },
+      "closed_at": "2026-09-01T12:38:53.085392Z"
+    },
+    "CONTROL-CLI-CONTRACT-001": {
+      "finding_id": "CONTROL-CLI-CONTRACT-001",
+      "severity": "medium",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/command-failure-memory/scripts/command-failure-memory.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/command-failure-memory/SKILL.md"
+      ],
+      "summary": "文档展示 GNU 参数，但控制器与 CFM 入口曾只接受 PowerShell 风格参数。",
+      "evidence": "按文档运行 --action 等参数会违反 CLI 合同。",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "impl_runtime",
+        "platform_agent_id": "/root/impl_runtime"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "impl_runtime",
+          "platform_agent_id": "/root/impl_runtime"
+        },
+        "original_reviewer": {
+          "agent_key": "final_review",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "GTO 与 CFM 同时支持 GNU 长参数和原 PowerShell 风格参数，文档与实现对齐。",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "skills/command-failure-memory/scripts/command-failure-memory.py",
+          "skills/global-task-orchestrator/SKILL.md",
+          "skills/command-failure-memory/SKILL.md"
+        ],
+        "sha256": "dc45daaf842fbbbdda868733dfee62df980cbe29bc80a83ff4f54f02f16fbfe0",
+        "verification": "CLI 合同测试通过；两种参数形式均可运行。"
+      },
+      "closed_at": "2026-09-01T12:38:53.085398Z"
+    },
+    "OPS-SESSION-DUAL-CONTROL-001": {
+      "finding_id": "OPS-SESSION-DUAL-CONTROL-001",
+      "severity": "high",
+      "paths": [
+        "scripts/start_session.py",
+        "tests/harness/test_wsl_runtime.py"
+      ],
+      "summary": "start_session 仍创建旧 .ai/session，形成第二套任务控制面。",
+      "evidence": "六工件为单一真源时仍生成旧 session 目录和文件。",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "impl_runtime",
+        "platform_agent_id": "/root/impl_runtime"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "impl_runtime",
+          "platform_agent_id": "/root/impl_runtime"
+        },
+        "original_reviewer": {
+          "agent_key": "final_review",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "start_session 改为只恢复并校验既有六工件，不再创建 .ai/session 或 docs/ai/runs。",
+        "changed_files": [
+          "scripts/start_session.py",
+          "tests/harness/test_wsl_runtime.py"
+        ],
+        "sha256": "1b3a860c461b69fccab1602e60e882eb60c151267fe471680774590286ba2cb3",
+        "verification": "WSL runtime 测试通过；断言无第二控制面产物。"
+      },
+      "closed_at": "2026-09-01T12:38:53.085406Z"
+    },
+    "CODEX-RUNTIME-AUDIT-001": {
+      "finding_id": "CODEX-RUNTIME-AUDIT-001",
+      "severity": "high",
+      "paths": [
+        "scripts/bootstrap-local.py",
+        "scripts/doctor-core.py",
+        "tests/harness/test_wsl_runtime.py"
+      ],
+      "summary": "doctor 未审计全局 AGENTS、bootstrap receipt 与用户侧 Codex hook 退役状态。",
+      "evidence": "运行时残留或漂移不能被 strict doctor 自动发现。",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "impl_runtime",
+        "platform_agent_id": "/root/impl_runtime"
+      },
+      "fix_round": 2,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "impl_runtime",
+          "platform_agent_id": "/root/impl_runtime"
+        },
+        "original_reviewer": {
+          "agent_key": "final_review",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "将最新受管 GTO 文件与 sync receipt 同步到真实 CODEX_HOME；未改仓库源码。",
+        "changed_files": [],
+        "sha256": "5844f1e8207b29aadb5cecd0d9aed506a349796dc322114fd3b04937e6d2db2b",
+        "verification": "真实 CODEX_HOME strict doctor 当前 ok=true，runtime_issues=[]、receipt_issues=[]、retired_hooks ok=true。"
+      },
+      "closed_at": "2026-09-01T12:43:46.605844Z"
+    },
+    "GTO-FINAL-SELFREF-003": {
+      "finding_id": "GTO-FINAL-SELFREF-003",
+      "severity": "critical",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "tests/harness/test_control_plane.py",
+        "docs/ai/tasks/20260901-185530-wsl-python-control-plane-automation/state.json",
+        "docs/ai/tasks/20260901-185530-wsl-python-control-plane-automation/events.jsonl",
+        "docs/tasks/20260901-185530-wsl-python-control-plane-automation/acceptance.md"
+      ],
+      "summary": "review target 包含当前任务控制工件，review 落账自身改变 hash，final/pass 永远 stale。",
+      "evidence": "build-review-brief manifest 实际包含 state.json、events.jsonl、task.md、acceptance.md 与 .control.lock；record-review-result 必然改写其中多项。",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "impl_gto",
+        "platform_agent_id": "/root/impl_gto"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "impl_gto",
+          "platform_agent_id": "/root/impl_gto"
+        },
+        "original_reviewer": {
+          "agent_key": "final_review",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "review source manifest 精确排除当前 task 的六工件与 .control.lock，同时继续覆盖真实源码和其他文档。",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_control_plane.py"
+        ],
+        "sha256": "abc38fe68ad4fb4436489afc420596bb8c175aad169ef1071a72fba11f9ee2b4",
+        "verification": "GTO 专项 11/11；final/pass 落账后 finalize 成功；真实源码变化仍使 review hash 变化。"
+      },
+      "closed_at": "2026-09-01T12:38:53.085410Z"
+    }
+  },
+  "next_action": {
+    "kind": "none"
+  },
+  "subtasks": [
+    {
+      "subtask_id": "DOC-001",
+      "title": "同步 WSL 控制面与自动化核心文档",
+      "role": "doc-curator",
+      "status": "completed",
+      "result": {
+        "status": "completed",
+        "summary": "21 个核心文档、规则、skill 与模板完成 WSL Python 合同同步。",
+        "changed_files": [
+          "AGENTS.md",
+          "docs/ARCHITECTURE.md",
+          "docs/CODEX_COMPAT.md",
+          "docs/HOOKS.md",
+          "docs/INSTALL.md",
+          "docs/SUBAGENT_GOVERNANCE.md",
+          "rules",
+          "skills/global-task-orchestrator",
+          "skills/command-failure-memory/SKILL.md",
+          "templates/codex/AGENTS.global.md"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "doc_contract_checks",
+            "scoped git diff --check"
+          ],
+          "result": "pass"
+        },
+        "deviations": [
+          "Bootstrap 前派发，未伪造 v3 isolated dispatch binding。"
+        ],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/doc_sync",
+        "written_role": "doc_sync",
+        "review_evidence": {
+          "docs_and_rules_synced": true
+        }
+      },
+      "dependencies": [],
+      "read_paths": [
+        "AGENTS.md",
+        "rules",
+        "docs",
+        "skills/global-task-orchestrator",
+        "skills/command-failure-memory"
+      ],
+      "write_paths": [
+        "AGENTS.md",
+        "rules",
+        "docs",
+        "skills/global-task-orchestrator/references",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/command-failure-memory/SKILL.md",
+        "templates"
+      ],
+      "assignment": {
+        "goal": "先行冻结 WSL 原生、语义/机械分工、六工件与 review 循环的长期真源。",
+        "must_include": [
+          "不引入 Codex hook",
+          "CFM 物理目录不迁移",
+          "max_fix_rounds 按 finding_id"
+        ],
+        "verification": [
+          "运行文档章节和规则索引静态核对"
+        ]
+      }
+    },
+    {
+      "subtask_id": "TEST-GTO-001",
+      "title": "编写 GTO 自动化预期 Red",
+      "role": "test-verifier",
+      "status": "completed",
+      "result": {
+        "status": "completed",
+        "summary": "GTO 目标 Red 测试冻结。",
+        "changed_files": [
+          "tests/harness/test_control_plane.py"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m unittest tests.harness.test_control_plane"
+          ],
+          "result": "预期 Red 5/5 命中控制器缺失"
+        },
+        "deviations": [
+          "Bootstrap 前派发。"
+        ],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/test_gto_red",
+        "written_role": "test_gto_red",
+        "review_evidence": {
+          "repro_before_fix": true
+        }
+      },
+      "dependencies": [
+        "DOC-001"
+      ],
+      "read_paths": [
+        "schemas",
+        "skills/global-task-orchestrator",
+        "tests/harness"
+      ],
+      "write_paths": [
+        "tests/harness/test_control_plane.py",
+        "tests/harness/test_plan_docs.py",
+        "tests/fixtures/gto"
+      ],
+      "assignment": {
+        "goal": "先冻结六要点、六工件和按 finding_id review 循环的 Python Red 测试。",
+        "must_include": [
+          "同 finding 跨 subtask",
+          "双 finding 独立轮次",
+          "R3 blocked",
+          "final/pass"
+        ],
+        "verification": [
+          "运行最小 unittest 并确认因目标能力缺失而失败"
+        ]
+      }
+    },
+    {
+      "subtask_id": "TEST-CFM-001",
+      "title": "编写 CFM WSL 共享存储预期 Red",
+      "role": "test-verifier",
+      "status": "completed",
+      "result": {
+        "status": "completed",
+        "summary": "CFM 容量、锁和 pending 目标 Red 测试冻结。",
+        "changed_files": [
+          "tests/harness/test_command_failure_memory.py"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m unittest tests.harness.test_command_failure_memory"
+          ],
+          "result": "3 个目标 Red 精确命中"
+        },
+        "deviations": [
+          "Bootstrap 前派发。"
+        ],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/test_cfm_red",
+        "written_role": "test_cfm_red",
+        "review_evidence": {
+          "repro_before_fix": true
+        }
+      },
+      "dependencies": [
+        "DOC-001"
+      ],
+      "read_paths": [
+        "skills/command-failure-memory",
+        "schemas",
+        "tests/harness",
+        "tests/benchmarks"
+      ],
+      "write_paths": [
+        "tests/harness/test_command_failure_memory.py",
+        "tests/benchmarks/test_command_failure_memory.py",
+        "tests/fixtures/command-failure-memory"
+      ],
+      "assignment": {
+        "goal": "先冻结同物理 Store、Linux 锁、容量治理和跨会话召回的 Python Red 测试。",
+        "must_include": [
+          "1024 满容量",
+          "pending 不丢",
+          "active/archive",
+          "并发锁",
+          "路径一致"
+        ],
+        "verification": [
+          "运行最小 unittest 并确认因目标能力缺失而失败"
+        ]
+      }
+    },
+    {
+      "subtask_id": "TEST-RUNTIME-001",
+      "title": "编写规则与 WSL runtime 预期 Red",
+      "role": "test-verifier",
+      "status": "completed",
+      "result": {
+        "status": "completed",
+        "summary": "Rules/WSL runtime 目标 Red 测试冻结。",
+        "changed_files": [
+          "tests/harness/test_rules_runtime.py",
+          "tests/harness/test_wsl_runtime.py"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m unittest tests.harness.test_rules_runtime tests.harness.test_wsl_runtime"
+          ],
+          "result": "7 个目标 Red；Claude 保留项通过"
+        },
+        "deviations": [
+          "Bootstrap 前派发。"
+        ],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/test_runtime_red",
+        "written_role": "test_runtime_red",
+        "review_evidence": {
+          "repro_before_fix": true
+        }
+      },
+      "dependencies": [
+        "DOC-001"
+      ],
+      "read_paths": [
+        "scripts",
+        "rules",
+        "tests/harness",
+        "hooks/codex"
+      ],
+      "write_paths": [
+        "tests/harness/test_rules_runtime.py",
+        "tests/harness/test_wsl_runtime.py",
+        "tests/fixtures/rules-runtime"
+      ],
+      "assignment": {
+        "goal": "先冻结结构化 profile 规则匹配、Python CLI 和 Codex hook 移除的 Red 测试。",
+        "must_include": [
+          "Codex 做语义判断",
+          "脚本只匹配结构化 profile",
+          "正常链无 Windows 进程",
+          "无 Codex hook"
+        ],
+        "verification": [
+          "运行最小 unittest 并确认因 Python 主入口缺失而失败"
+        ]
+      }
+    },
+    {
+      "subtask_id": "IMPL-GTO-001",
+      "title": "实现 WSL Python GTO 控制器",
+      "role": "backend-implementer",
+      "status": "completed",
+      "result": {
+        "status": "completed",
+        "summary": "GTO v3 及 final review R1 门禁修复完成。",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "schemas/orchestrator-task-state.schema.json",
+          "templates/orchestrator/state.template.json",
+          "skills/global-task-orchestrator/references/state-schema.md",
+          "tests/harness/test_control_plane.py"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m unittest tests.harness.test_control_plane"
+          ],
+          "result": "10/10 pass"
+        },
+        "deviations": [
+          "Bootstrap 前派发；R1 由同一原实现者完成。"
+        ],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/impl_gto",
+        "written_role": "impl_gto",
+        "review_evidence": {
+          "pass_after_fix": true,
+          "hit_proof_observed": true
+        }
+      },
+      "dependencies": [
+        "TEST-GTO-001"
+      ],
+      "read_paths": [
+        "schemas",
+        "skills/global-task-orchestrator",
+        "templates",
+        "tests/harness/test_control_plane.py",
+        "tests/harness/test_plan_docs.py"
+      ],
+      "write_paths": [
+        "schemas/orchestrator-task-state.schema.json",
+        "skills/global-task-orchestrator",
+        "templates/orchestrator",
+        "templates/task-state.example.json",
+        "templates/task-summary.example.md",
+        "templates/task-events.example.jsonl",
+        "templates/project/docs/tasks"
+      ],
+      "assignment": {
+        "goal": "实现 Python GTO、六要点、六工件、一致性门禁和自动 review next_action。",
+        "must_include": [
+          "v2 当前任务升级",
+          "same finding lifecycle",
+          "原 implementer/reviewer",
+          "final latest hash"
+        ],
+        "verification": [
+          "运行 GTO 目标 Python tests"
+        ]
+      }
+    },
+    {
+      "subtask_id": "IMPL-CFM-001",
+      "title": "实现 WSL Python Command Failure Memory",
+      "role": "backend-implementer",
+      "status": "completed",
+      "result": {
+        "status": "completed",
+        "summary": "CFM 同物理库、锁、容量、冷热层、按需 I/O 与 R1 边界修复完成。",
+        "changed_files": [
+          "skills/command-failure-memory/scripts/command-failure-memory.py",
+          "schemas/command-failure-case.schema.json",
+          "tests/harness/test_command_failure_memory.py"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m unittest tests.harness.test_command_failure_memory"
+          ],
+          "result": "11/11 pass；真实只读操作亚秒级"
+        },
+        "deviations": [
+          "Bootstrap 前派发；真实库只做只读性能核对。"
+        ],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/impl_cfm",
+        "written_role": "impl_cfm",
+        "review_evidence": {
+          "pass_after_fix": true,
+          "hit_proof_observed": true
+        }
+      },
+      "dependencies": [
+        "TEST-CFM-001"
+      ],
+      "read_paths": [
+        "skills/command-failure-memory",
+        "schemas/command-failure-case.schema.json",
+        "tests/harness/test_command_failure_memory.py"
+      ],
+      "write_paths": [
+        "skills/command-failure-memory",
+        "schemas/command-failure-case.schema.json"
+      ],
+      "assignment": {
+        "goal": "在不迁移物理目录的前提下实现 WSL 锁、容量治理、active/archive 和跨会话共享。",
+        "must_include": [
+          "Windows/WSL 同一 Store",
+          "无 cmd/PowerShell 主路径",
+          "不丢 pending",
+          "原地格式升级"
+        ],
+        "verification": [
+          "运行 CFM 目标 Python tests"
+        ]
+      }
+    },
+    {
+      "subtask_id": "IMPL-RULES-001",
+      "title": "实现 WSL Python 规则与文档校验",
+      "role": "backend-implementer",
+      "status": "completed",
+      "result": {
+        "status": "completed",
+        "summary": "结构化 task_profile、规则生成与文档校验 Python 主链完成。",
+        "changed_files": [
+          "scripts/rules_index.py",
+          "scripts/generate_rules_index.py",
+          "scripts/validate_rules.py",
+          "scripts/validate_doc_routing.py",
+          "scripts/validate_plan_docs.py",
+          "rules/registry/RULES_INDEX.json",
+          "rules/registry/RULES_INDEX.md",
+          "rules/registry/RULES_RESOLVED.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 scripts/validate_rules.py --repo-root $PWD --json"
+          ],
+          "result": "23 rules pass；生成两轮字节稳定"
+        },
+        "deviations": [
+          "Bootstrap 前派发。"
+        ],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/impl_runtime",
+        "written_role": "impl_runtime",
+        "review_evidence": {
+          "pass_after_fix": true,
+          "docs_and_rules_synced": true
+        }
+      },
+      "dependencies": [
+        "TEST-RUNTIME-001"
+      ],
+      "read_paths": [
+        "scripts",
+        "rules",
+        "tests/harness/test_rules_runtime.py",
+        "tests/harness/test_wsl_runtime.py"
+      ],
+      "write_paths": [
+        "scripts/rules_index.py",
+        "scripts/generate_rules_index.py",
+        "scripts/validate_rules.py",
+        "scripts/validate_doc_routing.py",
+        "scripts/validate_plan_docs.py",
+        "rules/registry/RULES_INDEX.json",
+        "rules/registry/RULES_INDEX.md",
+        "rules/registry/RULES_RESOLVED.json"
+      ],
+      "assignment": {
+        "goal": "迁移规则和文档校验主链，并根据 Codex 提供的结构化 profile 机械匹配规则。",
+        "must_include": [
+          "不从自然语言推断",
+          "metadata 常驻",
+          "正文按需",
+          "稳定 JSON CLI"
+        ],
+        "verification": [
+          "运行规则与文档目标 Python tests"
+        ]
+      }
+    },
+    {
+      "subtask_id": "IMPL-OPS-001",
+      "title": "迁移 bootstrap、sync、doctor 与 session",
+      "role": "backend-implementer",
+      "status": "completed",
+      "result": {
+        "status": "completed",
+        "summary": "WSL bootstrap/sync/doctor/session 与 R1 runtime audit 修复完成。",
+        "changed_files": [
+          "scripts/runtime_common.py",
+          "scripts/bootstrap-local.py",
+          "scripts/sync-codex.py",
+          "scripts/doctor-core.py",
+          "scripts/start_session.py",
+          "scripts/README.md",
+          "tests/harness/test_wsl_runtime.py"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 scripts/bootstrap-local.py --harness-root $PWD --codex-home $CODEX_HOME --json",
+            "python3 scripts/doctor-core.py --repo-root $PWD --codex-home $CODEX_HOME --strict --json"
+          ],
+          "result": "pass"
+        },
+        "deviations": [
+          "Bootstrap 前派发；start_session 收口为六工件 resume。"
+        ],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/impl_runtime",
+        "written_role": "impl_runtime",
+        "review_evidence": {
+          "pass_after_fix": true,
+          "relevant_regression_ok": true
+        }
+      },
+      "dependencies": [
+        "IMPL-RULES-001",
+        "IMPL-GTO-001",
+        "IMPL-CFM-001"
+      ],
+      "read_paths": [
+        "scripts",
+        "templates",
+        "tests/harness"
+      ],
+      "write_paths": [
+        "scripts",
+        "tests/harness/test_bootstrap.py",
+        "tests/harness/test_codex_sync.py"
+      ],
+      "assignment": {
+        "goal": "把剩余正式 Codex 运维入口迁移到 WSL Python，并退出完整 PowerShell 真源。",
+        "must_include": [
+          "显式 CODEX_HOME",
+          "原子写",
+          "不改 Claude hooks",
+          "保留用户非托管配置"
+        ],
+        "verification": [
+          "运行 bootstrap/sync/doctor Python tests"
+        ]
+      }
+    },
+    {
+      "subtask_id": "HOOK-REMOVE-001",
+      "title": "移除 Codex command-safety hook 运行面",
+      "role": "backend-implementer",
+      "status": "completed",
+      "result": {
+        "status": "completed",
+        "summary": "仓库和用户级 Codex managed hook 已退出；Claude hashes 不变。",
+        "changed_files": [
+          ".codex/config.toml",
+          "hooks/codex",
+          "scripts/bootstrap-local.py",
+          "scripts/doctor-core.py",
+          "tests/harness/test_wsl_runtime.py"
+        ],
+        "planned_files_not_changed": [
+          "hooks/claude"
+        ],
+        "verification": {
+          "commands": [
+            "strict doctor retired hook audit",
+            "Claude source SHA check"
+          ],
+          "result": "pass"
+        },
+        "deviations": [
+          "用户级 hooks.json 只删除 openai.command-safety-gateway.v1。"
+        ],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/impl_runtime",
+        "written_role": "impl_runtime",
+        "review_evidence": {
+          "hit_proof_observed": true,
+          "relevant_regression_ok": true
+        }
+      },
+      "dependencies": [
+        "TEST-RUNTIME-001"
+      ],
+      "read_paths": [
+        "hooks/codex",
+        "scripts/install-command-safety-gateway.ps1",
+        "tests/harness",
+        "docs/HOOKS.md",
+        "docs/CODEX_COMPAT.md"
+      ],
+      "write_paths": [
+        "hooks/codex",
+        "scripts/install-command-safety-gateway.ps1",
+        "tests/harness/command-safety-gateway.integration.ps1",
+        "docs/HOOKS.md",
+        "docs/CODEX_COMPAT.md"
+      ],
+      "assignment": {
+        "goal": "只移除本项目 Codex command-safety hook 的开发运行面和托管安装入口。",
+        "must_include": [
+          "不触碰 Claude hooks",
+          "不删除用户其他 hook 配置",
+          "不新增替代 runner"
+        ],
+        "verification": [
+          "静态和隔离配置测试证明 managed hook 已退出且其他配置保留"
+        ]
+      }
+    },
+    {
+      "subtask_id": "VERIFY-ALL-001",
+      "title": "执行统一 WSL 与理想行为验收",
+      "role": "test-verifier",
+      "status": "completed",
+      "result": {
+        "status": "completed",
+        "summary": "统一 WSL、三类 blind behavior、真实 runtime sync/doctor 和 review E2E 验收完成。",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/harness -p test_*.py",
+            "三类 isolated blind behavior",
+            "strict doctor"
+          ],
+          "result": "32/32 pass；blind 3/3；strict doctor pass"
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root",
+        "written_role": "main-coordinator",
+        "review_evidence": {
+          "repro_before_fix": true,
+          "pass_after_fix": true,
+          "hit_proof_observed": true,
+          "relevant_regression_ok": true,
+          "docs_and_rules_synced": true,
+          "ideal_behavior_acceptance": true
+        }
+      },
+      "dependencies": [
+        "IMPL-OPS-001",
+        "HOOK-REMOVE-001"
+      ],
+      "read_paths": [
+        "AGENTS.md",
+        "rules",
+        "schemas",
+        "scripts",
+        "skills",
+        "hooks/codex",
+        "tests",
+        "templates",
+        "docs"
+      ],
+      "write_paths": [
+        "tests/benchmarks",
+        "docs/ai/tasks/20260901-185530-wsl-python-control-plane-automation",
+        "docs/tasks/20260901-185530-wsl-python-control-plane-automation/acceptance.md"
+      ],
+      "assignment": {
+        "goal": "运行 fresh WSL 验证、blind behavior、CFM 共享和完整 review E2E，并回填短证据。",
+        "must_include": [
+          "问答/小任务/大型任务",
+          "跨会话 CFM",
+          "无 Windows 正常链",
+          "完整 review loop"
+        ],
+        "verification": [
+          "运行 execution.md 冻结的全部验收命令"
+        ]
+      }
+    },
+    {
+      "subtask_id": "REVIEW-001",
+      "title": "独立 Final 审查并驱动返工循环",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "VERIFY-ALL-001"
+      ],
+      "read_paths": [
+        "AGENTS.md",
+        "rules",
+        "schemas",
+        "scripts",
+        "skills",
+        "hooks/codex",
+        "tests",
+        "templates",
+        "docs"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "独立审查最新 scoped changes，稳定记录 findings，并在全部关闭后给出 final/pass。",
+        "must_include": [
+          "按 finding_id 计轮",
+          "findings 回原 implementer",
+          "同 reviewer 复审",
+          "覆盖最新变更哈希"
+        ],
+        "verification": [
+          "复核全部验收证据和最终 scoped change hash"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "final_review",
+        "platform_agent_id": "/root/final_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "190516d3bc01b5350103f034b3d313150fc7590615765c84c46ecbbed2ecb137"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "final review recorded with verdict pass.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/final_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "final",
+          "verdict": "pass",
+          "reviewer_platform_agent_id": "/root/final_review",
+          "reviewed_change_sha256": "b7eba2b2fd87d66b612248a0f3cad609d5ab5aa607e3273649e86432ca2fb6f5",
+          "findings": []
+        }
+      }
+    }
+  ],
+  "updated_at": "2026-09-01T12:46:24.872051Z",
+  "version": 3,
+  "final_review": {
+    "verdict": "pass",
+    "reviewer": {
+      "agent_key": "final_review",
+      "platform_agent_id": "/root/final_review"
+    },
+    "reviewed_change_sha256": "b7eba2b2fd87d66b612248a0f3cad609d5ab5aa607e3273649e86432ca2fb6f5"
+  }
+}

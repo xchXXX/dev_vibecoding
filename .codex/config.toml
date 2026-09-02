@@ -1,9 +1,2 @@
-[[hooks.PreToolUse]]
-matcher = "^(Bash|apply_patch)$"
-
-[[hooks.PreToolUse.hooks]]
-type = "command"
-command = 'pwsh -NoProfile -ExecutionPolicy Bypass -File "$(git rev-parse --show-toplevel)/hooks/codex/scripts/PreToolUse.ps1"'
-command_windows = "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"$root = (git rev-parse --show-toplevel).Trim(); & ($root + '/hooks/codex/scripts/PreToolUse.ps1')\""
-timeout = 30
-statusMessage = "Checking document routing guardrail"
+# This project intentionally has no Codex hook wiring.
+# Mechanical guardrails run through the WSL Python validation entrypoints.

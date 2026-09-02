@@ -4,14 +4,17 @@
 
 ## 真源与运行时映射
 
-- 真源：`C:/Users/72385/dev/ai-harness/skills/*`
-- 运行时：`C:/Users/72385/.codex/skills/*`
+- 真源：`<harness-root>/skills/*`
+- 运行时：`~/.codex/skills/*`
 
 ## 当前最小托管范围
 
-本批次冻结的最小托管目标只有：
+当前固定白名单托管目标为：
 
 - `global-task-orchestrator`
+- `command-failure-memory`
+- `pre-dev-benchmark`
+- `fix-closure-gate`
 
 ## 规则
 
@@ -23,6 +26,7 @@
   - 其他第三方 runtime skill
   - 插件或任意目录同步
 
-## 批次边界
+## 同步与校验
 
-本批次只冻结文档合同，后续代码批次再实现 `sync-codex.ps1` 与最小 doctor 校验。
+- `python3 scripts/sync-codex.py` 只把上述四个受管 skill 投放到 `~/.codex/skills/<skill>/`。
+- `python3 scripts/doctor-core.py --audit-target codex_minimal` 校验四个 skill 的真源、运行时与 receipt 一致性。

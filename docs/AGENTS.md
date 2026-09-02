@@ -1,56 +1,23 @@
 # AGENTS
 
-本文件是全局 Claude agents 真源设计说明。
+本文定义 `ai-harness/agents/` 的当前 Codex 角色说明边界。角色文件是派发时的人读职责真源，不是另一套任务状态、运行时安装目录或控制器。
 
-## 目标
+## 当前目标
 
-建立一套面向所有本机项目复用的 Claude agents 真源目录，满足以下约束：
+- 在 `agents/` 中维护跨项目可复用的角色职责。
+- 由主协调器先选择职责，再结合冻结的 `state.json.subtasks[]` 合同调用平台真实代理能力。
+- 把任务边界、读写路径、验证要求和停止条件保存在当前 subtask 合同中，不复制成角色私有状态。
+- 把协作治理统一引用到 `docs/SUBAGENT_GOVERNANCE.md`，把规则读取统一引用到根 `AGENTS.md` 与 `rules/registry/RULES_INDEX.json`。
 
-- 长期真源只维护在 `ai-harness/agents/`
-- 运行时识别目录仍是 `~/.claude/agents/`
-- 项目专属 agent 继续留在各项目自己的 `.claude/agents/`
-- Phase 3 只定义目录规范与首批 agent 文件，不做同步、安装、hook、doctor、运行时接线
-- 全局协作治理规则另行收口到 `docs/SUBAGENT_GOVERNANCE.md`，本文件不重复承载主协调器 / 审查 / 测试规则正文
-
-## 角色委派入口
-
-- 委派入口为“角色优先”：先选角色，再查 `agents/codex-role-map.json`，再生成合同并派发执行。
-- `reader` / `reviewer` 已启用，与执行型角色并列可用。
-- 协作治理、回收口径与质量门禁统一引用 `docs/SUBAGENT_GOVERNANCE.md`，本文件仅保留目录与角色真源说明。
-- 项目级规则解析与消费应读取项目仓库的 `rules/registry/*` 与 `rules/items/<kind>/*`，不再假定旧 `rules/common/SUBAGENT_RULES.md` 是唯一入口。
-- 涉及项目长任务时，主协调器应先依项目规则系统落方案文档与施工文档，再推进核心文档/测试同步，最后才派发代码实现。
-- 方案文档、施工文档的固定必填字段与校验责任属于项目级 rules system、脚本与测试；agent 真源只保留角色分工与协作路由说明。
-- 执行完成后的验收默认进入审查型角色；若审查不通过，返工应回到原执行型角色，主协调器不直接代修失败项。
-
-## 目录边界
-
-### 全局真源层
-
-- 路径：`ai-harness/agents/`
-- 职责：保存跨项目可复用的 Claude agent 定义
-- 要求：一个 agent 一个 Markdown 文件，文件本身已经是未来可直接投放到 `~/.claude/agents/` 的格式
-
-### 运行时投放层
-
-- 路径：`~/.claude/agents/`
-- 职责：接收未来同步脚本投放后的 agent 文件
-- 说明：本 phase 不直接写入该目录
-
-### 项目适配层
-
-- 路径：`<project>/.claude/agents/`
-- 职责：保留项目专属角色、项目覆盖版角色、项目私有路径约束
-- 示例：绑定具体仓库目录、服务器、部署服务名、模块名、团队流程的 agent 只能放这里
-
-## 目录规范
-
-`agents/` 当前采用平铺目录，避免过早引入子目录扫描或分层装配：
+## 当前目录
 
 ```text
 agents/
   README.md
   _schema.example.md
   planner.md
+  reader.md
+  reviewer.md
   doc-curator.md
   test-verifier.md
   backend-implementer.md
@@ -58,35 +25,16 @@ agents/
   ops-runbook.md
 ```
 
-规则：
+目录约束：
 
-- 文件名使用小写英文加短横线
-- 一个文件只描述一个角色
-- 文件名应尽量和角色标识一致，避免目录名和 frontmatter `name` 漂移
-- 首批先保持平铺；是否拆子目录，留到后续 agent 数量显著增长时再评估
+- 一个 Markdown 文件只描述一个通用角色。
+- 文件名使用小写英文和短横线，并与角色标识保持一致。
+- 普通模型直接消费 `task.md` 与显式子任务 `assignment`；主协调器调用 `spawn_agent`，并把返回的 `platform_agent_id` 绑定到该子任务的 `dispatch` 实时身份。
+- 项目专属路径、模块名、环境名、部署信息和私有流程保留在项目自己的 `AGENTS.md`、规则或任务合同中。
 
-## 文件规范
+## 角色文件合同
 
-为兼容未来投放到 `~/.claude/agents/`，首批 agent 文件采用“最小 frontmatter + 结构化正文”：
-
-### 必填 frontmatter
-
-- `name`
-- `description`
-- `tools`
-
-### 可选 frontmatter
-
-- `model`
-
-说明：
-
-- 现阶段不把自定义控制字段塞进 frontmatter，避免未来运行时识别出现不必要兼容风险
-- 路径范围、输入、输出、停止条件等约束统一写在正文固定小节中
-
-### 正文最小结构
-
-每个 agent 正文至少包含：
+角色正文至少包含：
 
 1. `角色目标`
 2. `负责范围`
@@ -97,60 +45,35 @@ agents/
 7. `停止条件`
 8. `协作交接`
 
-## 首批角色策略
+角色文件可以声明平台识别所需的最小 frontmatter，但不得把本机绝对路径、用户数据、长期任务状态或项目私有配置写入通用角色真源。
 
-首批 agent 以“先覆盖当前 registry 的核心角色口径”为原则，优先对应当前项目中已存在的角色注册表：
+## 派发合同
 
-- `planner`
-- `reader`
-- `reviewer`
-- `doc-curator`
-- `test-verifier`
-- `backend-implementer`
-- `frontend-implementer`
-- `ops-runbook`
+- 长任务必须先冻结六份工件：`docs/ai/tasks/<task_id>/state.json|task.md|events.jsonl` 与 `docs/tasks/<task_id>/plan.md|execution.md|acceptance.md`。
+- `events.jsonl` 是必备的 append-only 关键事件流；`state.json` 是唯一机器状态真源。
+- 执行者只接收目标 subtask 的 allowlist brief、读写边界和必要证据；审查者接收 review brief、目标变更与验收标准。
+- 无历史派发、真实代理身份和独立 reviewer 必须由平台实际参数与返回值证明，不能用提示词或角色文件冒充。
+- 控制面动作只以 `orchestrator_ctl.py --help` 当前公开并实际实现的 `--action` 为准；文档不得发明动作或保留单横线参数别名。
 
-说明：
+## 规则读取
 
-- 这不是项目专属注册表的镜像，而是借它先冻结一组当前已验证过的通用角色口径
-- 旧项目样例中的 `coder_agent`、`tester_agent`、`deploy_agent` 只作为提炼素材，不原样搬运
-- `reader` / `reviewer` 已纳入首批口径，后续角色仍按 phase 渐进引入
+每轮固定读取：
 
-## 全局与项目的拆分规则
+1. 全局与项目 `AGENTS.md`。
+2. 当前 `RULES_INDEX.json` 元数据。
+3. 恰好三条 `activation=always_on` 规则：`global.policy.变更约束`、`global.workflow.用户提问先回答再继续`、`global.style.说明默认使用中文`。
 
-必须放全局真源层的内容：
+其余规则由 Codex 结合对话语义、目标内容、风险、当前阶段和本轮实际操作自由选读。`summary`、`intents`、`paths` 与 `linked_skill` 只是相关性提示；Python 只离线生成和校验索引。
 
-- 可跨项目复用的角色职责
-- 与具体业务仓库无关的协作方式
-- 通用的输入输出契约表述
-- 通用的停止条件与交接规则
+## 历史边界
 
-必须留在项目适配层的内容：
+- 旧任务、旧 run 与旧方案正文只保留历史事实，不作为当前角色、派发或运行时合同。
+- 当前入口不路由历史 packet、旧会话目录、事件拦截接线或其他代理平台资产。
+- 新任务不得从历史文件复制旧字段、命令或兼容入口；需要历史证据时只读取明确相关的只读记录。
 
-- 具体仓库路径
-- 具体模块名、服务名、环境名
-- 具体服务器地址、SSH 别名、systemd 单元名
-- 项目私有流程顺序、项目私有验收条件、项目私有术语
-- 仅对单仓库成立的写入路径约束
+## 验收
 
-## Phase 3 边界
-
-本 phase 明确不做：
-
-- 不实现 `agents/` 到 `~/.claude/agents/` 的同步脚本
-- 不修改 `~/.claude/settings.json`
-- 不修改项目 `.claude/settings.local.json`
-- 不改造 `start_session.ps1`、`doctor-core.ps1`、`repo_doctor.ps1`
-- 不引入 hooks 对 agent 的自动接线
-- 不处理全局与项目层的 merge / override / 优先级策略
-
-## 验收口径
-
-Phase 3 通过的标准是：
-
-- `ai-harness/agents/` 已有明确 catalog 规范
-- 首批 agent 文件可独立阅读，且未来可直接投放
-- 内容不硬编码当前项目私有信息
-- 目录边界、项目边界、非目标边界都已写清楚
-
-只要还需要依赖运行时目录来证明可用，就不算 Phase 3 完成。
+- 角色说明只面向 Codex 当前协作链。
+- 角色、任务合同、规则和控制器职责边界一致。
+- 所有可执行命令使用 WSL `python3` 与 GNU 双横线参数。
+- 新派发只依赖平台真实代理能力、v3 `state.json` 和六份必备工件。

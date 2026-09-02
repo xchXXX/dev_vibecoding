@@ -1,0 +1,1410 @@
+{
+  "task_id": "20260828-150316-command-safety-gateway-c498ea",
+  "title": "Codex Command Safety Gateway",
+  "status": "active",
+  "owner": "main-coordinator",
+  "objective": "在命令执行前消除可预测失败，降低 Command Failure Memory 新增真实失败，并保持低延迟、低维护复杂度。",
+  "scope_in": [
+    "hooks/codex/command-safety/**",
+    "scripts/install-command-safety-gateway.ps1",
+    "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+    "tests/harness/command-safety-gateway.integration.ps1",
+    "tests/harness/control-plane.integration.ps1",
+    "docs/tasks/20260828-150316-command-safety-gateway-c498ea/**",
+    "docs/ai/tasks/20260828-150316-command-safety-gateway-c498ea/**",
+    "hooks/codex/README.md"
+  ],
+  "scope_out": [
+    "不扫描磁盘或其他 clone/worktree",
+    "Hook 热路径不读取 Command Failure Memory、不运行 git、不扫描父目录",
+    "不自动修复无法确定意图的命令",
+    "不接管用户已有的非本方案 Hook 条目",
+    "不引入常驻服务、MCP server 或新的包依赖"
+  ],
+  "acceptance": [
+    "路径缺失、PowerShell 管道、危险清理和 raw GTO state patch 在执行前被确定性拒绝或路由到安全入口",
+    "expected-red 只在声明的失败类型命中时转为结构化成功，意外环境或基础设施错误仍非零退出",
+    "安全命令保持原输入并快速放行",
+    "安装保留 hooks.json 非托管内容，变更前创建内容寻址备份并写 machine-local receipt",
+    "目标回放、相关回归和新进程 smoke test 通过，独立 reviewer 给出 final/pass",
+    "隔离 Codex runtime 必须真实加载 Hook，并通过 allow、deny、timeout 冒烟；真实安装后只信任精确脚本哈希"
+  ],
+  "stop_conditions": [
+    "目标文件与既有脏改动存在无法安全合并的语义冲突",
+    "官方 Hook 合同无法表达 deny 或 updatedInput",
+    "当前 runtime 禁用了 hooks 且需要扩大系统配置权限",
+    "同轮 60+60 冷启动回放中 gateway p95 超过 120ms 或相对 bare Node p95 增量超过 25ms，且无法在无常驻服务前提下降低"
+  ],
+  "decisions": [
+    "使用无第三方依赖的 Node 单文件网关",
+    "Hook 只处理高置信度前置判断，不确定时返回一个安全入口",
+    "CFM 只保留真实未知失败闭环，不进入预执行热路径",
+    "全局安装只管理带稳定 id 的自身条目，并要求脚本哈希信任审核",
+    "先覆盖历史高频错误族，不构建通用 shell parser",
+    "冷启动性能同时约束 120ms 用户可感知硬上限与相对 bare Node 25ms p95 增量，不以 daemon 或 native binary 规避宿主抖动"
+  ],
+  "current_phase": "code_impl",
+  "workspace": {
+    "repo_root": "<repo-root>",
+    "checkout_kind": "primary",
+    "branch": "main",
+    "head": "bebf35ff6501a92103f48f6b6bb48e9ade1040dc",
+    "dirty_paths": [
+      "AGENTS.md",
+      "agents/backend-implementer.md",
+      "agents/reviewer.md",
+      "agents/test-verifier.md",
+      "docs/ARCHITECTURE.md",
+      "docs/CODEX_COMPAT.md",
+      "docs/INSTALL.md",
+      "docs/PROJECT_TEMPLATE.md",
+      "docs/SUBAGENT_GOVERNANCE.md",
+      "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+      "rules/items/architecture/仓库目录边界.md",
+      "rules/items/architecture/真源入口.md",
+      "rules/items/policy/命令失败闭环.md",
+      "rules/items/policy/命令构造约束.md",
+      "rules/items/policy/测试临时文件必须清理.md",
+      "rules/registry/RULES_ENTRY.md",
+      "rules/registry/RULES_INDEX.json",
+      "rules/registry/RULES_INDEX.md",
+      "rules/registry/RULES_RESOLVED.json",
+      "schemas/README.md",
+      "schemas/task-state.schema.json",
+      "scripts/doctor-core.ps1",
+      "scripts/generate-rules-index.ps1",
+      "scripts/rules-index.common.ps1",
+      "scripts/sync-codex.ps1",
+      "scripts/validate-rules.ps1",
+      "skills/README.md",
+      "skills/command-failure-memory/SKILL.md",
+      "skills/global-task-orchestrator/SKILL.md",
+      "skills/global-task-orchestrator/references/state-schema.md",
+      "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+      "tests/harness/README.md",
+      "tests/harness/codex-failure-memory.integration.ps1",
+      "tests/harness/control-plane.integration.ps1",
+      "tests/harness/global-task-orchestrator.skill-doc.ps1",
+      "tests/harness/rules-index.integration.ps1",
+      "tests/harness/test-temp-cleanup.contract.ps1",
+      "tests/harness/windows-command-guardrails.contract.ps1",
+      "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/events.jsonl",
+      "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/state.json",
+      "docs/ai/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/task.md",
+      "docs/ai/tasks/20260826-185451-portable-harness-bootstrap-8c51e6/events.jsonl",
+      "docs/ai/tasks/20260826-185451-portable-harness-bootstrap-8c51e6/state.json",
+      "docs/ai/tasks/20260826-185451-portable-harness-bootstrap-8c51e6/task.md",
+      "docs/ai/tasks/20260827-152719-gto-context-review-hardening-6f260f/events.jsonl",
+      "docs/ai/tasks/20260827-152719-gto-context-review-hardening-6f260f/state.json",
+      "docs/ai/tasks/20260827-152719-gto-context-review-hardening-6f260f/task.md",
+      "docs/ai/tasks/20260828-150316-command-safety-gateway-c498ea/events.jsonl",
+      "docs/ai/tasks/20260828-150316-command-safety-gateway-c498ea/state.json",
+      "docs/ai/tasks/20260828-150316-command-safety-gateway-c498ea/task.md",
+      "docs/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/acceptance.md",
+      "docs/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/execution.md",
+      "docs/tasks/20260824-144730-global-agents-new-pc-audit-9012d9/plan.md",
+      "docs/tasks/20260826-185451-portable-harness-bootstrap-8c51e6/acceptance.md",
+      "docs/tasks/20260826-185451-portable-harness-bootstrap-8c51e6/execution.md",
+      "docs/tasks/20260826-185451-portable-harness-bootstrap-8c51e6/plan.md",
+      "docs/tasks/20260827-152719-gto-context-review-hardening-6f260f/acceptance.md",
+      "docs/tasks/20260827-152719-gto-context-review-hardening-6f260f/execution.md",
+      "docs/tasks/20260827-152719-gto-context-review-hardening-6f260f/plan.md",
+      "rules/items/workflow/复杂任务全局编排.md",
+      "rules/items/workflow/子代理委派与协作.md",
+      "schemas/orchestrator-task-state.schema.json",
+      "scripts/bootstrap-local.ps1",
+      "scripts/path-resolution.common.ps1",
+      "templates/codex/AGENTS.global.md",
+      "templates/orchestrator/state.template.json",
+      "tests/harness/bootstrap-local.integration.ps1"
+    ],
+    "write_overlap": [
+      "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+      "tests/harness/control-plane.integration.ps1"
+    ],
+    "overlap_decision": {
+      "status": "resolved",
+      "summary": "用户已批准本任务实施；仅在冻结 baseline hash 后对两个重叠文件做窄范围补丁，不覆盖既有改动。",
+      "baseline_hashes": {
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1": "fa4eb743b07e5068f92f547d3808b3660d57736e6691856df4fa13476277deff",
+        "tests/harness/control-plane.integration.ps1": "42f1318730c417e7371a23ba8fa2c9e36622e98fa443645258a76365f1e1e131"
+      }
+    }
+  },
+  "review_policy": {
+    "require_independent_final_review": true,
+    "max_fix_rounds": 3,
+    "scope_expansion_requires_escalation": true
+  },
+  "verification_contract": {
+    "minimal_repro": "向 PreToolUse 网关输入每个高频错误族的最小 payload，并对 expected-red 运行声明内和声明外失败。",
+    "hit_proof": "新入口必须在真实命令执行前返回 deny/updatedInput，或由包装器输出可机器判读的 expected_red 状态。",
+    "diagnostic_checks": [
+      "safe pass-through",
+      "missing path deny",
+      "PowerShell foreach pipeline deny",
+      "raw recursive cleanup deny plus contained cleanup execution",
+      "raw GTO state patch deny plus structured contract/phase/resume actions",
+      "expected-red match and mismatch"
+    ],
+    "acceptance_checks": [
+      "tests/harness/command-safety-gateway.integration.ps1",
+      "tests/harness/control-plane.integration.ps1",
+      "isolated CodexHome install merge/backup/receipt",
+      "60 fresh gateway and 60 fresh bare-Node processes: gateway p95 <= 120ms and p95 overhead <= 25ms"
+    ],
+    "non_goals": [
+      "不解析全部 PowerShell/Bash 语法",
+      "不把 hooks 当作完整 enforcement boundary",
+      "不统一改造所有项目测试框架",
+      "不为性能门槛引入常驻服务或原生二进制"
+    ],
+    "review_evidence": [
+      "repro_before_fix",
+      "pass_after_fix",
+      "hit_proof_observed",
+      "relevant_regression_ok",
+      "install_merge_backup_receipt_ok",
+      "fresh_process_runtime_ok",
+      "latency_budget_ok"
+    ]
+  },
+  "subtasks": [
+    {
+      "subtask_id": "DOC-001",
+      "title": "冻结设计、施工与验收合同",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [],
+      "read_paths": [
+        "docs/ARCHITECTURE.md",
+        "docs/HOOKS.md",
+        "docs/CODEX_COMPAT.md",
+        "hooks/codex/README.md"
+      ],
+      "write_paths": [
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/plan.md",
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/execution.md",
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/acceptance.md"
+      ],
+      "assignment": {
+        "goal": "把已批准设计整理为可执行、可审查的最小文档合同。",
+        "must_include": [
+          "Hook/网关/安装器边界",
+          "回放矩阵和延迟预算",
+          "脏工作区与非目标边界"
+        ],
+        "verification": [
+          "文档三件套字段完整且与 state.json 一致"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "doc_001",
+        "platform_agent_id": "/root/doc_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "6d3a4f088a097556d43362f656bc69e44c720af19668fb4cd8362a0a0eee7569"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "已冻结方案、施工和验收合同，并统一 expected-red 与真实安装授权边界。",
+        "changed_files": [
+          "docs/tasks/20260828-150316-command-safety-gateway-c498ea/plan.md",
+          "docs/tasks/20260828-150316-command-safety-gateway-c498ea/execution.md",
+          "docs/tasks/20260828-150316-command-safety-gateway-c498ea/acceptance.md"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "rg consistency check over the three task documents",
+            "scripts/validate-plan-docs.ps1"
+          ],
+          "result": "RG_CONSISTENCY_OK; 15 documents passed with 0 errors."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "真实安装后的 /hooks 精确哈希信任仍需用户在 Codex UI 完成。"
+        ],
+        "follow_up": [
+          "进入 TEST-001，先建立最小预期红回放。"
+        ],
+        "written_by": "/root/doc_001",
+        "written_role": "backend-implementer"
+      }
+    },
+    {
+      "subtask_id": "TEST-001",
+      "title": "建立命令失败前置防护回放测试",
+      "role": "test-verifier",
+      "status": "completed",
+      "dependencies": [
+        "DOC-001"
+      ],
+      "read_paths": [
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/**",
+        "tests/harness/README.md"
+      ],
+      "write_paths": [
+        "tests/harness/command-safety-gateway.integration.ps1"
+      ],
+      "assignment": {
+        "goal": "先写最小失败回放，证明实现前缺少目标能力。",
+        "must_include": [
+          "safe pass-through",
+          "missing path",
+          "PowerShell pipeline",
+          "recursive cleanup",
+          "GTO raw patch",
+          "expected-red match/mismatch",
+          "install merge/backup/receipt",
+          "latency"
+        ],
+        "verification": [
+          "仅运行新测试并观察预期的 missing implementation 失败"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "test_001",
+        "platform_agent_id": "/root/test_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "4c7567bc7ee25b8a043f1c18c7fb2c8ccbe2d1c2cf1581fa612efb1c83c75c4c"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "已冻结 10 类黑盒回放，并获得只因三个生产入口缺失而失败的预期 TDD Red。",
+        "changed_files": [
+          "tests/harness/command-safety-gateway.integration.ps1"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File tests/harness/command-safety-gateway.integration.ps1"
+          ],
+          "result": "exit 1; MISSING_IMPLEMENTATION for gateway, expected-red runner, and installer only."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "30 fresh process p95 is environment-sensitive and remains for final verification."
+        ],
+        "follow_up": [
+          "IMPL-001 and IMPL-002 may proceed against the frozen tests."
+        ],
+        "written_by": "/root/test_001",
+        "written_role": "test-verifier",
+        "review_evidence": {
+          "repro_before_fix": "Target test exited 1 only because the three planned production entries were missing."
+        }
+      }
+    },
+    {
+      "subtask_id": "IMPL-001",
+      "title": "实现轻量 Hook 网关与安全安装器",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "TEST-001"
+      ],
+      "read_paths": [
+        "tests/harness/command-safety-gateway.integration.ps1",
+        "hooks/codex/scripts/PreToolUse.ps1",
+        "scripts/bootstrap-local.ps1"
+      ],
+      "write_paths": [
+        "hooks/codex/command-safety/**",
+        "scripts/install-command-safety-gateway.ps1"
+      ],
+      "assignment": {
+        "goal": "实现 Hook 判定、expected-red、contained cleanup、project verify 和安全全局安装。",
+        "must_include": [
+          "stable managed id",
+          "structured stdout",
+          "no CFM/git/scan hot path",
+          "content-addressed backup and receipt"
+        ],
+        "verification": [
+          "使 TEST-001 中非 GTO 更新用例转绿"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "impl_001",
+        "platform_agent_id": "/root/impl_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "cf21b3342059524eb03db71462ccdce5baa390fd8ea9a8670b84c4a9e1be0c14"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Implemented the lightweight command-safety gateway, official PreToolUse adapter, expected-red runner, and safe global installer.",
+        "changed_files": [
+          "hooks/codex/command-safety/command-safety-gateway.mjs",
+          "hooks/codex/command-safety/pre-tool-use-hook.mjs",
+          "hooks/codex/command-safety/expected-red-runner.mjs",
+          "scripts/install-command-safety-gateway.ps1"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File tests/harness/command-safety-gateway.integration.ps1",
+            "node --check for three Node entrypoints"
+          ],
+          "result": "Gateway integration 10/10; 30/30 fresh processes; nearest-rank p95 78.974ms; isolated install merge, backup, receipt, and idempotence passed."
+        },
+        "deviations": [
+          "Frozen tests did not require contained-cleanup or project-verify executors, so no untested entrypoints were added."
+        ],
+        "blocked_by": [],
+        "risks": [
+          "Fresh-process p95 has about 1ms margin and requires final resampling.",
+          "Real CodexHome installation and /hooks trust remain pending."
+        ],
+        "follow_up": [
+          "Run VERIFY-001 and install into the approved real CodexHome after isolated validation."
+        ],
+        "written_by": "/root/impl_001",
+        "written_role": "backend-implementer",
+        "review_evidence": {
+          "pass_after_fix": "Frozen gateway integration passed 10/10.",
+          "hit_proof_observed": "Four risky command families returned stable deny output before sentinel execution; adapter emitted the official PreToolUse hookSpecificOutput shape.",
+          "install_merge_backup_receipt_ok": "Unmanaged hook content was preserved; content-addressed backup, receipt, and second-run idempotence passed.",
+          "fresh_process_runtime_ok": "30 of 30 independent Node processes returned valid responses.",
+          "latency_budget_ok": "Nearest-rank p95 was 78.974ms, within the 80ms budget."
+        }
+      }
+    },
+    {
+      "subtask_id": "IMPL-002",
+      "title": "补齐 GTO 结构化状态更新动作",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "TEST-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "tests/harness/control-plane.integration.ps1"
+      ],
+      "write_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+        "tests/harness/control-plane.integration.ps1"
+      ],
+      "assignment": {
+        "goal": "新增带 subtask_id、状态校验和原子写入语义的结构化结果更新 action。",
+        "must_include": [
+          "reject unknown fields",
+          "subtask scope",
+          "write then validate",
+          "single state source"
+        ],
+        "verification": [
+          "新增 action 正反测试与 control-plane 回归通过"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "impl_002",
+        "platform_agent_id": "/root/impl_002",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "4021dd74aee7eff2635dc7c2d82f7f81adf4de970169a293a2b78008c2953a46"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Added a structured record-subtask-result action with strict payload validation, scoped updates, candidate-state validation, and concurrent-change protection.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+          "tests/harness/control-plane.integration.ps1"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "targeted record-subtask-result tests",
+            "pwsh -NoProfile -ExecutionPolicy Bypass -File tests/harness/control-plane.integration.ps1",
+            "orchestrator_ctl validate current task",
+            "git diff --check"
+          ],
+          "result": "Before-fix target 0/6 on unsupported action; after-fix target 6/6; full control-plane 68/68; current task validates; diff check passed; no temp residue."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "Same-directory replace is guarded by a pre-replace hash but does not add an explicit storage-device fsync guarantee."
+        ],
+        "follow_up": [
+          "Use record-subtask-result for all remaining execution and verification results."
+        ],
+        "written_by": "/root/impl_002",
+        "written_role": "backend-implementer",
+        "review_evidence": {
+          "repro_before_fix": "All six focused tests failed only because record-subtask-result was unsupported.",
+          "pass_after_fix": "The same focused set passed 6/6.",
+          "hit_proof_observed": "Valid input changed only the target subtask; invalid status, unknown fields, unknown subtask, write-scope escape, and full-validation failure preserved the original state hash.",
+          "relevant_regression_ok": "Full control-plane integration passed 68/68 and the current task validated without errors or warnings."
+        }
+      }
+    },
+    {
+      "subtask_id": "FIX-GATEWAY-001",
+      "title": "补齐可执行 cleanup 与 rg 多路径预检",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "IMPL-001"
+      ],
+      "read_paths": [
+        "hooks/codex/command-safety/**",
+        "tests/harness/command-safety-gateway.integration.ps1"
+      ],
+      "write_paths": [
+        "hooks/codex/command-safety/**",
+        "tests/harness/command-safety-gateway.integration.ps1"
+      ],
+      "assignment": {
+        "goal": "关闭 VERIFY-F001 与 VERIFY-F003，不误拦正常 TEMP cleanup，并在执行 rg 前识别缺失的显式候选路径。",
+        "must_include": [
+          "contained-cleanup root/target containment and root inequality",
+          "raw cleanup deny points to an exact executable entry",
+          "rg existing plus missing explicit path deny",
+          "rg all-existing and pattern/options false-positive guards"
+        ],
+        "verification": [
+          "targeted F001/F003 Red then Green",
+          "full gateway integration",
+          "fresh-process latency budget"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "impl_001",
+        "platform_agent_id": "/root/impl_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "fe99e275bcfc56feccca2e427197722e66562acefe1464fcc6784ea65fb0f27b"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Closed VERIFY-F001 and VERIFY-F003 with an executable contained-cleanup runner and narrow rg explicit-path preflight.",
+        "changed_files": [
+          "hooks/codex/command-safety/command-safety-gateway.mjs",
+          "hooks/codex/command-safety/pre-tool-use-hook.mjs",
+          "hooks/codex/command-safety/contained-cleanup.mjs",
+          "tests/harness/command-safety-gateway.integration.ps1"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "targeted F001/F003 Red and Green",
+            "non-performance command-safety integration",
+            "node --check for four Node entries",
+            "scoped diff and temp cleanup checks"
+          ],
+          "result": "F001 Red on missing contained-cleanup then Green 5/5; F003 Red on mixed rg paths then Green 3/3; combined 8/8; non-performance integration 16/16."
+        },
+        "deviations": [
+          "The absolute 80ms cold-start assertion remains environment-sensitive because the measured bare Node p95 was 82.939ms; final verification must use a calibrated runtime-overhead budget."
+        ],
+        "blocked_by": [],
+        "risks": [
+          "Simple rg parsing intentionally leaves unknown complex grammar unparsed.",
+          "Contained cleanup retains an OS-level TOCTOU residual against a hostile external path replacement.",
+          "Absolute cold-start p95 varied from 79.142ms to 106.400ms."
+        ],
+        "follow_up": [
+          "Resume VERIFY-001 and validate the original counterexamples plus a calibrated startup-overhead budget."
+        ],
+        "written_by": "/root/impl_001",
+        "written_role": "backend-implementer",
+        "review_evidence": {
+          "pass_after_fix": "Targeted F001/F003 suite passed 8/8 and all non-performance gateway cases passed 16/16.",
+          "hit_proof_observed": "Raw cleanup deny returned an exact executable alternative; valid TEMP strict child was deleted while broad/equal/outside targets were refused; mixed rg paths denied before sentinel while all-existing and option-pattern cases passed."
+        }
+      }
+    },
+    {
+      "subtask_id": "FIX-GTO-001",
+      "title": "补齐 GTO 合同、阶段和恢复动作",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "IMPL-002"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "tests/harness/control-plane.integration.ps1"
+      ],
+      "write_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+        "tests/harness/control-plane.integration.ps1"
+      ],
+      "assignment": {
+        "goal": "关闭 VERIFY-F002，为任务合同初始化、受限阶段转换和 blocked subtask 恢复提供结构化原子动作。",
+        "must_include": [
+          "strict allowlist and candidate Validate-State",
+          "atomic replace with concurrent hash guard",
+          "legal and illegal phase transition tests",
+          "unknown field and rollback tests",
+          "resume blocked verifier without raw state patch"
+        ],
+        "verification": [
+          "targeted F002 Red then Green",
+          "full control-plane regression"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "impl_002",
+        "platform_agent_id": "/root/impl_002",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "15e29afc0635366235eefb4f150cd1edcc6c43591f6d866762ee3bc5cbe3e041"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Closed VERIFY-F002 with structured contract initialization, phase transition, subtask resume, and pending-to-ready dispatch semantics.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+          "tests/harness/control-plane.integration.ps1"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "targeted VERIFY-F002 tests",
+            "full control-plane integration",
+            "current task validate",
+            "git diff --check",
+            "temp residue check"
+          ],
+          "result": "Targeted Red 0/11 on missing actions/pending behavior; targeted Green 11/11; full control-plane 79/79; current task valid with 8 subtasks; no temp residue."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "resume-subtask state replacement and events append are not one cross-file transaction.",
+          "Atomic replace is process-level and does not promise storage-device fsync."
+        ],
+        "follow_up": [
+          "Use resume-subtask for VERIFY-001, then bind-dispatch should preserve ready and no raw state patch is required."
+        ],
+        "written_by": "/root/impl_002",
+        "written_role": "backend-implementer",
+        "review_evidence": {
+          "pass_after_fix": "Targeted VERIFY-F002 suite passed 11/11 and full control-plane passed 79/79.",
+          "hit_proof_observed": "Unknown contract fields, illegal phase edges, invalid candidates, and completed-subtask resume were rejected without state hash change; valid contract/phase/resume paths succeeded and bind-dispatch moved pending to ready.",
+          "relevant_regression_ok": "Full control-plane integration passed 79/79; current task validate returned no errors or warnings."
+        }
+      }
+    },
+    {
+      "subtask_id": "VERIFY-001",
+      "title": "执行集成、性能与隔离安装验证",
+      "role": "test-verifier",
+      "status": "completed",
+      "dependencies": [
+        "IMPL-001",
+        "IMPL-002",
+        "FIX-GATEWAY-001",
+        "FIX-GTO-001",
+        "PERF-001"
+      ],
+      "read_paths": [
+        "hooks/codex/command-safety/**",
+        "scripts/install-command-safety-gateway.ps1",
+        "tests/harness/command-safety-gateway.integration.ps1",
+        "tests/harness/control-plane.integration.ps1"
+      ],
+      "write_paths": [
+        "docs/ai/tasks/20260828-150316-command-safety-gateway-c498ea/state.json"
+      ],
+      "assignment": {
+        "goal": "用新进程和隔离 CodexHome 验证命中、回归、安装合并与延迟。",
+        "must_include": [
+          "all review_evidence slots",
+          "no CFM record for expected-red"
+        ],
+        "verification": [
+          "target tests",
+          "related regression",
+          "30 cold starts"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "verify_001",
+        "platform_agent_id": "/root/verify_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "521a4e45527afcff7dd9feb7d1aa88fac03bcead114d7dd921f38fb0b7813d71"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Fresh verification passed all functional, counterexample, regression, isolated-install, expected-red, CFM, and calibrated-latency checks.",
+        "changed_files": [],
+        "planned_files_not_changed": [
+          "docs/ai/tasks/20260828-150316-command-safety-gateway-c498ea/state.json"
+        ],
+        "verification": {
+          "commands": [
+            "full gateway integration",
+            "full control-plane integration",
+            "four node --check runs",
+            "git diff --check",
+            "F001/F002/F003 counterexamples",
+            "expected-red three states with CFM before/after",
+            "fresh isolated CodexHome install/idempotence"
+          ],
+          "result": "Gateway 17/17; control-plane 79/79; gateway p95 89.057ms, bare p95 78.210ms, overhead 10.847ms; CFM exact window unchanged at cases=556/events=100/pending=0; all counterexamples and isolated install checks passed."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "The historical CFM store had concurrent external activity before the exact expected-red window, so only the exact before/after window is attributed."
+        ],
+        "follow_up": [
+          "Proceed to independent final review before real CodexHome installation."
+        ],
+        "written_by": "/root/verify_001",
+        "written_role": "test-verifier",
+        "review_evidence": {
+          "repro_before_fix": "F001 missing contained cleanup, F002 missing structured contract/phase/resume, and F003 mixed rg path allowance all had targeted RED evidence.",
+          "pass_after_fix": "Full gateway integration passed 17/17.",
+          "hit_proof_observed": "F001 legal deletion and boundary refusals, F002 structured state paths, F003 rg path states, official hook shapes, and expected-red states all directly hit the intended branches.",
+          "relevant_regression_ok": "Full control-plane passed 79/79; four Node syntax checks and diff check passed.",
+          "install_merge_backup_receipt_ok": "Fresh isolated CodexHome preserved unmanaged content and passed content-addressed backup, receipt, and idempotence checks.",
+          "fresh_process_runtime_ok": "60 gateway and 60 bare Node fresh processes all returned valid results.",
+          "latency_budget_ok": "Gateway p95 89.057ms <=120ms and p95 overhead 10.847ms <=25ms."
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-001",
+      "title": "独立最终复审",
+      "role": "reviewer",
+      "status": "blocked",
+      "dependencies": [
+        "VERIFY-002"
+      ],
+      "read_paths": [
+        "hooks/codex/command-safety/**",
+        "hooks/codex/README.md",
+        "scripts/install-command-safety-gateway.ps1",
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+        "tests/harness/command-safety-gateway.integration.ps1",
+        "tests/harness/control-plane.integration.ps1",
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/**"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "独立审查安全性、正确性、性能证据与脏工作区边界。",
+        "must_include": [
+          "final/pass or stable finding_id",
+          "review_evidence coverage"
+        ],
+        "verification": [
+          "review final changed_files hashes and command evidence"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "review_001",
+        "platform_agent_id": "/root/review_001",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "88e69ed6d38261705b55f6ccdf6c106171d329f4bec350ab650cabf1c7a0eb79"
+      },
+      "result": {
+        "status": "blocked",
+        "summary": "Independent final review failed with eight open findings covering bypass, cleanup safety, expected-red infrastructure masking, rg parsing, GTO finalization/concurrency, installer concurrency, and runtime documentation/trust.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "fresh gateway integration",
+            "fresh control-plane integration",
+            "current task validate",
+            "four node syntax checks",
+            "target diff check",
+            "targeted adversarial probes"
+          ],
+          "result": "Gateway 17/17 and control-plane 79/79 passed, but adversarial probes produced eight open findings; reviewed_change_sha256=fb67a3d68211a1b415144756ebf71128e9ff582827f3af8e8870fd8d09937d1d."
+        },
+        "deviations": [],
+        "blocked_by": [
+          "REVIEW-CMD-001",
+          "REVIEW-CMD-002",
+          "REVIEW-CMD-003",
+          "REVIEW-CMD-004",
+          "REVIEW-GTO-001",
+          "REVIEW-GTO-002",
+          "REVIEW-INSTALL-001",
+          "REVIEW-HOOK-001"
+        ],
+        "risks": [
+          "No real CodexHome installation is allowed until all open findings close and final re-review passes."
+        ],
+        "follow_up": [
+          "Route command/install/hook findings to /root/impl_001.",
+          "Route GTO findings to /root/impl_002.",
+          "Return all findings to /root/review_001 for re-review."
+        ],
+        "written_by": "/root/review_001",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "final",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "/root/review_001",
+          "reviewed_head": "bebf35ff6501a92103f48f6b6bb48e9ade1040dc",
+          "reviewed_change_sha256": "fb67a3d68211a1b415144756ebf71128e9ff582827f3af8e8870fd8d09937d1d",
+          "findings": [
+            {
+              "finding_id": "REVIEW-CMD-001",
+              "severity": "high",
+              "paths": [
+                "hooks/codex/command-safety/command-safety-gateway.mjs"
+              ],
+              "summary": "Shell writes to GTO state.json bypass the apply_patch-only guard.",
+              "evidence": "Bash Set-Content targeting docs/ai/tasks/example/state.json returned allow/safe_pass_through.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "impl_001",
+                "platform_agent_id": "/root/impl_001"
+              }
+            },
+            {
+              "finding_id": "REVIEW-CMD-002",
+              "severity": "high",
+              "paths": [
+                "hooks/codex/command-safety/contained-cleanup.mjs"
+              ],
+              "summary": "Contained cleanup permits descendants of protected workspace, CodexHome, or home roots.",
+              "evidence": "Broad-path checks use equality and do not reject protected-root descendants or all junction ancestor cases.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "impl_001",
+                "platform_agent_id": "/root/impl_001"
+              }
+            },
+            {
+              "finding_id": "REVIEW-CMD-003",
+              "severity": "high",
+              "paths": [
+                "hooks/codex/command-safety/expected-red-runner.mjs"
+              ],
+              "summary": "Child-emitted marker can mask a later infrastructure failure and no timeout is enforced.",
+              "evidence": "A child printed the declared marker then an infrastructure exception; wrapper returned exit 0 expected_red.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "impl_001",
+                "platform_agent_id": "/root/impl_001"
+              }
+            },
+            {
+              "finding_id": "REVIEW-CMD-004",
+              "severity": "medium",
+              "paths": [
+                "hooks/codex/command-safety/command-safety-gateway.mjs"
+              ],
+              "summary": "rg options with values are consumed incorrectly, causing false deny and false allow.",
+              "evidence": "rg -m 1 needle docs denied while rg -m1 needle missing-path was allowed.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "impl_001",
+                "platform_agent_id": "/root/impl_001"
+              }
+            },
+            {
+              "finding_id": "REVIEW-GTO-001",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+                "tests/harness/control-plane.integration.ps1"
+              ],
+              "summary": "No structured finalize-task action exists after final review.",
+              "evidence": "Contract, phase, resume, and result actions cannot set root status completed; review has no legal completed transition.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "impl_002",
+                "platform_agent_id": "/root/impl_002"
+              }
+            },
+            {
+              "finding_id": "REVIEW-GTO-002",
+              "severity": "medium",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+                "tests/harness/control-plane.integration.ps1"
+              ],
+              "summary": "State mutations lack a cross-process lock/CAS and semantic path checks rely on optional schema.",
+              "evidence": "Hash compare and overwrite have a race; bind-dispatch bypasses atomic helper; schema-absent traversal is not independently rejected.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "impl_002",
+                "platform_agent_id": "/root/impl_002"
+              }
+            },
+            {
+              "finding_id": "REVIEW-INSTALL-001",
+              "severity": "medium",
+              "paths": [
+                "scripts/install-command-safety-gateway.ps1"
+              ],
+              "summary": "Installer can overwrite a concurrent unmanaged hooks.json change.",
+              "evidence": "It merges a stale snapshot and replaces without a target lock or final guarded re-read.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "impl_001",
+                "platform_agent_id": "/root/impl_001"
+              }
+            },
+            {
+              "finding_id": "REVIEW-HOOK-001",
+              "severity": "high",
+              "paths": [
+                "scripts/install-command-safety-gateway.ps1",
+                "hooks/codex/README.md",
+                "docs/tasks/20260828-150316-command-safety-gateway-c498ea/acceptance.md"
+              ],
+              "summary": "Real runtime hook loading/trust is unproven and long-lived hook documentation is stale.",
+              "evidence": "No real CodexHome hooks.json exists; isolation tests call Node directly; hooks/codex/README.md still describes only the old advisory project hook.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "impl_001",
+                "platform_agent_id": "/root/impl_001"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "subtask_id": "DOC-002",
+      "title": "校准性能验收合同",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "FIX-GATEWAY-001",
+        "FIX-GTO-001"
+      ],
+      "read_paths": [
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/**"
+      ],
+      "write_paths": [
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/plan.md",
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/execution.md",
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/acceptance.md"
+      ],
+      "assignment": {
+        "goal": "将绝对 80ms 改为同轮裸 Node 校准口径，同时保留 120ms 用户可感知硬上限。",
+        "must_include": [
+          "60 gateway plus 60 bare Node",
+          "gateway p95 <= 120ms",
+          "p95 overhead <= 25ms",
+          "no daemon or native binary"
+        ],
+        "verification": [
+          "rg consistency across three task docs"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "doc_001",
+        "platform_agent_id": "/root/doc_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "17d0c05fd577dd386e6e55ef0ffdd6b5002ccacc2624cc4ab20480b1f1df2780"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Calibrated the latency contract against a same-run bare Node baseline while retaining a 120ms user-visible hard cap.",
+        "changed_files": [
+          "docs/tasks/20260828-150316-command-safety-gateway-c498ea/plan.md",
+          "docs/tasks/20260828-150316-command-safety-gateway-c498ea/execution.md",
+          "docs/tasks/20260828-150316-command-safety-gateway-c498ea/acceptance.md"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "rg required performance language and stale 80ms contract"
+          ],
+          "result": "RG_PERFORMANCE_CONTRACT_OK."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "Cold-start latency remains host-sensitive, so both absolute and baseline-relative thresholds are required."
+        ],
+        "follow_up": [
+          "Implement PERF-001 against the calibrated contract."
+        ],
+        "written_by": "/root/doc_001",
+        "written_role": "backend-implementer"
+      }
+    },
+    {
+      "subtask_id": "PERF-001",
+      "title": "实现成对冷启动性能回放",
+      "role": "test-verifier",
+      "status": "completed",
+      "dependencies": [
+        "DOC-002"
+      ],
+      "read_paths": [
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/**",
+        "tests/harness/command-safety-gateway.integration.ps1"
+      ],
+      "write_paths": [
+        "tests/harness/command-safety-gateway.integration.ps1"
+      ],
+      "assignment": {
+        "goal": "把性能测试改为同轮裸 Node 基线与网关对照，避免宿主抖动误报。",
+        "must_include": [
+          "60 fresh gateway samples",
+          "60 fresh bare Node samples",
+          "nearest-rank p95",
+          "120ms hard cap",
+          "25ms overhead cap"
+        ],
+        "verification": [
+          "targeted performance test then full gateway integration"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "test_001",
+        "platform_agent_id": "/root/test_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "6c29150b02a520bc1e5ecc4bd036fc6a4a7df78f9bd679462296941f00668d7e"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Replaced the flaky absolute 80ms assertion with a same-run 60+60 bare-Node calibrated latency contract.",
+        "changed_files": [
+          "tests/harness/command-safety-gateway.integration.ps1"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "targeted old performance Red",
+            "targeted calibrated performance Green",
+            "full command-safety gateway integration"
+          ],
+          "result": "Old contract Red at gateway p95 96.991ms; calibrated targeted 1/1 with gateway p95 86.481ms, bare p95 72.517ms, overhead 13.964ms; full integration 17/17 with gateway p95 80.088ms, bare p95 76.068ms, overhead 4.020ms."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "Cold-start values remain host-sensitive, which is why both a hard cap and same-run overhead cap are retained."
+        ],
+        "follow_up": [
+          "Reconcile root stop_conditions through update-task-contract and rerun VERIFY-001."
+        ],
+        "written_by": "/root/test_001",
+        "written_role": "test-verifier",
+        "review_evidence": {
+          "pass_after_fix": "Full command-safety gateway integration passed 17/17.",
+          "fresh_process_runtime_ok": "Both targeted and full runs completed 60 fresh gateway plus 60 fresh bare Node processes.",
+          "latency_budget_ok": "Full run gateway p95 80.088ms <=120ms and p95 overhead 4.020ms <=25ms."
+        }
+      }
+    },
+    {
+      "subtask_id": "FIX-REVIEW-CMD-001",
+      "title": "修复命令网关、清理、expected-red 与安装并发缺口",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "VERIFY-001"
+      ],
+      "read_paths": [
+        "hooks/codex/command-safety/**",
+        "scripts/install-command-safety-gateway.ps1",
+        "tests/harness/command-safety-gateway.integration.ps1",
+        "hooks/codex/README.md"
+      ],
+      "write_paths": [
+        "hooks/codex/command-safety/**",
+        "scripts/install-command-safety-gateway.ps1",
+        "tests/harness/command-safety-gateway.integration.ps1"
+      ],
+      "assignment": {
+        "goal": "关闭 REVIEW-CMD-001 至 004 与 REVIEW-INSTALL-001，并提供真实运行 smoke 所需入口。",
+        "must_include": [
+          "shell state write deny",
+          "TEMP-only cleanup with link revalidation",
+          "trusted expected-red classification and timeout",
+          "rg option grammar",
+          "installer lock/CAS"
+        ],
+        "verification": [
+          "先运行每项最小预期红，再运行 gateway integration"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "impl_001",
+        "platform_agent_id": "/root/impl_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "c11e125a5c8086ed9423f26c9d12cbe52d846726ffae8ba1f883bc14c43ba5af"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Closed command, cleanup, expected-red, rg, and installer concurrency review findings; recovered the accidentally deleted untracked command-safety directory from session evidence.",
+        "changed_files": [
+          "hooks/codex/command-safety/command-safety-gateway.mjs",
+          "hooks/codex/command-safety/pre-tool-use-hook.mjs",
+          "hooks/codex/command-safety/expected-red-runner.mjs",
+          "hooks/codex/command-safety/contained-cleanup.mjs",
+          "scripts/install-command-safety-gateway.ps1",
+          "tests/harness/command-safety-gateway.integration.ps1"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "targeted cleanup, expected-red, installer, and classification tests",
+            "full command-safety-gateway.integration.ps1",
+            "four node --check runs",
+            "git diff --check"
+          ],
+          "result": "Gateway 27/27; cleanup 6/6; expected-red 6/6; installer 2/2; gateway p95 81.900ms, bare p95 79.214ms, overhead 2.686ms; TEMP residue 0."
+        },
+        "deviations": [
+          "A destructive Red fixture accidentally deleted four untracked command-safety files; the run was frozen, files were recovered from session evidence, cleanup guards were strengthened, and all final hashes/tests passed."
+        ],
+        "blocked_by": [],
+        "risks": [
+          "systemTemp derives from the current process environment; production cleanup revalidates real paths and identity, while tests authorize only their unique sentinel fixture.",
+          "Sidecar install locking is cooperative; a non-cooperating external editor can only be narrowed by the final pre-write hash check."
+        ],
+        "follow_up": [
+          "Run fresh independent verification and actual Codex runtime hook smoke before real installation."
+        ],
+        "written_by": "/root/impl_001",
+        "written_role": "backend-implementer",
+        "review_evidence": {
+          "pass_after_fix": "Gateway integration passed 27/27.",
+          "hit_proof_observed": "Raw state writes, rm recursive forms, rg valued options/files mode, cleanup boundaries, expected-red infrastructure states, and installer lock paths hit their intended branches.",
+          "relevant_regression_ok": "Four Node checks and diff check passed; no TEMP residue.",
+          "install_merge_backup_receipt_ok": "Installer merge, backup, receipt, idempotence, and concurrent lock preservation passed.",
+          "fresh_process_runtime_ok": "60 gateway and 60 bare Node fresh processes completed.",
+          "latency_budget_ok": "Gateway p95 81.900ms <=120ms and overhead 2.686ms <=25ms."
+        }
+      }
+    },
+    {
+      "subtask_id": "FIX-REVIEW-GTO-001",
+      "title": "修复 GTO finalize、并发与路径语义缺口",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "VERIFY-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+        "tests/harness/control-plane.integration.ps1"
+      ],
+      "write_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+        "tests/harness/control-plane.integration.ps1"
+      ],
+      "assignment": {
+        "goal": "关闭 REVIEW-GTO-001 与 REVIEW-GTO-002。",
+        "must_include": [
+          "structured finalize-task gate",
+          "cross-process lock/CAS for every mutation",
+          "bind-dispatch common mutation path",
+          "schema-independent rooted and traversal rejection"
+        ],
+        "verification": [
+          "targeted concurrency and schema-absent tests",
+          "full control-plane regression"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "impl_002",
+        "platform_agent_id": "/root/impl_002",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "b9c32c98ecd760965e1b145ebf0607c8734ee514aa42858ebdffc88fff7884dd"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Added structured task finalization, task-scoped cross-process mutation locking, common validated atomic writes, and schema-independent path semantics.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+          "tests/harness/control-plane.integration.ps1"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "11 targeted finalize/concurrency/path tests",
+            "full control-plane.integration.ps1",
+            "current task validate",
+            "git diff --check",
+            "temp residue check"
+          ],
+          "result": "Targeted 11/11; full control-plane 90/90; current task valid with 14 subtasks; candidate/lock residue 0."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "Named mutex scope is the current Windows login session, not cross-host shared storage.",
+          "resume-subtask state replacement and events append remain separate cross-file operations."
+        ],
+        "follow_up": [
+          "Use finalize-task only after fresh final/pass review and every subtask is terminal."
+        ],
+        "written_by": "/root/impl_002",
+        "written_role": "backend-implementer",
+        "review_evidence": {
+          "pass_after_fix": "Targeted 11/11 and full control-plane 90/90 passed.",
+          "hit_proof_observed": "Finalization gates rejected phase, unfinished reviewer, fail verdict, open finding, and stale dirty hash; mutex delayed a child until release; schema-absent rooted/traversal paths were rejected.",
+          "relevant_regression_ok": "Current task validate and diff check passed with no candidate or lock residue."
+        }
+      }
+    },
+    {
+      "subtask_id": "DOC-003",
+      "title": "同步长期 Hook 文档",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "FIX-REVIEW-CMD-001",
+        "FIX-REVIEW-GTO-001"
+      ],
+      "read_paths": [
+        "hooks/codex/command-safety/**",
+        "scripts/install-command-safety-gateway.ps1",
+        "hooks/codex/README.md"
+      ],
+      "write_paths": [
+        "hooks/codex/README.md",
+        "docs/tasks/20260828-150316-command-safety-gateway-c498ea/**"
+      ],
+      "assignment": {
+        "goal": "更新长期文档与验收证据，准确说明全局安装、精确哈希信任和回退边界。",
+        "must_include": [
+          "managed hook id",
+          "/hooks exact-hash trust",
+          "uninstall or rollback evidence",
+          "no CFM hot-path claim"
+        ],
+        "verification": [
+          "documentation consistency search"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "impl_001",
+        "platform_agent_id": "/root/impl_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "c847b54161e0ae4ab1c2d7b5467302a567702f2666d712a812cab603d6864402"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Synchronized long-lived hook documentation and task contracts with the implemented command safety gateway, installer, trust, rollback, and evidence boundaries.",
+        "changed_files": [
+          "hooks/codex/README.md",
+          "docs/tasks/20260828-150316-command-safety-gateway-c498ea/plan.md",
+          "docs/tasks/20260828-150316-command-safety-gateway-c498ea/execution.md",
+          "docs/tasks/20260828-150316-command-safety-gateway-c498ea/acceptance.md"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "rg documentation consistency search across hook README and task contracts",
+            "git diff --check -- hooks/codex/README.md docs/tasks/20260828-150316-command-safety-gateway-c498ea"
+          ],
+          "result": "Passed: managed hook id, exact-hash trust, rollback, zero-output allow, deny behavior, expected-red boundary, TEMP-only cleanup, installer locking, evidence counts, and residual risks are synchronized; diff check passed."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "Real ~/.codex installation and exact-hash trust remain intentionally pending until fresh verification and independent final/pass review."
+        ],
+        "follow_up": [
+          "VERIFY-002 must perform fresh isolated and actual runtime verification before deployment."
+        ],
+        "written_by": "/root/impl_001",
+        "written_role": "backend-implementer"
+      }
+    },
+    {
+      "subtask_id": "VERIFY-002",
+      "title": "执行审查修复后的隔离验证",
+      "role": "test-verifier",
+      "status": "blocked",
+      "dependencies": [
+        "FIX-REVIEW-CMD-001",
+        "FIX-REVIEW-GTO-001",
+        "DOC-003"
+      ],
+      "read_paths": [
+        "hooks/codex/command-safety/**",
+        "scripts/install-command-safety-gateway.ps1",
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+        "tests/harness/command-safety-gateway.integration.ps1",
+        "tests/harness/control-plane.integration.ps1",
+        "hooks/codex/README.md"
+      ],
+      "write_paths": [
+        "docs/ai/tasks/20260828-150316-command-safety-gateway-c498ea/state.json"
+      ],
+      "assignment": {
+        "goal": "以全新进程验证 8 个 finding 的关闭证据和性能边界。",
+        "must_include": [
+          "adversarial bypass probes",
+          "cleanup link boundary",
+          "expected-red infrastructure cases",
+          "concurrent installer and GTO mutations",
+          "actual isolated Codex runtime hook load allow deny timeout",
+          "CFM expected-red exact window unchanged"
+        ],
+        "verification": [
+          "full gateway suite",
+          "full control-plane suite",
+          "runtime smoke",
+          "60 plus 60 cold starts"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "verify_002",
+        "platform_agent_id": "/root/verify_002",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "f98962759c84d60c3bb1cc21c762377470cb55f6563a77342f1a23cdce83804c"
+      },
+      "result": {
+        "status": "blocked",
+        "summary": "Fresh gateway 27/27, control-plane 97/97, targeted reviewer replay, isolated installer, CFM-isolated window, static checks, hashes, and latency passed. Actual Codex runtime allow path executed, but project-local deny and timeout hooks were not observably hit.",
+        "changed_files": [],
+        "planned_files_not_changed": [
+          "docs/ai/tasks/20260828-150316-command-safety-gateway-c498ea/state.json"
+        ],
+        "verification": {
+          "commands": [
+            "full command-safety-gateway.integration.ps1",
+            "full control-plane.integration.ps1",
+            "targeted 8-finding gateway replay",
+            "expected-red 6/6 with CFM snapshots",
+            "four node --check runs",
+            "git diff --check",
+            "orchestrator validate",
+            "isolated installer and runtime shape inspection",
+            "codex exec ephemeral project-local allow deny timeout smoke",
+            "60 gateway plus 60 bare Node cold starts",
+            "final SHA-256 and TEMP residue checks"
+          ],
+          "result": "Gateway 27/27; control-plane 97/97; targeted gateway 8/8; expected-red 6/6; gateway p95 102.511ms, bare p95 91.499ms, overhead 11.012ms; static checks and isolated CFM window passed; runtime allow executed, runtime deny and timeout unproven."
+        },
+        "deviations": [
+          "Isolated CodexHome runtime was blocked by 401 before any tool call; default CodexHome auth was then used while hooks and sentinels remained project-local in system TEMP.",
+          "Shared real CFM store had unrelated concurrent writers; only the isolated CFM window is causally attributable."
+        ],
+        "blocked_by": [
+          "REVIEW-HOOK-001"
+        ],
+        "risks": [
+          "No evidence proves that the project-local PreToolUse deny hook or timeout hook was actually invoked by Codex runtime.",
+          "Shared CFM audit windows cannot be treated as exclusive while other writers are active."
+        ],
+        "follow_up": [
+          "Perform independent predeployment review.",
+          "After source approval, install the managed user hook, verify exact command hash trust, and rerun deterministic runtime allow deny timeout smoke.",
+          "Do not finalize before real runtime smoke passes."
+        ],
+        "written_by": "/root/verify_002",
+        "written_role": "test-verifier",
+        "review_evidence": {
+          "repro_before_fix": "The original reviewer recorded eight findings covering command bypass, cleanup boundaries, expected-red infrastructure masking, rg parsing, GTO finalization and concurrency, installer concurrency, and runtime Hook trust and loading.",
+          "pass_after_fix": "Fresh gateway integration passed 27/27 and control-plane integration passed 97/97.",
+          "hit_proof_observed": "Seven non-runtime finding families were directly hit by targeted tests; runtime allow executed, but runtime deny and timeout lacked hit proof.",
+          "relevant_regression_ok": "Four Node syntax checks, git diff --check, controller validate, target hash comparison, and residue checks passed.",
+          "install_merge_backup_receipt_ok": "Fresh isolated installer tests passed merge, content-addressed backup, receipt, idempotence, lock waiting, and concurrent unmanaged-hook preservation.",
+          "fresh_process_runtime_ok": "60 gateway and 60 bare Node processes completed; actual Codex runtime allow completed, while project Hook deny and timeout remain unproven.",
+          "latency_budget_ok": "Gateway p95 102.511ms <=120ms and p95 overhead 11.012ms <=25ms."
+        }
+      }
+    },
+    {
+      "subtask_id": "FIX-REVIEW-GTO-002",
+      "title": "补齐结构化 subtask scope 更新",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "FIX-REVIEW-GTO-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+        "tests/harness/control-plane.integration.ps1"
+      ],
+      "write_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+        "tests/harness/control-plane.integration.ps1"
+      ],
+      "assignment": {
+        "goal": "新增安全的 update-subtask-scope，解决范围扩展后 reviewer read_paths 无法结构化更新的问题。",
+        "must_include": [
+          "only pending ready blocked targets",
+          "strict read_paths/write_paths allowlist",
+          "repo-relative semantic validation",
+          "mutex/CAS common write path",
+          "reviewer empty write_paths allowed"
+        ],
+        "verification": [
+          "minimal Red for missing action",
+          "positive reviewer scope expansion",
+          "terminal/unknown/rooted/traversal negative cases",
+          "full control-plane regression"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "impl_002",
+        "platform_agent_id": "/root/impl_002",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "fb1491922a397e8e588f7169a4c7647eebae98ecb566b11624477ee0c0d220ef"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Added structured update-subtask-scope with strict payload/status/path validation and the existing mutex/CAS candidate write path.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+          "tests/harness/control-plane.integration.ps1"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "7 targeted update-subtask-scope tests",
+            "fresh full control-plane.integration.ps1",
+            "current task validate",
+            "git diff --check",
+            "encoding and temp residue checks"
+          ],
+          "result": "Targeted 7/7; full control-plane 97/97; current task valid with 15 subtasks; UTF-8 BOM/CRLF and residue checks passed."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "Scope updates replace complete arrays rather than merging; callers must submit the full intended read_paths and write_paths."
+        ],
+        "follow_up": [
+          "Use update-subtask-scope to add hooks/codex/README.md to REVIEW-001, then record DOC-003 and proceed to VERIFY-002."
+        ],
+        "written_by": "/root/impl_002",
+        "written_role": "backend-implementer",
+        "review_evidence": {
+          "pass_after_fix": "Targeted 7/7 and full control-plane 97/97 passed.",
+          "hit_proof_observed": "Blocked reviewer scope expansion succeeded while terminal, unknown, unknown-field, rooted, traversal, and invalid empty non-reviewer scopes were rejected.",
+          "relevant_regression_ok": "Current task validate, diff check, encoding, and temp residue checks passed."
+        }
+      }
+    }
+  ],
+  "updated_at": "2026-08-28T18:14:55+08:00",
+  "version": 2
+}

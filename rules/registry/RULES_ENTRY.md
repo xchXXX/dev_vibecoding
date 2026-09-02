@@ -2,22 +2,23 @@
 
 本文件只说明项目规则系统的运行时装配方式，不复制各条规则正文。
 
-## 装配顺序
+## Codex 读取顺序
 
-1. 先读取项目根 `AGENTS.md`，获取最高优先级入口约束与规则系统入口说明。
-2. 再读取 `rules/registry/RULES_ENTRY.md`，确认本项目的规则装配、冲突解析与 skill 转交口径。
-3. 加载项目级 `RULES_INDEX` 中 `activation=always_on` 的规则，并按 `scope` 区分全局基线与项目增量。
-4. 根据当前任务的 `intents` 继续命中按需规则。
-5. 若规则声明 `activation=path` 或 `scope=path`，再按目标路径匹配 `paths`。
-6. 若命中规则携带 `linked_skill`，转去读取对应 `SKILL.md`。
-7. 能自动校验的约束以脚本、测试、hook 或 doctor 链路为准，prose rule 只承担入口提示与非结构化约束。
+1. 先读取项目根 `AGENTS.md`。
+2. 再读取 `rules/registry/RULES_INDEX.json` 的元数据，不聚合所有规则正文。
+3. 固定读取三条最小必读规则：`global.policy.变更约束`、`global.workflow.用户提问先回答再继续`、`global.style.说明默认使用中文`。
+4. 对其余规则，由 Codex 结合对话语义、目标内容、风险、当前阶段和本轮实际操作自由选择；索引中的 `intents`、`paths`、`summary`、`linked_skill` 只是判断提示，不是强制映射。
+5. 只有 Codex 判断某条规则与当前工作相关时，才读取对应规则正文；只有进一步判断其 `linked_skill` 确实适用时，才读取对应 `SKILL.md`。
+6. 能自动校验的约束以 WSL Python 脚本、测试或 doctor 为准，prose rule 只承担入口提示与非结构化约束。
+
+正常交互链不调用 Python 解释自然语言、生成 `task_profile`、匹配本轮规则或拼装固定规则套餐。Python 只在离线维护和验收时生成、校验 `RULES_INDEX.json`；索引不承载规则正文，也不生成全正文聚合运行时视图。
 
 ## 项目与全局规则关系
 
 - 项目规则真源位于 `rules/items/`，按 `kind` 分目录维护；当前仓库中除少量 architecture 入口外，绝大多数条目按全局规则维护。
-- 全局规则真源位于 `C:/Users/72385/dev/ai-harness/rules/`。
-- 当前项目在装配时先应用项目本地规则；若调用时显式传入全局规则根，或脚本成功自动发现可用的全局规则根，再把其中 `scope != project` 的条目纳入当次解析。
-- `RULES_RESOLVED.json` 输出的是按当前调用上下文解析后的生效视图；若当次没有可用的全局规则根，则其全局部分应退化为空。
+- 全局规则真源位于 `<harness-root>/rules/`；在本仓中，`<harness-root>` 就是当前仓库根。
+- 当前项目在装配时先应用项目本地规则；其他项目消费本仓全局规则时，必须显式传入 `--global-rules-root <harness-root>` 才纳入其中 `scope != project` 的条目。未传入时只处理项目本地规则，不自动发现其他 clone 或工作区。
+- `RULES_INDEX.json` 是唯一机器可读规则元数据索引；人读视图可以离线生成，但不作为运行时选择真源。
 
 ## 冲突解析
 
@@ -30,13 +31,13 @@
 
 ## 何时转 Skill
 
-- 命中 `linked_skill` 的规则，应优先读取并执行对应 skill。
+- Codex 判断规则与当前工作相关后，若进一步判断其 `linked_skill` 适用，再读取并执行对应 skill。
 - 多步协作、失败恢复、编排式流程放在 `skills/*/SKILL.md`，不要在普通规则文件内重复抄写整段工作流。
 - 普通规则只声明触发条件、边界和进入 skill 的时机。
 
 ## 运行时边界
 
-- `RULES_ENTRY.md` 不承载完整规则正文，不代替 `RULES_INDEX`、脚本或测试。
+- `RULES_ENTRY.md` 不承载完整规则正文，不代替 `RULES_INDEX`、脚本或测试，也不是每轮额外必读文件。
 - 长任务下方案文档与施工文档的必填字段以 `rules/registry/方案与施工文档字段规范.md` 及其校验脚本为准。
 - 中文说明默认使用中文；字段名、路径、脚本参数、代码标识符保持原样。
 - 已删除的旧 `rules/common/*` 与旧 `rules/*.md` 结构不恢复，统一以 `rules/registry/` 与 `rules/items/` 为准。

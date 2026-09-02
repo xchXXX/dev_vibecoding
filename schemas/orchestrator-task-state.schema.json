@@ -1,0 +1,1086 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OrchestratorTaskState",
+  "description": "GTO state.json version 3 的唯一当前持久化状态合同。只允许短摘要、仓库相对路径、哈希、commit range、命令名和结论。",
+  "type": "object",
+  "required": [
+    "task_id",
+    "title",
+    "status",
+    "owner",
+    "objective",
+    "scope_in",
+    "scope_out",
+    "acceptance",
+    "stop_conditions",
+    "decisions",
+    "current_phase",
+    "workspace",
+    "review_policy",
+    "subtasks",
+    "updated_at",
+    "version"
+  ],
+  "properties": {
+    "task_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "title": {
+      "$ref": "#/$defs/shortText"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "blocked",
+        "completed",
+        "archived"
+      ]
+    },
+    "owner": {
+      "$ref": "#/$defs/identifier"
+    },
+    "six_points": {
+      "$ref": "#/$defs/sixPointContract"
+    },
+    "approval": {
+      "$ref": "#/$defs/approval"
+    },
+    "artifact_sha256": {
+      "$ref": "#/$defs/artifactHashes"
+    },
+    "findings": {
+      "type": "object",
+      "maxProperties": 200,
+      "propertyNames": {
+        "$ref": "#/$defs/identifier"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/lifecycleFinding"
+      }
+    },
+    "next_action": {
+      "$ref": "#/$defs/nextAction"
+    },
+    "final_review": {
+      "$ref": "#/$defs/finalReview"
+    },
+    "objective": {
+      "$ref": "#/$defs/summary"
+    },
+    "scope_in": {
+      "$ref": "#/$defs/nonEmptyRelativePathList"
+    },
+    "scope_out": {
+      "$ref": "#/$defs/nonEmptyShortTextList"
+    },
+    "acceptance": {
+      "$ref": "#/$defs/nonEmptyShortTextList"
+    },
+    "stop_conditions": {
+      "$ref": "#/$defs/nonEmptyShortTextList"
+    },
+    "decisions": {
+      "$ref": "#/$defs/shortTextList"
+    },
+    "current_phase": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "doc_sync",
+        "test_sync",
+        "code_impl",
+        "review",
+        "blocked"
+      ]
+    },
+    "workspace": {
+      "$ref": "#/$defs/workspace"
+    },
+    "review_policy": {
+      "$ref": "#/$defs/reviewPolicy"
+    },
+    "verification_contract": {
+      "$ref": "#/$defs/verificationContract"
+    },
+    "subtasks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "$ref": "#/$defs/subtask"
+      }
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 64
+    },
+    "version": {
+      "type": "integer",
+      "const": 3
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": { "version": { "const": 3 } },
+        "required": ["version"]
+      },
+      "then": {
+        "required": ["six_points", "approval", "artifact_sha256", "findings", "next_action"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "current_phase": {
+            "enum": [
+              "code_impl",
+              "review"
+            ]
+          }
+        },
+        "required": [
+          "current_phase"
+        ]
+      },
+      "then": {
+        "required": [
+          "verification_contract"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "subtasks": {
+            "contains": {
+              "type": "object",
+              "required": [
+                "result"
+              ],
+              "properties": {
+                "result": {
+                  "type": "object",
+                  "required": [
+                    "review"
+                  ],
+                  "properties": {
+                    "review": {
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "verdict"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "final"
+                        },
+                        "verdict": {
+                          "const": "pass"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "minContains": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sixPointContract": {
+      "type": "object",
+      "required": [
+        "do",
+        "do_not",
+        "change_areas",
+        "implementation",
+        "acceptance",
+        "risks"
+      ],
+      "properties": {
+        "do": { "$ref": "#/$defs/summary" },
+        "do_not": { "$ref": "#/$defs/nonEmptyShortTextList" },
+        "change_areas": { "$ref": "#/$defs/nonEmptyRelativePathList" },
+        "implementation": { "$ref": "#/$defs/summary" },
+        "acceptance": { "$ref": "#/$defs/nonEmptyShortTextList" },
+        "risks": { "$ref": "#/$defs/nonEmptyShortTextList" }
+      },
+      "additionalProperties": false
+    },
+    "approval": {
+      "type": "object",
+      "required": ["status", "approved_by", "contract_sha256"],
+      "properties": {
+        "status": { "const": "approved" },
+        "approved_by": { "$ref": "#/$defs/shortText" },
+        "approved_at": { "type": "string", "format": "date-time" },
+        "contract_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "artifactHashes": {
+      "type": "object",
+      "required": ["task.md", "plan.md", "execution.md", "acceptance.md"],
+      "properties": {
+        "task.md": { "$ref": "#/$defs/sha256" },
+        "plan.md": { "$ref": "#/$defs/sha256" },
+        "execution.md": { "$ref": "#/$defs/sha256" },
+        "acceptance.md": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "lifecycleFinding": {
+      "type": "object",
+      "required": [
+        "finding_id",
+        "severity",
+        "paths",
+        "summary",
+        "evidence",
+        "status",
+        "fix_round",
+        "routed_to",
+        "lineage"
+      ],
+      "properties": {
+        "finding_id": { "$ref": "#/$defs/identifier" },
+        "severity": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "paths": { "$ref": "#/$defs/nonEmptyRelativePathList" },
+        "summary": { "$ref": "#/$defs/summary" },
+        "evidence": { "$ref": "#/$defs/summary" },
+        "status": {
+          "type": "string",
+          "enum": ["open", "fix_dispatched", "awaiting_re_review", "closed", "blocked"]
+        },
+        "fix_round": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "routed_to": { "$ref": "#/$defs/identity" },
+        "lineage": { "$ref": "#/$defs/lineage" },
+        "fix_delta": { "$ref": "#/$defs/fixDelta" },
+        "closed_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "awaiting_re_review" } },
+            "required": ["status"]
+          },
+          "then": { "required": ["fix_delta"] }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "closed" } },
+            "required": ["status"]
+          },
+          "then": { "required": ["closed_at"] }
+        }
+      ]
+    },
+    "nextAction": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["dispatch_ready_subtask", "dispatch_fix", "perform_fix", "re_review", "final_review", "human_adjudication", "finalize", "none"]
+        },
+        "target": { "$ref": "#/$defs/identity" },
+        "finding_id": { "$ref": "#/$defs/identifier" }
+      },
+      "additionalProperties": false
+    },
+    "finalReview": {
+      "type": "object",
+      "required": ["verdict", "reviewer", "reviewed_change_sha256"],
+      "properties": {
+        "verdict": { "const": "pass" },
+        "reviewer": { "$ref": "#/$defs/identity" },
+        "reviewed_change_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "platformAgentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?:(?![A-Za-z]:)[A-Za-z0-9][A-Za-z0-9._:-]*|/root/[A-Za-z0-9][A-Za-z0-9._:-]*(?:/[A-Za-z0-9][A-Za-z0-9._:-]*)*)$"
+    },
+    "writerIdentity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?:(?![A-Za-z]:)[A-Za-z0-9][A-Za-z0-9._:-]*|/root/[A-Za-z0-9][A-Za-z0-9._:-]*(?:/[A-Za-z0-9][A-Za-z0-9._:-]*)*)$"
+    },
+    "shortText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "commitHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+    },
+    "commitRange": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[0-9A-Za-z._/-]+(\\.\\.[0-9A-Za-z._/-]+)?$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?![A-Za-z]:[\\\\/])(?![\\\\/])(?!/)(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+$"
+    },
+    "shortTextList": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "$ref": "#/$defs/shortText"
+      }
+    },
+    "nonEmptyShortTextList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "$ref": "#/$defs/shortText"
+      }
+    },
+    "relativePathList": {
+      "type": "array",
+      "maxItems": 500,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/relativePath"
+      }
+    },
+    "nonEmptyRelativePathList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/relativePath"
+      }
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "agent_key",
+        "platform_agent_id"
+      ],
+      "properties": {
+        "agent_key": {
+          "$ref": "#/$defs/identifier"
+        },
+        "platform_agent_id": {
+          "$ref": "#/$defs/platformAgentId"
+        }
+      },
+      "additionalProperties": false
+    },
+    "workspace": {
+      "type": "object",
+      "required": [
+        "repo_root",
+        "checkout_kind",
+        "branch",
+        "head",
+        "dirty_paths",
+        "write_overlap",
+        "overlap_decision"
+      ],
+      "properties": {
+        "repo_root": {
+          "const": "<repo-root>"
+        },
+        "checkout_kind": {
+          "type": "string",
+          "enum": [
+            "primary",
+            "linked_worktree"
+          ]
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "head": {
+          "$ref": "#/$defs/commitHash"
+        },
+        "dirty_paths": {
+          "$ref": "#/$defs/relativePathList"
+        },
+        "write_overlap": {
+          "$ref": "#/$defs/relativePathList"
+        },
+        "overlap_decision": {
+          "type": "object",
+          "required": [
+            "status",
+            "summary",
+            "baseline_hashes"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "not_required",
+                "pending",
+                "resolved"
+              ]
+            },
+            "summary": {
+              "$ref": "#/$defs/summary"
+            },
+            "baseline_hashes": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "reviewPolicy": {
+      "type": "object",
+      "required": [
+        "require_independent_final_review",
+        "max_fix_rounds",
+        "scope_expansion_requires_escalation"
+      ],
+      "properties": {
+        "require_independent_final_review": {
+          "const": true
+        },
+        "max_fix_rounds": {
+          "const": 3
+        },
+        "scope_expansion_requires_escalation": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "verificationContract": {
+      "type": "object",
+      "required": [
+        "minimal_repro",
+        "hit_proof",
+        "diagnostic_checks",
+        "acceptance_checks",
+        "non_goals",
+        "review_evidence"
+      ],
+      "properties": {
+        "minimal_repro": {
+          "$ref": "#/$defs/summary"
+        },
+        "hit_proof": {
+          "$ref": "#/$defs/summary"
+        },
+        "diagnostic_checks": {
+          "$ref": "#/$defs/nonEmptyShortTextList"
+        },
+        "acceptance_checks": {
+          "$ref": "#/$defs/nonEmptyShortTextList"
+        },
+        "non_goals": {
+          "$ref": "#/$defs/nonEmptyShortTextList"
+        },
+        "review_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "assignment": {
+      "type": "object",
+      "required": [
+        "goal",
+        "must_include",
+        "verification"
+      ],
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/summary"
+        },
+        "must_include": {
+          "$ref": "#/$defs/nonEmptyShortTextList"
+        },
+        "verification": {
+          "$ref": "#/$defs/nonEmptyShortTextList"
+        }
+      },
+      "additionalProperties": false
+    },
+    "dispatch": {
+      "type": "object",
+      "required": [
+        "agent_key",
+        "platform_agent_id",
+        "context_mode",
+        "brief_kind",
+        "brief_sha256"
+      ],
+      "properties": {
+        "agent_key": {
+          "$ref": "#/$defs/identifier"
+        },
+        "platform_agent_id": {
+          "$ref": "#/$defs/platformAgentId"
+        },
+        "context_mode": {
+          "const": "isolated"
+        },
+        "brief_kind": {
+          "type": "string",
+          "enum": [
+            "subtask",
+            "review"
+          ]
+        },
+        "brief_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "lineage": {
+      "type": "object",
+      "required": [
+        "original_implementer",
+        "original_reviewer"
+      ],
+      "properties": {
+        "original_implementer": {
+          "$ref": "#/$defs/identity"
+        },
+        "original_reviewer": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fixDelta": {
+      "type": "object",
+      "required": [
+        "summary",
+        "changed_files",
+        "sha256",
+        "verification"
+      ],
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/summary"
+        },
+        "changed_files": {
+          "$ref": "#/$defs/relativePathList"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "verification": {
+          "$ref": "#/$defs/summary"
+        }
+      },
+      "additionalProperties": false
+    },
+    "finding": {
+      "type": "object",
+      "required": [
+        "finding_id",
+        "severity",
+        "paths",
+        "summary",
+        "evidence",
+        "status",
+        "fix_round",
+        "routed_to"
+      ],
+      "properties": {
+        "finding_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "paths": {
+          "$ref": "#/$defs/nonEmptyRelativePathList"
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        },
+        "evidence": {
+          "$ref": "#/$defs/summary"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "open",
+            "fix_dispatched",
+            "awaiting_re_review",
+            "fixed",
+            "closed",
+            "accepted_risk",
+            "blocked"
+          ]
+        },
+        "fix_round": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "routed_to": {
+          "$ref": "#/$defs/identity"
+        },
+        "fix_delta": {
+          "$ref": "#/$defs/fixDelta"
+        }
+      },
+      "additionalProperties": false
+    },
+    "inputScope": {
+      "type": "object",
+      "required": [
+        "finding_ids",
+        "fix_delta_sha256",
+        "paths",
+        "evidence_refs"
+      ],
+      "properties": {
+        "finding_ids": {
+          "type": "array",
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        },
+        "fix_delta_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "paths": {
+          "$ref": "#/$defs/relativePathList"
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/shortTextList"
+        }
+      },
+      "additionalProperties": false
+    },
+    "scopeEscalation": {
+      "type": "object",
+      "required": [
+        "reason",
+        "review_scope"
+      ],
+      "properties": {
+        "reason": {
+          "$ref": "#/$defs/summary"
+        },
+        "review_scope": {
+          "$ref": "#/$defs/inputScope"
+        }
+      },
+      "additionalProperties": false
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "kind",
+        "verdict",
+        "reviewer_platform_agent_id",
+        "findings"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "task",
+            "re_review",
+            "final"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "needs_more_evidence"
+          ]
+        },
+        "reviewer_platform_agent_id": {
+          "$ref": "#/$defs/platformAgentId"
+        },
+        "reviewed_head": {
+          "$ref": "#/$defs/commitHash"
+        },
+        "reviewed_change_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "reviewed_commit_range": {
+          "$ref": "#/$defs/commitRange"
+        },
+        "findings": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "input_scope": {
+          "$ref": "#/$defs/inputScope"
+        },
+        "scope_escalation": {
+          "$ref": "#/$defs/scopeEscalation"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "task",
+                  "re_review"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "input_scope"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "re_review"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "findings": {
+                "items": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/finding"
+                    },
+                    {
+                      "required": [
+                        "fix_delta"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "final"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "reviewed_head"
+                ]
+              },
+              {
+                "required": [
+                  "reviewed_change_sha256"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "result": {
+      "type": "object",
+      "required": [
+        "status",
+        "summary",
+        "changed_files",
+        "planned_files_not_changed",
+        "verification",
+        "deviations",
+        "blocked_by",
+        "risks",
+        "follow_up",
+        "written_by",
+        "written_role"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "blocked"
+          ]
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        },
+        "changed_files": {
+          "$ref": "#/$defs/relativePathList"
+        },
+        "planned_files_not_changed": {
+          "$ref": "#/$defs/relativePathList"
+        },
+        "verification": {
+          "type": "object",
+          "required": [
+            "commands",
+            "result"
+          ],
+          "properties": {
+            "commands": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              }
+            },
+            "result": {
+              "$ref": "#/$defs/summary"
+            }
+          },
+          "additionalProperties": false
+        },
+        "deviations": {
+          "$ref": "#/$defs/shortTextList"
+        },
+        "blocked_by": {
+          "$ref": "#/$defs/shortTextList"
+        },
+        "risks": {
+          "$ref": "#/$defs/shortTextList"
+        },
+        "follow_up": {
+          "$ref": "#/$defs/shortTextList"
+        },
+        "written_by": {
+          "$ref": "#/$defs/writerIdentity"
+        },
+        "written_role": {
+          "$ref": "#/$defs/identifier"
+        },
+        "review_evidence": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/identifier"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/summary"
+          }
+        },
+        "review": {
+          "$ref": "#/$defs/review"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "blocked"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "blocked_by": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "subtask": {
+      "type": "object",
+      "required": [
+        "subtask_id",
+        "title",
+        "role",
+        "status",
+        "dependencies",
+        "read_paths",
+        "write_paths",
+        "assignment"
+      ],
+      "properties": {
+        "subtask_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "title": {
+          "$ref": "#/$defs/shortText"
+        },
+        "role": {
+          "$ref": "#/$defs/identifier"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "ready",
+            "in_progress",
+            "blocked",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        },
+        "read_paths": {
+          "$ref": "#/$defs/relativePathList"
+        },
+        "write_paths": {
+          "$ref": "#/$defs/relativePathList"
+        },
+        "assignment": {
+          "$ref": "#/$defs/assignment"
+        },
+        "dispatch": {
+          "$ref": "#/$defs/dispatch"
+        },
+        "lineage": {
+          "$ref": "#/$defs/lineage"
+        },
+        "result": {
+          "$ref": "#/$defs/result"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "blocked",
+                  "completed"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "result"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "properties": {
+                  "written_role": {
+                    "$ref": "#/$defs/identifier"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

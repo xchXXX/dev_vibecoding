@@ -1,22 +1,18 @@
 # EVALS
 
-本文件说明 ai-harness 自身的评估与回归测试入口。
+本文件说明 ai-harness 自身的当前评估与回归入口。
 
-## 当前统一回归入口
+## 统一入口
 
-- 入口文档：`tests/README.md`
+```bash
+python3 -m unittest discover -s tests/harness -p 'test_*.py'
+```
+
 - 套件索引：`tests/harness/README.md`
-- 当前冻结执行方式：
-  - `Get-ChildItem -LiteralPath .\tests\harness -Filter *.ps1 | Sort-Object Name | ForEach-Object { pwsh -NoProfile -ExecutionPolicy Bypass -File $_.FullName }`
+- 冻结夹具：`tests/fixtures/`
+- 规则、文档路由、GTO、CFM、bootstrap、sync、doctor 与工具基线均由 WSL
+  Python 测试或对应 `.py` CLI 验收。
+- 正式成功路径与验收链不调用 hook、PowerShell 或 batch 入口。
 
-本阶段仅冻结：
-- harness 测试目录：`tests/harness/`
-- fixtures 目录：`tests/fixtures/`
-- 当前 harness 统一入口覆盖：
-  - `tests/harness/claude-hooks-phase5.hook-behavior.ps1`
-  - `tests/harness/claude-hooks-phase5.integration.ps1`
-  - `tests/harness/codex-failure-memory.integration.ps1`
-  - `tests/harness/codex-sync.integration.ps1`
-  - `tests/harness/command-failure-case.schema.ps1`
-  - `tests/harness/control-plane.integration.ps1`
-- 真实回归测试延后到 Phase 8 实现
+真实自动触发率、独立 reviewer 与 fresh-task blind behavior 属于附加验收层，不能用
+单元测试或进程退出码替代；其留痕统一进入 `docs/ai/runs/`。

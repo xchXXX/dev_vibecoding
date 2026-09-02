@@ -1,4 +1,0 @@
-﻿{"timestamp":"2026-03-31T10:03:10.7364811+08:00","event":"PreToolUse","decision":"allow","reason":"","session_id":"","tool_name":"Bash","pid":20760,"payload":{"payload":{"tool_name":"Bash","session_id":"s1"},"tool_name":"Bash"}}
-{"timestamp":"2026-03-31T10:04:11.9186386+08:00","event":"PreToolUse","decision":"block","reason":"stdin_json_parse_error","session_id":"","tool_name":"","pid":20776,"payload":{"_parse_error":"Invalid JSON primitive: not-json.","_raw":"not-json\r\n","tool_name":""}}
-{"timestamp":"2026-03-31T10:04:11.9490609+08:00","event":"PreToolUse","decision":"allow","reason":"","session_id":"","tool_name":"Edit","pid":17364,"payload":{"payload":{"tool":{"name":"Edit"},"session_id":"s1"},"tool_name":"Edit"}}
-{"timestamp":"2026-03-31T10:04:11.9810600+08:00","event":"PreToolUse","decision":"block","reason":"tool_not_allowed","session_id":"","tool_name":"Read","pid":9268,"payload":{"payload":{"tool_name":"Read","session_id":"s1"},"tool_name":"Read"}}

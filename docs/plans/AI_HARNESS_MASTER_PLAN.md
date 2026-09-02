@@ -1,154 +1,134 @@
-﻿# AI Harness 改造总纲
+# AI Harness 总纲
 
-## 目标与范围
-本文是 `ai-harness` 改造主线的 phase 状态真源，用于同步：
-- 全局真源层 / 运行时投放层 / 项目适配层的边界
-- Claude 闭环与 Codex 最小闭环的当前真实状态
-- 当前已完成 phase、已冻结待实施批次，以及停止条件
+## 文档定位
 
-当前范围：
-- 全局真源：`C:\Users\72385\dev\ai-harness`
-- Claude 运行时：`C:\Users\72385\.claude\*`
-- Codex 运行时：`C:\Users\72385\.codex\skills\*`
-- 项目适配层：各项目仓库内的 `AGENTS.md`、`docs/ai/`、`config/ai/`、项目专属 `.claude/` / `.codex/`
+本文只描述 `ai-harness` 当前活跃架构、运行合同和持续验收路线。已经归档的 task、run、旧方案和迁移记录只保存历史事实，不参与当前实现路由，也不在本文继续维护为并行真源。
 
-## 三层模型
+## 总目标
 
-### 1. 全局真源层
-- 路径：`C:\Users\72385\dev\ai-harness`
-- 职责：长期维护通用 rules、templates、skills、agents、hooks、doctor、install/sync 脚本与测试真源
+建立一套可跨项目复用的纯 Codex/WSL 协作控制面：
 
-### 2. 运行时投放层
-- Claude：
-  - `C:\Users\72385\.claude\agents\*`
-  - `C:\Users\72385\.claude\settings.json`
-  - `C:\Users\72385\.claude\.ai-harness\*`
-- Codex：
-  - `C:\Users\72385\.codex\skills\*`
-  - `C:\Users\72385\.codex\.ai-harness\*`
-- 职责：只承载 CLI 识别与执行所需的受管运行时结果
+- Codex 负责理解对话语义、选择相关规则、使用 skill、派发代理和作出非机械判断。
+- WSL Python 3 标准库脚本负责索引生成、结构校验、状态持久化、同步、doctor 与确定性状态推进。
+- Linux 原生命令负责日常文件操作、Git、测试、构建与诊断。
+- 当前合同不保留其他代理平台、事件拦截器、Windows launcher 或旧控制面兼容路径。
 
-### 3. 项目适配层
-- 路径：各项目仓库内的 `AGENTS.md`、`docs/ai/`、`config/ai/`、项目专属运行时配置
-- 职责：保留项目边界、项目增量规则、运行留痕与项目模板；不复制全局通用真源
+## 三层边界
 
-## 当前 phase 状态
+### 全局真源层
 
-### Phase 0：三层模型与边界冻结
-- 状态：已完成
+`<harness-root>/` 是长期维护真源，包含：
 
-### Phase 1：全局骨架落地
-- 状态：已完成
+- `AGENTS.md` 与 `docs/` 当前入口。
+- `rules/items/` 规则正文和 `rules/registry/RULES_INDEX.json` 元数据索引。
+- `skills/`、`schemas/`、`templates/`、`agents/`、`scripts/` 与 `tests/`。
 
-### Phase 2：首批真源迁移
-- 状态：已完成
+仓库内部只维护相对路径或 `<harness-root>` 占位；机器绝对路径不进入通用合同。
 
-### Phase 3：Claude agents 真源目录与首批 catalog
-- 状态：已完成
+### Codex 运行时投放层
 
-### Phase 4：Claude agents install/sync/runtime
-- 状态：已完成
+受管运行时只包含：
 
-### Phase 5：Claude hooks + governance 真源
-- 状态：已完成，并已补正式验收单
-- 当前结论：Claude hooks / doctor / rules governance 批次已通过多轮 review 与正式验收
+- `CODEX_HOME/AGENTS.md`
+- `CODEX_HOME/skills/<managed-skill>/`
+- `CODEX_HOME/.ai-harness/` 中的 receipt、备份与审计状态
 
-### Phase 6：Codex 最小闭环 + 真实运行时投放
-- 状态：已完成，并已补正式验收单
-- 当前结论：
-  - `sync-codex.ps1`
-  - `doctor-core.ps1 -AuditTarget codex_minimal`
-  - `tests/harness/codex-sync.integration.ps1`
-  - 真实 `~/.codex/skills/global-task-orchestrator` 投放、receipt 与 doctor 结果已闭环
+运行时是受管副本，不是长期设计真源。sync 只更新明确白名单，不接管 `.system/*`、插件或任意第三方内容。
 
-### Phase 7：项目适配与遗留清理
-- 状态：已完成，并已补 `Phase 7` 正式验收单
-- 方案入口：`C:\Users\72385\dev\ai-harness\docs\PROJECT_ADAPTER_CLEANUP_PLAN.md`
-- 资产盘点入口：`C:\Users\72385\dev\ai-harness\docs\PROJECT_ADAPTER_ASSET_MAP.md`
-- 入口收口方案入口：`C:\Users\72385\dev\ai-harness\docs\PROJECT_ENTRY_REFERENCE_PLAN.md`
-- Claude local settings 方案入口：`C:\Users\72385\dev\ai-harness\docs\PROJECT_CLAUDE_LOCAL_SETTINGS_PLAN.md`
-- 历史 run / legacy 引用方案入口：`C:\Users\72385\dev\ai-harness\docs\PROJECT_HISTORY_LEGACY_REFERENCE_PLAN.md`
-- legacy Claude agent 方案入口：`C:\Users\72385\dev\ai-harness\docs\PROJECT_LEGACY_CLAUDE_AGENT_PLAN.md`
-- 实施排序入口：`C:\Users\72385\dev\ai-harness\docs\PROJECT_ADAPTER_IMPLEMENTATION_SEQUENCE.md`
-- 正式验收入口：`C:\projects\pdf_ai\paddle_ocr\docs\ai\runs\ai-harness-phase0-freeze-20260330-150836-m85l\phase7_acceptance.md`
-- 当前结论：
-  - 方案冻结已完成
-  - 子批次 A 的逐对象资产盘点与映射冻结已完成
-  - 子批次 B 的项目入口与全局引用收口方案已冻结，且已显式对齐子批次 A 的五类正式分类
-  - 子批次 C 的 `.claude/settings.local.json` 本地化治理方案已冻结，并已明确“个人本地配置却被版本控制”的语义冲突与后续最小实施顺序
-  - 子批次 D 的历史 run / legacy 引用治理方案已冻结，并已按真实盘点修正 `.ai/session` 既有命中事实，明确历史事实保留边界、现行新增禁项以及 `docs/ai/runs/` / `.ai/session/` 的差异化口径
-  - 子批次 E 的项目内 legacy Claude agent 入口治理方案已冻结，并已完成 3 个 legacy 文件的逐文件目标状态判断
-  - Phase 7 当前已完成 A/B/C/D/E 全部方案冻结
-  - 实施批次 `I-1：项目入口轻量收口` 已完成，已完成对象为 `AGENTS.md` 与 `docs/ai/README.md`
-  - 实施批次 `I-2：项目文档标准与注册入口收口` 已完成，已完成对象为 `docs/ai/SUBAGENT_WORKFLOW.md`、`docs/ai/SESSION_PLANNING_STANDARD.md` 与 `docs/ai/MODULE_DOC_STANDARD.md`
-  - registry JSON 未改且与当前文档口径兼容
-  - 实施批次 `I-3：.claude/settings.local.json 本地化实施` 已完成，已完成对象为 `.gitignore`、`.claude/settings.local.example.json`、`.claude/settings.local.json` 停止跟踪与本地合法 JSON 修复
-  - `.claude/settings.local.json` 当前继续保留为工作树本地自管文件，不再由仓库跟踪
-  - 实施批次 `I-4：legacy Claude agent 入口治理实施` 已完成，已完成对象为 `.claude/agents/coder_agent.md`、`.claude/agents/deploy_agent.md` 与 `.claude/agents/tester_agent.md` 的 deprecation / wrapper 收口
-  - 实施批次 `I-5：legacy 引用新增约束与检测` 已完成，已完成对象为入口文档 machine-local 绝对路径口径收口与 session/work_order 模板中的“禁止新增 legacy 引用”约束
-  - 已排序实施批次 `I-1` 至 `I-5` 全部完成
-  - Phase 7 正式收口与验收留痕已完成
+### 项目适配层
 
-## 当前已完成闭环
+接入项目只维护：
 
-### Claude 侧
-- 全局 agents 真源、install/sync、receipt 与真实运行时投放已闭环
-- Claude hooks 6 事件真源、install/sync、receipt、doctor 审计与规则治理已闭环
+- 项目 `AGENTS.md`、模块入口、项目增量规则与项目私有配置。
+- 项目代码、长期模块文档、任务文档和 AI 任务状态。
+- 本项目特有的构建、测试与部署入口。
 
-### Codex 侧
-- 当前最小受管对象仅 `global-task-orchestrator`
-- `sync-codex.ps1` 与 `doctor-core.ps1 -AuditTarget codex_minimal` 已闭环
-- 真实 `~/.codex/skills/global-task-orchestrator` 已完成受管投放
+跨项目通用的 orchestrator、schema、模板、skill 和全局规则正文不复制成项目第二真源。
 
-## 当前未展开范围
-- `.system/*` 托管
-- plugins 托管
-- 第三方 runtime skill 接管
-- 项目接入清理代码实施
-- `.claude/settings.local.json` 实际收敛
-- Claude settings merge / override
-- 更广义 project doctor / cleanup doctor
+## 规则系统唯一合同
 
-## 已冻结待实施方案
-- `contract-first + 双窗口派发升级`
-  - 方案入口：`C:\Users\72385\dev\ai-harness\docs\plans\contract-first-dispatch.md`
-  - 当前状态：已冻结方案；`Batch 1-2.5` 已完成，`Batch 3 / 3.5 / 4` 待实施
-  - 当前结论：
-    - 默认工作模式切换目标已明确为 `Plan Window -> Execute Window`
-    - `plan_owner = main_window` 已冻结
-    - `plan.md` 为语义真源、`plan.json` 为结构化投影，且 `md -> json` 转化责任固定在 `Plan Window`
-    - 后续优化第一优先级已明确为 `contract-first, prompt-compiled`
-    - 首批待实施对象已明确为 `work_order / dispatch_packet / dispatch_message_raw / return_packet`
-    - `docs/SUBAGENT_GOVERNANCE.md`、`skills/global-task-orchestrator/SKILL.md` 与 `rules/common/SUBAGENT_RULES.md` 已完成 Batch 1 收口
-    - `Batch 2` 已完成 `work_order / dispatch_packet / return_packet` schema 与模板升级
-    - `Batch 2.5` 已完成 `plan.schema.json`、`plan.example.json` 与 bootstrap/hydrate 脚本的双件制口径收口
-    - 后续新增 `Batch 3.5`，用于把真源文档规则继续下沉到派发合同、提示词模板与验收闸门，避免默认假定子代理已自行阅读全部真源文档
+Codex 每轮固定读取：
 
-## 推荐下一步
-主线已完成 `Phase 7` 正式收口，当前不再继续推进已关闭的 `Phase 7`。
-- 正式验收入口：`C:\projects\pdf_ai\paddle_ocr\docs\ai\runs\ai-harness-phase0-freeze-20260330-150836-m85l\phase7_acceptance.md`
-- 主线 run 留痕：`C:\projects\pdf_ai\paddle_ocr\docs\ai\runs\ai-harness-phase0-freeze-20260330-150836-m85l\orchestration_log.md`
-- 主线 session 留痕：`C:\projects\pdf_ai\paddle_ocr\.ai\session\ai-harness-phase0-freeze-20260330-150836-m85l\task_plan.md`
-- 当前推荐：保持主线关闭状态；如后续要扩到 `.system/*`、plugins、project cleanup code、settings merge / override 等新范围，必须新开 phase，并重新冻结目标、边界与验收口径。
-- Phase 7 收口后的优先候选方案入口：`C:\Users\72385\dev\ai-harness\docs\plans\contract-first-dispatch.md`
+1. 全局与项目 `AGENTS.md`。
+2. 当前可用的 `RULES_INDEX.json` 元数据。
+3. 恰好三条 `activation=always_on` 规则：`global.policy.变更约束`、`global.workflow.用户提问先回答再继续`、`global.style.说明默认使用中文`。
 
-## 风险
-- 运行时目录中仍可能存在未托管或第三方内容，不能在未冻结 takeover 策略前直接接管。
-- 项目历史 run 文档包含旧绝对路径引用，不能未经分类直接重写。
-- 如果后续直接扩到 `.system/*`、plugins、项目清理实施或 merge / override，会破坏当前最小闭环边界。
+其余规则由 Codex 结合对话语义、目标内容、风险、当前阶段和本轮实际操作自由决定是否读取。索引中的 `summary`、`intents`、`paths` 和 `linked_skill` 只提供相关性提示，不组成固定套餐，也不自动触发 skill。
+
+Python 只在离线维护和验收时生成、校验索引；正常交互链不调用 Python 解释自然语言或替 Codex 选择规则。
+
+其他项目消费本仓全局规则时，必须显式传入 `--global-rules-root <harness-root>`。未提供该参数时只处理目标项目自己的规则，不承诺扫描 sibling clone、用户目录或其他工作区来发现全局规则根。
+
+## GTO v3 唯一合同
+
+- `global-task-orchestrator` 是长任务唯一控制面，当前 state 只接受 `version=3`。
+- 每个长任务必须同时维护六份工件：`docs/ai/tasks/<task_id>/state.json|task.md|events.jsonl` 与 `docs/tasks/<task_id>/plan.md|execution.md|acceptance.md`。
+- `state.json` 是唯一机器状态真源；`task.md` 是人读摘要；`events.jsonl` 是必备的 append-only 关键事件流；其余三份分别冻结方案、施工和验收。
+- 控制器只接受 `orchestrator_ctl.py --help` 当前公开且实际实现的 action；文档、模板和角色说明不得发明 action。
+- CLI 参数统一使用 GNU 双横线形式。单横线 PascalCase 别名不是当前接口。
+- 执行合同保存在 `state.json.subtasks[].assignment`，执行结果保存在 `state.json.subtasks[].result`；不生成承担当前状态职责的第二套 package 或会话状态。
+- 派发必须绑定平台返回的真实代理身份和真实隔离参数；review finding 返回原实现者，并由原 reviewer re-review。
+- 最终完成需要独立 reviewer 对最新 `HEAD` 或最终变更哈希给出 `final/pass`。
+
+## WSL 正常链
+
+正式命令只使用 WSL `python3`、Linux 原生命令和 GNU 双横线参数。例如：
+
+```bash
+python3 scripts/generate_rules_index.py --repo-root .
+python3 scripts/validate_rules.py --repo-root .
+python3 scripts/validate_plan_docs.py --repo-root .
+python3 scripts/validate_doc_routing.py --repo-root .
+python3 scripts/bootstrap-local.py --harness-root . --codex-home "$CODEX_HOME" --json
+python3 scripts/sync-codex.py --harness-root . --codex-home "$CODEX_HOME" --json
+python3 scripts/doctor-core.py --repo-root . --codex-home "$CODEX_HOME" --strict --json
+python3 skills/global-task-orchestrator/scripts/orchestrator_ctl.py \
+  --action validate --repo-root . --task-id "$task_id" --json
+```
+
+普通非零退出码按 Command Failure Memory 闭环处理；不能因为失败而自动跨平台重跑、扫描其他 clone、创建 wrapper 或切换到另一套实现。
+
+## 当前受管能力
+
+当前同步白名单包含：
+
+- `global-task-orchestrator`
+- `command-failure-memory`
+- `pre-dev-benchmark`
+- `fix-closure-gate`
+
+bootstrap、sync 和 doctor 只处理受管 Codex 入口、上述 skill、规则索引结构和批准的工具基线。机器级安装状态必须在目标机器上重新验证，不能由历史机器的 receipt 推断。
+
+## 文档与实施路线
+
+1. 先冻结六要点、六份任务工件、写入边界和验收命令。
+2. 以最小失败测试证明当前缺口。
+3. 先同步当前长期真源与测试，再修改实现、schema 和模板。
+4. 运行最小相关验证，再运行 bootstrap、sync、strict doctor 与完整回归。
+5. 由独立 reviewer 审查全部变更；finding 经原实现者修复并由原 reviewer 复审。
+
+## 历史与退役边界
+
+- 历史 task/run、旧方案和 sandbox 证据不改写，不作为当前实现真源。
+- 当前入口不路由历史 packet、旧会话目录、已退役 runtime、事件拦截配置或旧 launcher。
+- 禁止为了兼容历史样例恢复第二套状态、旧参数别名、自动发现规则根或跨平台回退。
+- 需要引用历史证据时，必须明确其只读和历史性质，并回到当前入口核对现行合同。
+
+## 持续验收
+
+- 活跃真源只陈述纯 Codex/WSL 正常链。
+- `always_on` 始终恰好三条，其余规则保持 Codex 自由选读。
+- 规则索引可重复生成且通过 `validate_rules.py`。
+- 六份 GTO 工件全部存在、相互一致且 `events.jsonl` 非可选。
+- 文档中的 action 与参数均可由真实 CLI 验证。
+- v3 schema、当前模板、bootstrap、sync、strict doctor 和全量测试全部通过。
+- 最终审查覆盖全部实际变更并对最新版本给出 `final/pass`。
 
 ## 停止条件
-出现以下任一情况时，不允许继续推进到下一 phase：
-- 当前 phase 的正式验收或方案留痕未完成
-- review 仍存在阻断项
-- 需要写入未授权路径
-- 需要扩展到未冻结的托管范围
-- 文档与真实状态已发生漂移但尚未回写
 
-## 进入下一 phase 的准入条件
-只有同时满足以下条件时，才允许进入下一 phase：
-1. 当前 phase 的目标、输入、输出、验收点与非目标已冻结
-2. 当前 phase 的文档、测试、代码与运行时结果已同步
-3. review 阻断项已清空
-4. 正式验收或方案留痕已完成
-5. 本总纲已同步回写当前真实状态与推荐下一步
+出现任一情况时停止推进并交回主协调器裁决：
+
+- 需要写入未授权路径或覆盖来源不明的 dirty 内容。
+- 当前文档、schema、模板与真实 CLI 无法对齐。
+- 目标机器运行时同步会扩大已批准边界。
+- 验证失败原因不清、review 仍有 open finding，或最终版本尚未获得独立 `final/pass`。

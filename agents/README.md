@@ -1,17 +1,16 @@
 # AGENTS Catalog
 
-本目录保存全局 Claude agents 真源。
+本目录保存 Codex 编排使用的跨项目角色语义真源。
 
 ## 目录职责
 
-- 这里只放跨项目可复用的 agent
-- 文件格式必须未来可直接投放到 `~/.claude/agents/`
-- 项目专属 agent 留在各项目自己的 `.claude/agents/`
+- 这里只放跨项目可复用的角色语义
+- 项目专属角色约束留在项目自己的 `AGENTS.md` 或 `config/ai/`
 
 ## 选择原则
 
 使用 `planner`
-- 当任务还需要冻结方案、拆边界、生成或重整 `task_state`
+- 当任务还需要冻结方案、拆边界、生成或重整结构化任务合同
 
 使用 `reader`
 - 当任务目标是补上下文、找证据路径、梳理调用链且暂不改文件时
@@ -40,11 +39,11 @@
 ## 角色层统一口径
 
 - 角色文件必须保持统一 8 段结构：`角色目标`、`负责范围`、`不负责`、`输入`、`输出`、`工作规则`、`停止条件`、`协作交接`。
-- `reader`、`reviewer` 与所有 implementer 的 `输入` 必须显式包含 `task_state + subtask`；缺任一项即触发停止条件。
+- 角色模型的 `输入` 必须显式包含 `task.md` 与当前子任务提示；提示中给出 assignment、读写边界、依赖和验证要求。
 - `reader` 与 `reviewer` 默认只读，不在角色定义内直接承担实现写入。
-- 角色定义与底层 `agent_type` 不混写：角色语义仅在 `agents/*.md` 维护，底层映射留在 `agents/codex-role-map.json`。
-- 执行型委派必须遵守 `subtask.assignment` 合同，不得跳过 `subtask.read_paths`。
-- 未经授权不得写入 `subtask.write_paths` 之外路径，也不得触碰禁改文件。
+- 角色语义仅在 `agents/*.md` 维护；平台派发参数不另建静态兼容映射层。
+- 执行型委派必须遵守显式子任务提示中的 assignment，不得跳过 read paths。
+- 未经授权不得写入提示声明的 write paths 之外，也不得触碰禁改文件。
 
 ## 主协调器验收门禁
 
@@ -61,7 +60,7 @@
 
 | name | role | when_to_use | must_not_do | default_tools | notes |
 | --- | --- | --- | --- | --- | --- |
-| `planner` | 冻结方案与拆单 | 需求未冻结、边界不清、需要重整 `task_state` 与 `subtasks` | 直接跳过方案冻结去写实现 | `Read, Write, Bash` | 对齐 `freeze_task_state` |
+| `planner` | 冻结方案与拆单 | 需求未冻结、边界不清、需要重整任务合同与 `subtasks` | 直接跳过方案冻结去写实现 | `Read, Write, Bash` | 对齐六要点合同冻结 |
 | `reader` | 只读补上下文与证据收集 | 需要阅读、定位证据、梳理依赖与未知项 | 越权修改业务文件或代替实现落盘 | `Read, Bash` | 对齐 `context_read` |
 | `reviewer` | 风险审查与验收裁决 | 需要 findings、回归评估、通过/不通过结论 | 默认直接修复实现问题 | `Read, Bash` | 对齐 `risk_review` |
 | `doc-curator` | 文档更新与结构整理 | 先文档后代码、文档迁移、规范补齐 | 越权实现业务代码 | `Read, Write` | 对齐 `update_docs` |
@@ -112,10 +111,10 @@
 - 通用停止条件
 - 通用协作交接方式
 
-## 角色映射层
+## 实时派发
 
-- `agents/codex-role-map.json` 是 Codex 角色映射真源，专门承载 `role -> agent_type` 和运行约束。
-- 调度顺序固定为：先选角色，再查映射，再读取 `task_state`，再锁定 `subtask` 与其 `assignment`。
-- 角色语义真源仍在 `agents/*.md`，`codex-role-map` 只做桥接，不重写角色职责正文。
-- `codex-role-map` 不新增平台原生 `agent_type`，底层类型继续固定为 `default / explorer / worker`。
+- 主协调器先读取 `task.md` 和当前 subtask 的 `assignment`、读写边界、依赖及验证要求，再按职责选择对应 `agents/*.md`。
+- 使用当前协作工具 `spawn_agent` 直接派发；`task_name` 是本轮任务标签，`message` 是显式子任务提示，`fork_turns` 按需要提供真实上下文隔离。
+- 派发成功后，把平台返回的真实身份作为 `platform_agent_id`，连同所选角色 `agent_key`、`brief_kind` 和 `brief_sha256` 绑定到 subtask `dispatch`。
+- 后续结果与 review 路由只依据原 subtask `assignment`、绑定后的 `dispatch` 身份和 finding lineage，不经过静态角色兼容表。
 

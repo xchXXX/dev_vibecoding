@@ -3,9 +3,11 @@
 ## 目标
 
 本文定义新控制面下主协调器、执行型子代理、审查型子代理的统一治理口径。
-本轮迁移已彻底切离旧控制面，不保留兼容层；任何流程、模板、说明都必须以当前 GTO 六份工件为准。
+当前 GTO 使用六份工件和 state version=3。当前工具只接受 workflow_revision=3；历史状态保留，继续旧任务须使用当时固定的工具包，不自动升级。
 
 ## 适用范围
+
+GTO 启动条件唯一遵循 [全局入口模板](../templates/codex/AGENTS.global.md)。本文的 GTO 阶段、角色和工件要求仅适用于用户已选择 GTO 的任务，不作为普通 Git 提交、推送、代码改造或日常运维的自动启动条件。
 
 - 全局真源：`ai-harness/`
 - 运行时投放：Codex skills、managed `AGENTS.md`、规则索引与 doctor 流程
@@ -19,74 +21,20 @@
 
 ## 角色分工
 
-- 主协调器：由 Codex 完成语义判断、选择角色、组织真实派遣 prompt、等待完成和回收结果；控制器只机械维护 `state.json`、`events.jsonl` 与确定性状态推进。
-- 阅读型子代理：先读取 `task.md` 六要点，再按主协调器真实派遣 prompt 中显式给出的 `assignment`、`read_paths`、`write_paths` 与验收要求补充上下文并产出证据化摘要。
-- 执行型子代理：先读取 `task.md` 六要点，再按真实派遣 prompt 中显式给出的 `assignment`、`read_paths`、`write_paths` 与验收要求修改授权文件，并把结果交回控制器写入 `state.json.subtasks[].result`。
+计划代理分配与职责分开表达，同代号复用、异代号区分，按批准依赖派发；测试与验收是否复用由方案决定，并满足已有独立性约束。唯一行为说明见 [批准分工与依赖](../skills/global-task-orchestrator/references/workflow.md#批准分工与依赖)。结果在派发时提供对应完整模板，正式提交前使用 [只读预检](../skills/global-task-orchestrator/references/state-schema.md#计划代理与只读结果预检)，结构通过不替代证据判断。
+
+- Plan 与 Execute：职责、控制工件前置条件和流程图统一见下文“双窗口模式”引用的 GTO 真源；控制器只机械维护 `state.json`、`events.jsonl` 与确定性状态推进。
+- 阅读型子代理：先读取 `task.md` 导航指向的批准合同，再按主协调器真实派遣 prompt 中显式给出的 `assignment`、`read_paths`、`write_paths` 与验收要求补充上下文并产出证据化摘要。
+- 执行型子代理：先读取 `task.md` 导航指向的批准合同，再按真实派遣 prompt 中显式给出的 `assignment`、`read_paths`、`write_paths` 与验收要求修改授权文件，并把结果交回控制器写入 `state.json.subtasks[].result`。
 - 审查型子代理：基于控制器真实实现的 `build-review-brief` 结果做多维度审查与验收，不读取无关子任务，也不代替执行型子代理直接补做实现。
 
 ## 双窗口模式
 
-默认工作模式固定为：
-
-- `Plan Window`：方案裁决窗口
-- `Execute Window`：方案执行协调窗口
-
-长任务在批准前必须用大白话冻结六个要点：要做什么、不做什么、改哪些地方、怎么实现落地、怎么验收、有什么风险。Codex 负责理解对话语义并决定本轮需要读取哪些非必读规则；Python 控制器只负责结构校验、比对、状态推进和持久化，不自行理解自然语言，也不拼装规则套餐。
-
-### `Plan Window`
-
-职责：
-
-- 接收需求
-- 委派阅读型子代理引入上下文
-- 基于阅读回报与用户反馈修订方案
-- 冻结正式任务状态
-- 同步维护 `state.json`、`task.md`、`events.jsonl`、`plan.md`、`execution.md` 与 `acceptance.md`
-
-规则：
-
-- `Plan Window` 的上下文引入默认完全由阅读型子代理承担。
-- `Plan Window` 只冻结阶段概览、边界、验收与停止条件，不提前细化实施细节以外的无关内容。
-- 一旦进入冻结阶段，不再继续委派任何子代理。
-- 正式任务状态的唯一真源是 `docs/ai/tasks/<task_id>/state.json`。
-- `task.md` 是面向人的摘要视图，必须从 `state.json` 同步生成或维护，不得反向篡改机器真源。
-- 若 `task.md` 与 `state.json` 冲突，以 `state.json` 为准，并应尽快修正 `task.md`。
-- 只要任务进入本 orchestrator 流程，无论任务大小，都必须先经过主窗口与用户的交互式方案冻结，不得跳过 `Plan Window` 直接进入实施。
-
-### `Execute Window`
-
-职责：
-
-- 读取 `task.md` 六要点，并由主协调器从冻结合同组织本轮真实派遣 prompt
-- 委派阅读型子代理补齐本轮局部上下文
-- 细化当前阶段工作
-- 在 `state.json.subtasks[].assignment` 中写入执行合同
-- 派发执行型或审查型子代理并回收 `state.json.subtasks[].result`
-
-规则：
-
-- `Execute Window` 的模型默认先读取 `task.md` 六要点，再按需读取方案与施工真源；普通委派不得把完整 `state.json` 作为输入。
-- 完整 state 由机器侧控制器用于机械校验、持久化和状态推进；普通委派只接收主协调器在真实派遣 prompt 中显式给出的 `assignment`、`read_paths`、`write_paths` 与验收要求。
-- 在派发执行型或审查型子代理前，必须先确认目标 `subtask` 已存在且 `assignment` 完整。
-- 当前阶段的具体工作、详细合同与验收门禁，统一在 `subtask` 中细化；其中执行说明写在 `subtask.assignment`，读写边界写在顶层 `subtask.read_paths / subtask.write_paths`。
-- 不允许脱离 `task_state` 单独生成散落在仓库其他位置的执行合同。
-- `Execute Window` 在派出阅读型子代理后，只允许做非重叠的协调准备动作，不得并行重复阅读子代理正在覆盖的上下文。
-- `Execute Window` 不负责重写已冻结方案语义；若发现任务状态核心字段冲突，必须停止并退回 `Plan Window`。
+任务呈现与交接见 [方案指南](../skills/global-task-orchestrator/references/plan-guide.md)；通用施工图和 Plan/Execute 职责见 [任务流程与职责](../skills/global-task-orchestrator/references/workflow.md)。本页引用该入口，不另写一套窗口职责或流程图。
 
 ## 批次与路由规则
 
-- 每一批、每一 phase 都必须先委派一个或多个子代理执行或审查，不能由主协调器跳过子代理直接收口。
-- `Plan Window` 只能派阅读型子代理；执行型与审查型子代理只能由 `Execute Window` 派发。
-- 是否并行由依赖关系决定：
-  - 相互独立的阅读、审查、纯验证任务可并行。
-  - 文档、清单、测试、代码存在强依赖时必须串行。
-- 只要任务进入正式实施，必须按以下顺序推进，不得跳步：
-  1. 冻结方案
-  2. 更新文档与清单
-  3. 更新或新增测试
-  4. 更新代码与配置
-- 若某一分支确实不存在，必须在冻结方案中明确记为“不适用”或“本批不涉及”，而不是在执行时临时跳过。
-- 未完成当前批次验收前，不得跳到下一批次。
+Plan 完整要求清单见 [方案指南](../skills/global-task-orchestrator/references/plan-guide.md)；通用流程、六工件前置、测试负责人复用及两条普通返工回路见 [GTO 任务流程与职责](../skills/global-task-orchestrator/references/workflow.md)；黑盒选层与执行唯一见 [分层黑盒测试方法论](../skills/global-task-orchestrator/references/blackbox-methodology.md)。本文不重复维护流程正文；目标规范不等于同候选代码、安装或验收已经通过。
 
 ## 等待与收口规则
 
@@ -98,14 +46,25 @@
   - 缺少必须的权限或外部环境
   - 冻结方案失效，继续执行会扩大范围
 - 出现阻塞时，必须把具体阻塞点、已尝试动作与下一步建议写入对应 `subtask.result`，不能笼统写“未完成”。
+- 主协调器等待自然完成并回收真实结果；容量以派发时平台运行状态及实际返回为准，不根据等待或完成状态猜测线程占用。
+
+## 候选、昂贵验收与证据失效
+
+以下是 revision 3 的规范合同；机械实施状态须另以同候选 schema、控制器测试及新进程真实行为证明，不能由文档表述推定门禁已经实现。当前包不兼容 revision 2 或未声明 workflow_revision 的合同。
+
+阶段顺序、发现者与原整合者分工及两条普通返工回路见 [任务流程](../skills/global-task-orchestrator/references/workflow.md)；黑盒停止出口见 [分层黑盒测试方法论](../skills/global-task-orchestrator/references/blackbox-methodology.md)。以下只定义证据真实性与失效边界。
+
+- review 和验收分别留下实际使用证据，不能共用一次操作冒充两个阶段。Windows 原生 Agent 使用官方 Browser 操作网页，包括运行在 WSL 服务上的页面；Windows GUI 仅在 Windows-native Agent environment 使用 Computer Use，WSL 不得先试调。非 UI 任务使用真实 CLI/API 并明确 UI 不适用原因。证据包含执行者、工具、实际入口/命令、操作范围、结果及引用，截图、HTTP 200 或工具名称本身不等于业务路径通过。
+- 候选包含代码、配置、运行输入、验收项和全部受影响正式文档，发现者新增测试也在范围内。验收前变化需对应审查覆盖；验收中修复变化由原验收者承担 delta 检查。验收后纯文档遗漏同步只在无实质行为/契约变化时收口，不能成为任意文档豁免名单。
+- 预算与 attempt kind 的机械限制见包内 schema、控制器及 [状态使用说明](../skills/global-task-orchestrator/references/state-schema.md)。准备检查与正式效果分流，资源消耗不因换 ID 清零；证据映射只覆盖各自验收范围，未覆盖不得推断通过。
 
 ## 进入下一步的闸门
 
 - 进入下一步前，所有本批次相关子代理都必须：
   - 自然完成
   - 结果被回收到 `state.json`
-  - 完成验收
-- 只要仍有一个相关子代理未完成或未验收通过，就不能推进到下一步。
+  - 满足该节点的阶段出口：例如初始测试提供有效 Red，实施完成 Green 与相关回归
+- 相关依赖节点未达到其合同出口时不得推进；不把初始测试的有效 Red 误当作验收失败。
 
 ## 统一控制面对象合同
 
@@ -125,7 +84,7 @@
 - 若需要记录执行合同，必须写入 `state.json.subtasks[].assignment`。
 - 若需要记录执行结果，必须写入 `state.json.subtasks[].result`。
 - `events.jsonl` 只追加事件，不承担当前状态真源职责。
-- 六份工件在长任务中全部必备，不按窗口数或并行度缩减。控制器应交叉校验 `task_id`、六要点、验收标准和批准状态；合同变更后旧批准自动失效。
+- 六份工件在长任务中全部必备，不按窗口数或并行度缩减。控制器应交叉校验 `task_id`、施工摘要对应的机器合同、验收标准和批准状态；合同变更后旧批准自动失效。
 - 当前 state 只接受 `version=3`；CLI 只接受 `orchestrator_ctl.py --help` 当前公开并实际实现的 action 与 GNU 双横线参数。
 - 机器侧控制器解析完整 state 以执行机械校验和状态推进；它只为审查场景实现 `build-review-brief`。普通委派 prompt 由主协调器显式组织。
 - state 只保留流程判断所需的短摘要、仓库相对路径、哈希、commit range、命令名与结论；不得保存完整 stdout、完整 diff、完整 prompt 或聊天记录。
@@ -134,9 +93,11 @@
 ## 真实隔离派发与身份
 
 - 无历史派发必须由平台实际调用参数实现，例如平台支持时使用 `fork_turns="none"`；提示词只能描述边界，不能冒充隔离机制。
-- 主协调器先在真实派遣 prompt 中明确 `task.md` 六要点、`assignment`、`read_paths`、`write_paths` 与验收要求，再由平台以无历史模式派发；控制器通过 `bind-dispatch` 把平台返回值绑定到 `subtask.dispatch`。绑定记录至少包含 `agent_key`、真实 `platform_agent_id`、`context_mode=isolated`、`brief_kind` 与 `brief_sha256`。
+- 主协调器先在真实派遣 prompt 中明确 `task.md` 及其合同入口、`assignment`、`read_paths`、`write_paths` 与验收要求，再由平台以无历史模式派发；控制器通过 `bind-dispatch` 把平台返回值绑定到 `subtask.dispatch`。绑定记录至少包含 `agent_key`、真实 `platform_agent_id`、`context_mode=isolated`、`brief_kind` 与 `brief_sha256`。
 - `platform_agent_id` 只能取自派发工具返回值，不接受子代理自报身份作为证明。高风险审查与最终审查的 reviewer 必须与被审实现者使用不同的真实 `platform_agent_id`。
 - 子代理只能按真实派遣 prompt 中的当前合同工作。若平台不支持真实无历史派发，当前派发必须阻塞并升级给主协调器，不能降级为提示词隔离。
+- 默认已安装 GTO 的入口与最小治理载荷必须携带上述平台派发要求，不能依赖子代理偶然读取本完整文档。`context_mode=isolated` 只是待核对的声明，不能代替真实工具参数与平台返回身份；验收必须交叉比对可观察派发记录。`fork_turns="all"`、省略参数后继承历史、或仅在提示词宣称隔离，均不得绑定为无历史派发。
+- 每次派发前核对运行子代理数，派发后不得超过 3。新职责使用不同的新代理；只按流程明确要求复用原作者、原整合者、原 reviewer、原验收者或测试负责人。不得把所有新职责都交给少数既有代理。实际创建失败时保留回执，不伪造身份或由父协调器替代独立审查、验收。
 
 ## Workspace 基线
 
@@ -148,9 +109,7 @@
 ### `task_state`
 
 - 回答：任务改什么、为什么改、边界是什么、当前处于哪个阶段、有哪些 `subtask`。
-- `task_state.status` 至少覆盖 `draft`、`active`、`blocked`、`completed`、`archived`。
-- 只有 `Plan Window` 可把任务从 `draft` 推进到可执行状态（通常为 `active`）。
-- `draft` 状态的 `task_state` 不得派发执行型或审查型子代理。
+- 状态字段值域以包内 schema 为准。schema 容许 draft 不表示公开 CLI 支持运行或激活 draft；新 init 在合同通过后创建 active 状态，不额外建立草稿激活入口。
 - 正式冻结方案默认写入 `state.json`；`task.md` 只是人读摘要，不是结构化真源。
 - `task_state` 的必填字段以 state schema 为准；本文只描述治理语义，不重复维护一份会漂移的最小字段清单。
 - 常见核心字段通常会覆盖 `task_id`、`title`、`status`、`objective`、范围信息、验收信息、停止条件与 `subtasks`，但具体必填集合应由 schema 和校验脚本裁决。
@@ -175,20 +134,8 @@
 - 主协调器不得新建、重写或补写 `result` 的正文事实；若 `result` 缺失、正文过薄或事实不清，必须退回原执行子代理补写。
 - 主协调器只允许做结构校验、状态推进与必要的非事实性字段兜底，不得把这些动作伪装成子代理结果。
 - 无论 `subtask.status` 最终是 `completed` 还是 `blocked`，都必须写 `result`；没有 `result`，`subtask` 不能视为收口。
-- `result` 最低字段口径应至少包含：
-  - `status`
-  - `summary`
-  - `changed_files`
-  - `planned_files_not_changed`
-  - `result.verification.commands`
-  - `result.verification.result`
-  - `deviations`
-  - `blocked_by`
-  - `risks`
-  - `follow_up`
-  - `written_by`
-  - `written_role`
-- `written_by` 与 `written_role` 是必填身份字段；`validate` 应校验 `written_role` 是否匹配 `assignment.role`，并拒绝缺失或明显错配的作者身份。
+- 结果字段与合法载荷统一见 [包内状态说明](../skills/global-task-orchestrator/references/state-schema.md) 及其引用的 schema，不在本页维护第二份字段列表。
+- `written_by` 与 `written_role` 是必填身份字段；当前 `written_role` 与绑定的 `dispatch.agent_key` 对齐；`subtask.role` 表示职责，`assignment` 没有 `role`。`written_by` 对齐工具返回的 `platform_agent_id`。字段允许值以同候选 schema 为准，不手填重复身份。
 - `changed_files` 必须是实际发生改动的文件集合；其每一项都必须落在 `subtask.write_paths` 内，空改动任务可写空数组但不得越界伪报。
 - `blocked_by`、`deviations`、`follow_up` 必须保留字段；无内容时可为空数组或空值，但不能省略整个字段。
 - `blocked` 的 `subtask` 还必须在 `result.blocked_by` 中写清阻塞来源，并在 `summary` 或 `follow_up` 中说明已尝试动作与下一步建议。
@@ -201,7 +148,7 @@
 - `Plan Window` 在冻结正式任务状态前，必须先审阅阅读型子代理回报中的证据路径。
 - `Execute Window` 的局部阅读回报也必须附相关代码与文档证据路径。
 - 执行型与审查型子代理开始工作前，必须先读取 `subtask.read_paths`。
-- 若读完 `subtask.read_paths` 后仍无法确定改法或结论，必须退回主协调器，不得自行脑补。
+- `read_paths` 是关键入口，允许沿调用链继续阅读；仍有合同冲突或需要越界时回报主协调器，不自行脑补。
 
 ## 统一落盘口径
 
@@ -214,48 +161,26 @@
 
 项目侧可以补充本仓目录、模块与运维口径，但不再承担上述对象的通用合同正文，也不为当前 GTO 新建第二套状态或历史 run 路由。
 
-## 落盘语言规则
+## 全局协作原则
 
-- 对任何落盘文件，能用中文表达的地方尽量使用中文。
-- 优先使用中文的对象包括：
-  - `task.md`
-  - `state.json` 中的说明性字段
-  - `subtask.assignment` 中的说明性字段
-  - `subtask.read_paths / subtask.write_paths` 对应的人读说明
-  - `subtask.result` 中的说明性字段
-  - 审查报告与测试建议
-- 文件路径、字段名、脚本参数、代码标识符、协议字段等必须保持机器可读或生态约定的内容，不强行翻译。
-- 在 JSON、Markdown 与事件流中，说明性文本、结论、风险、建议、验收说明、证据摘要默认优先中文。
-- 主协调器在派发阅读型、执行型、审查型子代理时，必须显式要求：除字段名、路径、脚本参数、代码标识符与协议字段外，输出内容和落盘说明性文本默认使用中文。
+语言、唯一真源和变更约束统一见 [全局入口模板](../templates/codex/AGENTS.global.md) 及规则索引指向的叶子条款；本文只维护子代理职责与证据边界。
 
 ## 验收与返工规则
 
-- 复验不得由主协调器自行完成，必须由专门审查型子代理负责。
-- 审查必须是多维度的；不能用“测试通过”替代代码审查、合同审查、运行时审查。
-- finding 必须使用任务内稳定且唯一的 `finding_id`，并记录严重级别、目标路径、短摘要、必要证据与状态。
-- finding 必须沿 lineage 返回原实现者返修；主协调器不得改派新的实现者或自行代修。
-- 后续复审默认复用产生该 finding 的原 reviewer；只有崩溃或不可恢复异常时才允许更换，并必须升级给主协调器、记录原因和新的身份绑定。
-- 原 reviewer 的 re-review 默认只接收目标 finding、fix delta 与必要证据。若返修扩大文件或语义范围，必须记录原因并升级为新的 task review scope，不得伪装成局部复审。
-- `max_fix_rounds=3` 按稳定 `finding_id` 独立计数，同一 finding 可跨 reviewer subtask 复用 ID。只有真正向原实现者派发 fix 时才递增；补证据、review 和 re-review 不计轮。第三轮后仍 open 时必须进入 `blocked` 或人工裁决。
-- 审查不通过时：
-  - 一律退回原执行型子代理返工
-  - 主协调器必须完整转发 findings、等待返工、重新组织复验
-  - 主协调器不直接代修失败项
+按 [通用回路](../skills/global-task-orchestrator/references/workflow.md#回路与阶段出口) 判断普通问题来源；黑盒另按 [分层方法论](../skills/global-task-orchestrator/references/blackbox-methodology.md) 选层、准备、停止和分类。实际身份、稳定 finding、预算、候选和证据关联由同候选 schema/控制器校验，不能换人或换 ID 清零。历史任务记录保留，当前包不迁移旧合同。
 
 ## 最终整体审查门禁
 
-- 局部 task review 或 re-review 通过不能替代最终整体审查。
-- 任务标记 `completed` 前，必须由独立 reviewer 对最新 `HEAD` 或控制器确认的最终变更哈希给出 `result.review.kind=final` 且 `result.review.verdict=pass`。
-- final reviewer 的真实 `platform_agent_id` 必须与所有被审实现者不同；review 证据必须能证明其覆盖的 `HEAD` 或最终变更哈希仍是当前待完成版本。
-- 若 final review 后 workspace、`HEAD` 或最终变更哈希再次变化，原 `final/pass` 失效，必须重新审查最新版本。
+- revision 3 的完整独立审查在整合和全部正式文档完成之后、真实验收之前。完整审查与后续范围复审共同覆盖最新候选，不要求验收后 final/pass。
+- 通过真实验收后由一个文档子代理直接排查并同步正式文档遗漏与六工件事实；纯文字纠正可直接收口，不限于空白或排版，不增加双人文档 review。真正行为或契约变化返回验收链，并保留同步范围与判断依据。
 
 ## 审查触发规则
 
 - 默认不采用“每个子代理动作都再派一个审查子代理”的模式。
 - 阅读型子代理的回报，默认由当前窗口主协调器直接审阅。
-- 只有执行型 `subtask` 完成并进入验收闸门时，才默认需要审查型子代理。
+- revision 3 在实现与整合完成并同步正式文档后集中完整审查，修复后做范围复审；不对每个执行动作重复派审查。
 - 纯阅读、纯盘点、纯证据收集结果，不默认再开独立审查子代理。
-- 必须触发审查型子代理的场景包括：
+- 以下场景在整合后集中触发审查型子代理；revision 3 验收修复直接走同验收者复验，验收后的单文档子代理纯文字同步不重复触发审查：
   - 修改代码、配置、schema、template、skill、rules、governance 文档
   - 修改 `state.json` 中的任务合同字段结构
   - 修改运行时 install / sync / doctor 行为
@@ -268,7 +193,7 @@
   - 阻断 findings
   - 支撑结论的关键依据
   - 必要时的残余风险
-- 当需要补测试时，审查型子代理不能只说“缺什么测试”，必须输出可直接落地的具体测试用例。
+- 发现者必须实际补回归测试或可执行证明并记录命令、范围、退出结果与证据；无法执行时明确阻塞，不能只输出测试建议。
 
 ## 测试规则
 
@@ -282,9 +207,9 @@
 ## 文档与代码同步规则
 
 - 只要规则、合同、模板或行为口径发生变化，文档必须先于代码更新。
-- 长任务进入正式代码实施前，主协调器必须先同步当前批次相关的核心架构、模块、契约、入口与测试文档；该范围不包含过去长任务遗留的方案文档与施工文档。
+- 主协调器先组织需求、接口和测试合同；实现与整合者在独立完整 review 前同步全部受影响正式文档。验收通过后一个文档子代理直接查漏同步，纯文字纠正不触发复验，真正行为或契约变化返回验收链；历史任务文档保持只读。
 - 若文档、测试、代码存在同一批次中的强同步关系，必须在同一批次内连续收口，不能交叉漂移。
-- 项目侧入口文档只保留引用、项目级 rules system 与项目增量规则；统一规则真源仍在本文。
+- 项目侧入口文档只保留引用、项目级 rules system 与项目增量规则；全局原则见 templates/codex/AGENTS.global.md，流程见 [GTO 任务流程](../skills/global-task-orchestrator/references/workflow.md)；本文只维护协作职责与证据边界。
 
 ## 子代理输出压缩规则
 
@@ -310,11 +235,7 @@
 
 ## 总体方案与 Phase 路线图规则
 
-- 凡中大规模实施，必须先落一份“总体方案 + 实施计划 / phase 路线图”文档，再进入正式代码实施。
-- 长任务必须完整维护六份工件；方案、施工与验收文档均满足固定必填章节，`state.json`、`task.md` 与 `events.jsonl` 同时通过一致性校验。
-- 该文档必须在正式代码实施前冻结，并反映到 `state.json`。
-- 跨项目或机器级事项，默认使用项目总纲文档；当前约定入口为：`<harness-root>/docs/plans/AI_HARNESS_MASTER_PLAN.md`
-- 仓库级事项可使用对应仓库根目录或已约定的全局真源位置，但必须在入口文档中显式引用。
+Plan 完整要求清单见 [方案指南](../skills/global-task-orchestrator/references/plan-guide.md)；通用流程、六工件前置、测试负责人复用及两条普通返工回路见 [GTO 任务流程与职责](../skills/global-task-orchestrator/references/workflow.md)；黑盒选层与执行唯一见 [分层黑盒测试方法论](../skills/global-task-orchestrator/references/blackbox-methodology.md)。本文不重复维护流程正文；目标规范不等于同候选代码、安装或验收已经通过。
 
 ## 推荐模板
 
@@ -327,3 +248,31 @@
 - 主协调器先根据已冻结的 subtask 合同选择阅读、实施、测试、文档或审查职责，再使用平台实际可用的代理能力派发。
 - 角色语义、读写边界、允许的 shell 操作和验收要求由主协调器从冻结合同提取，并在平台真实派遣 prompt 中显式给出；普通委派不依赖独立 agents catalog 或角色映射兼容层。
 - 平台不支持合同要求的隔离、权限或独立 reviewer 身份时，当前派发必须阻塞并交回主协调器裁决。
+
+## 黑盒验收、归因和清理
+
+层级选择、准备修复、场景停止、结果分类、Memory/CFM 报告和高成本批准，唯一见 [分层黑盒测试方法论](../skills/global-task-orchestrator/references/blackbox-methodology.md)。本节只补充 GTO 多代理治理所需的证据与清理边界。
+
+- 评估者与被测者职责分离；评分材料留在验收侧，不投放业务目录。正常全局 AGENTS、已安装 skill 和项目入口属于真实使用环境。显式执行效果与隐式发现能力分开判定，本次合同要求显式调用时不能改成隐式触发测试。
+- 核对实际 CODEX_HOME、安装来源、候选与 receipt、会话真实加载、真实身份、公开调用参数与可观察父子轨迹。工具返回、文件修改、真实退出码和产物是证据；自报完成或状态字段不能替代实际行为，也不读取私有推理补证据。
+- 环境按机器工具、项目依赖、浏览器运行时、Windows/外部能力分层，复用当前入口。Windows 官方 Browser/Computer Use 与 WSL CLI 证据按实际调用分开报告；不引入通用安装器、daemon 或反复全量 doctor。
+- 分别报告准备状态、效果、业务结果和覆盖缺口；未触发、未运行、失败和通过不得混同。隔离 CLI/自动测试证明确定性边界，真实顶层 skill 使用证明效果，不能互相替代。
+- 保留原始输入、候选与版本、真实会话 ID、轨迹、诊断、命令结果、验收映射和清理结果；没有证据的根因标为假设，凭据不得进入证据。
+- 仅停止和清理本轮自有且获准的进程、工作副本、隔离 runtime、缓存和服务数据。失败先留必要证据；不动主工作区、其他任务、真实 CFM 数据或活动 worktree。获准后续效果轮次从冻结夹具开始，保留旧失败，不能改写历史为通过。
+
+## 实施完成与候选职责覆盖
+
+revision 3 的整合必须等全部声明 work 子任务 completed；显式 dependency 没写全不能放行，完成整合结果和后续审查、冻结、验收、finalize 同样检查此条件。所有职责的可执行回归测试和其他实质写入都纳入 candidate_inputs，包含 reviewer 和验收发现者。六工件仍通过控制器维护事实；仅 `.tmp/`、`.artifacts/` 下明确 `.log` 文件可作为非候选日志，不豁免目录、测试文件或执行输入。需要将日志用于实际执行时，显式声明为 runtime_input_paths。
+
+初始测试依据需求与可观察行为独立设计；整合子代理不得提前介入影响测试。独立测试和全部实现 TDD 完成之后才开展整合工作。验收通过后的单文档子代理可直接进行纯文字纠正与遗漏同步，不限于空白或排版；只有真正行为、契约或配置变化才返回验收链。新增接口字段须在独立行为测试及实现后与 schema、示例统一核对，不能将提前设计的字段当作测试答案。
+
+## 发现者文档与测试责任的返工边界
+
+- review/验收发现者负责失败测试、根因、方案及正式文档同步；若判定文档不适用，应说明既有契约足够的理由，不能在不适用说明中把可选文案补充转交代码返工者。需要补充时仍由发现者先同步。
+- 原整合者的初次整合写域可以包含正式文档和整合测试，但不能自动成为finding返工的写权限。finding返工只按问题合同修复产品代码/运行配置并运行已冻结的发现者测试；不得借历史宽write_paths修改发现者测试或正式文档。若测试本身有误或需要新增说明，交回发现者处理。
+- 路径与角色按语义判断：skills、references、rules中的运行时Markdown可能就是产品源码，不能按.md后缀一刀切禁止。采用候选document_paths、正式文档/测试位置及finding约定识别受保护工件；被测业务中的tests目录不能仅因纳入代码指纹就变为返工者可改的发现者测试。
+- 文档回执written_by表示承担该同步责任的发现者，复审别人写的说明不能冒充亲自完成正文更新。可如实保留not_applicable并说明复核，不得用回执改作者来掩盖阶段责任转移。
+
+## 并发任务、固定运行版本与能力证明
+
+当前操作合同见 [GTO 运行与证据](../skills/global-task-orchestrator/references/runtime-evidence.md)。普通流程职责维护于全局 AGENTS 模板；技能开关唯一声明在 `config/ai/skill-policy.json`，由 `scripts/configure-skill-policy.py` 更新实际 path 配置，插件升级后重新检查路径并用新会话验明。方法技能不能接管流程。磁盘配置、CLI 快照验证和真实新会话加载分别报告。

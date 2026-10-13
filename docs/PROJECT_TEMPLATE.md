@@ -81,16 +81,14 @@ python3 "$harness_root/scripts/validate_rules.py" \
 
 ### 长任务文档
 
-- 长任务默认先在 `docs/tasks/<task-id>/plan.md` 落方案文档，再在 `docs/tasks/<task-id>/execution.md` 落施工文档，最后在验收时补 `docs/tasks/<task-id>/acceptance.md`。
-- 同一任务还必须维护 `docs/ai/tasks/<task-id>/state.json`、`task.md`、`events.jsonl`；六份工件全部必备。
-- 项目模板只要求保留该顺序和落盘位置约定；方案文档、施工文档的固定必填字段由项目规则系统和校验脚本统一定义。
-- 主协调器负责先组织核心文档与测试的同步更新，再派发后续实现；执行型子代理不应跳过这一前置步骤直接落代码。
-- 审阅与返工走固定路由：执行完成后进入审查型子代理；若审查不通过，退回原执行型子代理返工，主协调器只负责转发 findings 与重新组织复验。
+任务工件及 Plan/Execute 顺序见 [GTO 流程真源](../skills/global-task-orchestrator/references/workflow.md)。`acceptance.md` 在确认后与其余五工件一起编制，验收阶段只回填实际证据；不能等验收时才创建。流程与返工正文不复制到项目模板。
 
 ### `config/ai/`
 
-- 只保留本仓任务单、schema、注册表、样例
-- 不重复保存全局 review/testcase/worker 模板副本，除非项目明确需要局部覆盖
+- 只保留本项目环境声明、注册表和样例。
+- 不重复保存全局 review/testcase/worker 模板副本，除非项目明确需要局部覆盖。
+
+
 
 ## 推荐最小骨架
 

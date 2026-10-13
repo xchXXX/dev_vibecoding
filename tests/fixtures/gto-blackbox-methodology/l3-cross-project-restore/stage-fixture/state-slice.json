@@ -1,0 +1,6 @@
+{
+  "task_id": "fixture-existing-task",
+  "current_phase": "review",
+  "tool_root": "../tool-root",
+  "business_root": "../business-root"
+}

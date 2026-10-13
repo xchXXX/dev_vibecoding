@@ -1,5 +1,0 @@
-{"ts":"2026-08-27T15:27:35+08:00","actor":"main-coordinator","type":"task_initialized","summary":"Initialized task control plane.","refs":["docs/ai/tasks/20260827-152719-gto-context-review-hardening-6f260f/state.json","docs/ai/tasks/20260827-152719-gto-context-review-hardening-6f260f/task.md"]}
-
-{"ts":"2026-08-27T15:41:59+08:00","actor":"main-coordinator","type":"planning_contract_written","summary":"Plan Window baseline, state contract, plan, execution and acceptance documents written for user review.","refs":[]}
-
-{"ts":"2026-08-27T15:43:02+08:00","actor":"main-coordinator","type":"planning_validation_passed","summary":"Plan docs, doc routing, task state validation, plan-docs integration, placeholder scan and overlap hash checks passed.","refs":[]}

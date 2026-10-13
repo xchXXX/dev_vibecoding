@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "project_id": "dev_vibecoding",
+  "python": {
+    "requirements_file": "requirements.txt",
+    "venv": ".venv"
+  },
+  "capabilities": [
+    {
+      "id": "playwright",
+      "required": false
+    },
+    {
+      "id": "docker",
+      "required": false
+    }
+  ]
+}

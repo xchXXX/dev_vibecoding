@@ -26,13 +26,14 @@ TDD 预期 Red 仅在同时满足以下条件时零触发：
 ## Runner 与数据边界
 
 ```bash
+: "${CODEX_HOME:?set verified Windows Codex home WSL path}"
 runner="skills/command-failure-memory/scripts/command-failure-memory.py"
 if [[ ! -f "$runner" ]]; then
   runner="${CODEX_HOME:?CODEX_HOME must be set}/skills/command-failure-memory/scripts/command-failure-memory.py"
 fi
 ```
 
-- 正常链使用 WSL `python3` 和 GNU 双横线 argv。
+- 后端使用 WSL `python3` 和 GNU 双横线 argv；Windows 原生 Agent 通过指定发行版的 wsl.exe --exec 发起调用。先核实实际 Windows CODEX_HOME 的 WSL 等价路径，每次显式传入 `--codex-home`；缺失时后端报错，不回退到 Linux HOME。
 - 复杂文本直接作为 `--command-text`、`--error-text`、`--resolution` 等 argv 值传入。
 - `--json` 只选择机器可读输出形式。
 - 数据根始终是 `$CODEX_HOME/memories/command-failure-memory`，不迁移、不另建库。
@@ -43,7 +44,7 @@ fi
 1. 失败后记录：
 
 ```bash
-python3 "$runner" --action record-failure \
+python3 "$runner" --codex-home "$CODEX_HOME" --action record-failure \
   --project-id ai-harness \
   --command-text 'pnpm install' \
   --error-text 'ERR_PNPM_FETCH_500 registry request failed' \
@@ -53,7 +54,7 @@ python3 "$runner" --action record-failure \
 2. 重试前查询：
 
 ```bash
-python3 "$runner" --action query-before-retry \
+python3 "$runner" --codex-home "$CODEX_HOME" --action query-before-retry \
   --project-id ai-harness \
   --command-text 'pnpm install' \
   --error-text 'ERR_PNPM_FETCH_500 registry request failed' \
@@ -63,7 +64,7 @@ python3 "$runner" --action query-before-retry \
 3. 修复验证成功后回写：
 
 ```bash
-python3 "$runner" --action record-success \
+python3 "$runner" --codex-home "$CODEX_HOME" --action record-success \
   --project-id ai-harness \
   --command-text 'pnpm install' \
   --error-text 'ERR_PNPM_FETCH_500 registry request failed' \
@@ -76,7 +77,7 @@ python3 "$runner" --action record-success \
 4. 只读查看索引和 pending 数量：
 
 ```bash
-python3 "$runner" --action inspect --json
+python3 "$runner" --codex-home "$CODEX_HOME" --action inspect --json
 ```
 
 ## 真实 action 与 argv
@@ -94,6 +95,10 @@ python3 "$runner" --action inspect --json
 - `query-before-retry` 在有失败记录时返回 `query_permitted=true` 与 `suggestions`。
 - `record-success` 返回 `created_new_case`、`case_id`、`scope_kind` 和 `projects_seen`。
 - `inspect` 返回 case、active/archive 和 pending 计数以及索引路径。
+
+每次有效 `record-success` 只增加一次 `verify_count`，新 case 首次成功为 1；本次验证采用的非空 `resolution` 更新为当前方案。历史计数保留，不凭猜测批量减一。
+
+签名保留参数大小写、正式路径和故障类型；只归一明确的临时目录随机段，保留其下文件名。Python traceback 取最终异常摘要，不把共同的 Traceback 标题当故障区别。旧 v1 记录按原命令/错误定位并复核留存摘要，不因旧签名曾折叠大小写或忽略异常类型就复用不同故障的方案；不迁移或覆盖真实库来伪造兼容通过。
 
 ## Scope 选择
 

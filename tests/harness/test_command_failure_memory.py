@@ -33,7 +33,9 @@ BACKEND = load_backend()
 
 class CommandFailureMemoryContractTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.tempdir = tempfile.TemporaryDirectory()
+        temporary_root = REPO_ROOT / ".tmp"
+        temporary_root.mkdir(exist_ok=True)
+        self.tempdir = tempfile.TemporaryDirectory(prefix="cfm-contract-", dir=temporary_root)
         self.addCleanup(self.tempdir.cleanup)
         self.codex_home = Path(self.tempdir.name) / "codex-home"
         self.memory_root = self.codex_home / "memories" / "command-failure-memory"
@@ -148,6 +150,175 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
             memory_root.as_posix().replace("/mnt/c/", "C:/", 1),
             "C:/Users/Laptop/.codex/memories/command-failure-memory",
         )
+
+    def test_cli_success_counts_each_verified_event_once(self) -> None:
+        values = dict(project="counter-project", command="python3 check.py --mode strict", error="invalid schema")
+        observed_counts = []
+        case_ids = []
+        for ordinal in (1, 2):
+            failed, failure = self.invoke("record-failure", **values)
+            self.assertEqual(failed.returncode, 0, failed.stderr)
+            self.assertTrue(failure["query_should_happen_before_retry"])
+            queried, query = self.invoke("query-before-retry", **values)
+            self.assertEqual(queried.returncode, 0, queried.stderr)
+            self.assertTrue(query["query_permitted"])
+            succeeded, success = self.invoke("record-success", **values, resolution="Repair schema and verify it", scope_kind="project")
+            self.assertEqual(succeeded.returncode, 0, succeeded.stderr)
+            self.assertEqual(success["created_new_case"], ordinal == 1)
+            case_ids.append(success["case_id"])
+            body = json.loads((self.memory_root / "cases" / f"{success['case_id']}.json").read_text())
+            self.assertEqual(success["stats"], body["stats"])
+            observed_counts.append(body["stats"]["verify_count"])
+            inspected, snapshot = self.invoke("inspect")
+            self.assertEqual(inspected.returncode, 0, inspected.stderr)
+            self.assertEqual(snapshot["pending_failure_count"], 0)
+        self.assertEqual(case_ids[0], case_ids[1])
+        self.assertEqual(observed_counts, [1, 2])
+
+    def test_cli_new_verified_resolution_replaces_adopted_solution(self) -> None:
+        values = dict(project="solution-project", command="python3 build.py", error="dependency missing")
+        case_ids = []
+        for resolution in ("Install dependency in system interpreter", "Install declared dependency in project interpreter"):
+            for action in ("record-failure", "query-before-retry"):
+                result, _ = self.invoke(action, **values)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            result, payload = self.invoke("record-success", **values, resolution=resolution, scope_kind="project")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            case_ids.append(payload["case_id"])
+        self.assertEqual(case_ids[0], case_ids[1])
+        result, _ = self.invoke("record-failure", **values)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result, payload = self.invoke("query-before-retry", **values)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(payload["suggestions"]), 1)
+        self.assertEqual(payload["suggestions"][0]["solution"], resolution)
+        body = json.loads((self.memory_root / "cases" / f"{case_ids[0]}.json").read_text())
+        self.assertEqual(body["solution"], resolution)
+
+    def test_cli_temporary_directory_noise_has_one_failure_signature(self) -> None:
+        signatures = []
+        for directory in ("/tmp/tmpa1b2c3d4", "/tmp/tmpw9x8y7z6"):
+            result, payload = self.invoke("record-failure", project="noise-project",
+                command=f"python3 {directory}/check.py --mode strict",
+                error=f"FileNotFoundError: {directory}/schema.json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            signatures.append(payload["signature"])
+        self.assertEqual(signatures[0], signatures[1])
+
+    def test_cli_semantic_parameters_paths_and_faults_remain_distinct(self) -> None:
+        pairs = (
+            (("tool --mode strict", "bad input"), ("tool --mode relaxed", "bad input")),
+            (("tool --schema /srv/app/a.json", "bad input"), ("tool --schema /srv/app/b.json", "bad input")),
+            (("tool --name Customer", "bad input"), ("tool --name customer", "bad input")),
+            (("tool", "Traceback (most recent call last):\nValueError: bad field"),
+             ("tool", "Traceback (most recent call last):\nPermissionError: access denied")),
+            (("tool /tmp/tmpa1b2c3d4/a.json", "bad input"), ("tool /tmp/tmpw9x8y7z6/b.json", "bad input")),
+        )
+        for left, right in pairs:
+            with self.subTest(left=left, right=right):
+                signatures = []
+                for command, error in (left, right):
+                    result, payload = self.invoke("record-failure", project="semantic-project", command=command, error=error)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    signatures.append(payload["signature"])
+                self.assertNotEqual(signatures[0], signatures[1])
+
+    def test_cli_unrelated_write_preserves_unique_legacy_records_and_scopes(self) -> None:
+        legacy_cases = [self.seed_v1_case(index) for index in range(4)]
+        before = {}
+        for case, scope in zip(legacy_cases, ("global", "project", "candidate_global", "candidate_project")):
+            case["scope_kind"] = scope
+            case["solution"] = f"unique solution for {scope}"
+            path = self.memory_root / "cases" / f"{case['case_id']}.json"
+            path.write_text(json.dumps(case), encoding="utf-8")
+            before[path] = path.read_bytes()
+        self.seed_v1_index(legacy_cases)
+        values = dict(project="new-project", command="new independent command", error="new independent failure")
+        for action in ("record-failure", "query-before-retry"):
+            result, _ = self.invoke(action, **values)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        result, _ = self.invoke("record-success", **values, resolution="new repair", scope_kind="project")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result, payload = self.invoke("inspect")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(payload["case_count"], 5)
+        for path, original in before.items():
+            self.assertEqual(path.read_bytes(), original)
+        indexed = {case["case_id"]: case for case in payload["cases"]}
+        for case in legacy_cases:
+            self.assertEqual(indexed[case["case_id"]]["scope_kind"], case["scope_kind"])
+
+    def test_cli_fixed_legacy_signature_remains_queryable_after_normalization_changes(self) -> None:
+        # Frozen pre-convergence v1 signature: lowercased command + first error line.
+        # Never derive this historical fixture with the current backend signature code.
+        command = "python3 /tmp/tmpa1b2c3d4/check.py --name Customer"
+        error = "Traceback (most recent call last):\nValueError: invalid customer"
+        legacy = self.seed_v1_case(77,
+            signature="d3090ab9012441b5ac0bded1440e22b8a40576d265c00ef121bf318c5e551ac4",
+            command_signature="python3 /tmp/tmpa1b2c3d4/check.py --name customer",
+            error_signature="traceback (most recent call last):")
+        legacy["command_excerpt"] = command
+        legacy["error_excerpt"] = error
+        legacy["solution"] = "Repair the customer field using the legacy validated schema"
+        path = self.memory_root / "cases" / f"{legacy['case_id']}.json"
+        path.write_text(json.dumps(legacy), encoding="utf-8")
+        self.seed_v1_index([legacy])
+        values = dict(project="legacy-project", command=command, error=error)
+        failed, _ = self.invoke("record-failure", **values)
+        self.assertEqual(failed.returncode, 0, failed.stderr)
+        queried, payload = self.invoke("query-before-retry", **values)
+        self.assertEqual(queried.returncode, 0, queried.stderr)
+        self.assertEqual([legacy["case_id"]], [row["case_id"] for row in payload["suggestions"]])
+        self.assertEqual(legacy["solution"], payload["suggestions"][0]["solution"])
+        stored = json.loads(path.read_text())
+        for field in ("solution", "scope_kind", "created_at", "command_excerpt", "error_excerpt"):
+            self.assertEqual(legacy[field], stored[field])
+
+    def assert_legacy_collision_does_not_adopt_or_overwrite(self, *, signature, old_command,
+                                                         old_error, command, error):
+        legacy = self.seed_v1_case(88, signature=signature,
+            command_signature=old_command.lower(), error_signature=old_error.split("\n", 1)[0].lower())
+        legacy.update(command_excerpt=old_command, error_excerpt=old_error,
+                      solution="Distinct legacy validated repair")
+        path = self.memory_root / "cases" / f"{legacy['case_id']}.json"
+        path.write_text(json.dumps(legacy), encoding="utf-8")
+        self.seed_v1_index([legacy])
+        values = dict(project="collision-project", command=command, error=error)
+        failed, _ = self.invoke("record-failure", **values)
+        self.assertEqual(0, failed.returncode, failed.stderr)
+        queried, payload = self.invoke("query-before-retry", **values)
+        self.assertEqual(0, queried.returncode, queried.stderr)
+        with self.subTest(boundary="query-must-not-adopt-different-legacy-evidence"):
+            self.assertNotIn(legacy["case_id"], [row["case_id"] for row in payload["suggestions"]])
+        succeeded, result = self.invoke("record-success", **values,
+            resolution="Verified repair for the distinct new request", scope_kind="project")
+        self.assertEqual(0, succeeded.returncode, succeeded.stderr)
+        with self.subTest(boundary="success-must-create-distinct-case"):
+            self.assertTrue(result["created_new_case"], result)
+            self.assertNotEqual(legacy["case_id"], result["case_id"])
+        stored = json.loads(path.read_text())
+        with self.subTest(boundary="success-must-preserve-legacy-solution-and-verifications"):
+            for field in ("solution", "command_excerpt", "error_excerpt", "scope_kind", "last_verified_at"):
+                self.assertEqual(legacy[field], stored[field], field)
+            self.assertEqual(legacy["stats"]["verify_count"], stored["stats"]["verify_count"])
+
+    def test_cli_legacy_lowercase_hash_collision_cannot_adopt_or_overwrite_customer_case(self) -> None:
+        self.assert_legacy_collision_does_not_adopt_or_overwrite(
+            signature="653d9074d83cf3fc46777565c0f04e7f81890ba673b933905bc08067d1f81b0e",
+            old_command="tool --name Customer", old_error="bad input",
+            command="tool --name customer", error="bad input")
+
+    def test_cli_legacy_traceback_hash_cannot_adopt_or_overwrite_different_exception(self) -> None:
+        self.assert_legacy_collision_does_not_adopt_or_overwrite(
+            signature="b4122632370cea687fd17aa44eb835542fc47b7530e430a0e928fd7c3bbc1ed5",
+            old_command="tool", old_error="Traceback (most recent call last):\nValueError: bad field",
+            command="tool", error="Traceback (most recent call last):\nPermissionError: access denied")
+
+    def test_cli_legacy_traceback_header_hash_cannot_adopt_or_overwrite_full_exception(self) -> None:
+        self.assert_legacy_collision_does_not_adopt_or_overwrite(
+            signature="b4122632370cea687fd17aa44eb835542fc47b7530e430a0e928fd7c3bbc1ed5",
+            old_command="tool", old_error="Traceback (most recent call last):\nValueError: bad field",
+            command="tool", error="traceback (most recent call last):")
 
     def test_legacy_v1_case_remains_queryable_in_place(self) -> None:
         # Break caught: an in-place format upgrade moves or stops reading the existing case files.

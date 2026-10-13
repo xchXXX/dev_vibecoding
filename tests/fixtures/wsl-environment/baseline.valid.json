@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "developer",
+      "packages": [
+        {
+          "name": "jq",
+          "source": "apt",
+          "command": "jq",
+          "version": "1.6"
+        },
+        {
+          "name": "fixture-wsl-tool",
+          "source": "apt",
+          "command": "fixture-wsl-tool"
+        }
+      ]
+    }
+  ]
+}

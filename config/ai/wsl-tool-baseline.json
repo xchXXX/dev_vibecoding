@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "developer",
+      "packages": [
+        {"name": "git", "source": "apt", "command": "git"},
+        {"name": "ripgrep", "source": "apt", "command": "rg"},
+        {"name": "curl", "source": "apt", "command": "curl"},
+        {"name": "wget", "source": "apt", "command": "wget"},
+        {"name": "rsync", "source": "apt", "command": "rsync"},
+        {"name": "file", "source": "apt", "command": "file"},
+        {"name": "lsof", "source": "apt", "command": "lsof"},
+        {"name": "python3", "source": "apt", "command": "python3"},
+        {"name": "python3-venv", "source": "apt", "command": "python3", "probe": ["python3", "-m", "venv", "--help"]},
+        {"name": "bubblewrap", "source": "apt", "command": "bwrap", "probe": ["bwrap", "--version"], "doctor_commands": ["bwrap"]},
+        {"name": "nodejs", "source": "apt", "command": "node", "doctor_commands": ["node"]},
+        {"name": "npm", "source": "apt", "command": "npm", "doctor_commands": ["npm"]},
+        {"name": "jq", "source": "apt", "command": "jq", "doctor_commands": ["jq"]},
+        {"name": "unzip", "source": "apt", "command": "unzip", "doctor_commands": ["unzip"]},
+        {"name": "zip", "source": "apt", "command": "zip", "doctor_commands": ["zip"]},
+        {"name": "tree", "source": "apt", "command": "tree", "doctor_commands": ["tree"]},
+        {"name": "strace", "source": "apt", "command": "strace", "doctor_commands": ["strace"]},
+        {"name": "shellcheck", "source": "apt", "command": "shellcheck", "doctor_commands": ["shellcheck"]},
+        {"name": "shfmt", "source": "apt", "command": "shfmt", "doctor_commands": ["shfmt"]},
+        {"name": "fzf", "source": "apt", "command": "fzf", "doctor_commands": ["fzf"]},
+        {"name": "fd-find", "source": "apt", "command": "fdfind", "doctor_commands": ["fdfind"]},
+        {"name": "sqlite3", "source": "apt", "command": "sqlite3", "doctor_commands": ["sqlite3"]},
+        {"name": "dos2unix", "source": "apt", "command": "dos2unix", "doctor_commands": ["dos2unix"]},
+        {"name": "build-essential", "source": "apt", "command": "make", "probe": ["make", "--version"], "doctor_commands": ["gcc", "g++", "make"]},
+        {"name": "pkg-config", "source": "apt", "command": "pkg-config", "doctor_commands": ["pkg-config"]},
+        {"name": "cmake", "source": "apt", "command": "cmake", "doctor_commands": ["cmake"]},
+        {"name": "ninja-build", "source": "apt", "command": "ninja", "doctor_commands": ["ninja"]},
+        {"name": "python3-pip", "source": "apt", "command": "pip3", "doctor_commands": ["pip3"]},
+        {"name": "node-pnpm", "source": "external", "command": "pnpm", "probe": ["pnpm", "--version"], "doctor_commands": ["pnpm"]}
+      ]
+    }
+  ]
+}

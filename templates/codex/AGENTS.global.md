@@ -13,12 +13,28 @@
 
 ## 变更流程
 
-- 任何会落盘的改动，先给出具体方案；只有用户明确同意后，才进入相应方案与施工文档的落盘流程。
+- 涉及代码交付、Git 分支或发布管理时，读取 `<harness-root>/rules/items/workflow/分支与发布管理.md` 与项目 `config/ai/git-policy.json`（若存在），按当前操作执行关键节点检查；既有任务继续原分支，保留其他任务的工作，不把提交、推送、合并和部署混为同一状态。
+
+- 问答、只读检查以及用户明确要求的普通 Git 提交、推送等日常操作直接执行；Git 操作先核实分支和提交范围，不额外要求方案确认。强制推送、覆盖历史或删除资源须核实影响与授权，不按普通推送处理。
+- 代码改造、配置调整、服务器部署等工作，先说明与规模相称的简短方案：改动范围、实施步骤和验证方式；用户确认后执行，已有明确方案与授权不重复确认。普通工作不强制生成施工文档、流程图、任务表或控制工件。
 - 在拿到足够上下文后，优先直接推进，不要长时间停留在宽泛分析阶段。
 - 用户明确要求 quiet long-run 时，压缩常规进度播报，保留内部进度跟踪，只在真实阻塞、高风险决策或最终完成时打断。
-- 长复杂任务批准前先锁定六要点：要做什么、不做什么、改哪些地方、怎么实现落地、怎么验收、有什么风险；并保留 `state.json / task.md / events.jsonl / plan.md / execution.md / acceptance.md` 六份工件。
+- 普通任务的流程由当前主代理按本入口和用户授权组织；显式 GTO 任务的阶段、分工和门禁只由同一冻结 GTO 合同定义。方法 skill 只提供诊断、测试、评审反馈与验证方法，不能新增重复审批、另建控制面、擅自派发代理或改动工作区。
+- 独立并行任务使用各自工作区和状态，先检查已有工作与资源归属；worktree 不隔离端口、数据库或全局安装。共享安装单发布者，任务使用固定运行版本；不自动合并别的任务，不清理仍被引用的证据。
+- GTO 仅在用户显式要求使用时启动；任务复杂时可以建议，不因工作量、风险、服务器操作或需要方案而自行启动。用户已批准采用 GTO 的在途任务继续沿用原任务流程，不重建控制面或擅自取消门禁。
+- 仅对已选择 GTO 的任务，Plan 编制与交接见 `<harness-root>/skills/global-task-orchestrator/references/plan-guide.md`；阶段、六工件和分工规范见 `<harness-root>/skills/global-task-orchestrator/references/workflow.md`；普通任务由当前代理按授权完成，不默认组织多代理审查。
+- 验证按目标行为选择能提供可信证据的最低成本方式；仅在 GTO 任务中，分层黑盒测试、场景卡、报告与验收流程要求遵循 `<harness-root>/skills/global-task-orchestrator/references/blackbox-methodology.md`。普通任务不因验证而创建 GTO 控制面。
+- 仅在 GTO 任务中，用户批准后至六工件成功创建、校验并通过首次交付 preflight 之间，只允许在消费项目自身 `.tmp/` 写入一次性合同 JSON。此期间禁止业务代码、正式测试、正式文档、`.gitignore`、manifest/lockfile/requirements、环境配置、脚手架、构建和部署资源等交付写入；控制器不能拦截平台文件工具，主协调器须在首次派发交付任务或首次交付写入前执行 preflight。
 
 ## 实现约束
+
+### 唯一真源
+
+- 每项规则、流程、字段定义和任务事实只指定一个可编辑真源；其他入口引用真源，不另写一份需要独立维护的同义内容。
+- 索引、安装副本和展示文档可以由真源生成，但必须明确来源并通过对应脚本刷新，不手工维护第二套定义。
+- 迭代时先修改真源，再更新引用和生成物；历史记录保留当时事实，不作为现行规则入口。
+
+### 实现方式
 
 - 可用少量、直接、低复杂度代码完成时，优先选择更短、更易审阅和维护的实现。
 - 保持逻辑干净、简洁、边界清晰；没有真实兼容负担或明确要求时，不主动增加兼容分支、过渡层、双轨逻辑或历史包袱。
@@ -33,7 +49,7 @@
 - 固定规则正文仅有三条：`global.policy.变更约束`、`global.workflow.用户提问先回答再继续`、`global.style.说明默认使用中文`。
 - 其余规则由 Codex 结合对话语义、目标内容、风险、当前阶段和本轮实际操作自由决定是否读取；索引提示和 `linked_skill` 不组成固定规则套餐，也不自动触发 skill。
 - 项目没有规则索引时，使用 `{{HARNESS_ROOT}}/rules/registry/RULES_INDEX.json` 作为全局元数据索引。
-- `{{HARNESS_ROOT}}` 必须解析为当前 WSL 进程可直接访问的同一仓库根；不搬库、不复制规则真源。
+- `{{HARNESS_ROOT}}` 指向同一仓库；按下文 Windows/WSL 路径约定读取，不搬库、不复制规则真源。
 - 其他项目消费 harness 规则时，只导出 `scope != project` 的条目，不把项目私有规则外溢。
 - Python 只离线生成、校验索引；正常交互链不运行 matcher、不生成 `task_profile`、不拼装按任务类型固定规则套餐。
 
@@ -43,22 +59,14 @@
 - 优先使用仓库已有脚本和最小相关验证；生成物只由对应生成脚本刷新。
 - 不读取或输出认证信息、token、密钥；涉及系统配置、外部写入或破坏性操作时先确认边界。
 
-## WSL 工具与控制面
+## Windows Agent 与 WSL 开发环境
 
-- Codex 正常链固定运行在通用 WSL 开发发行版中，使用 Linux 原生文件工具、Git、Python、Node、测试和构建；不使用 Docker 专用发行版承担开发任务。
-- 规则离线生成/校验、文档校验、GTO、bootstrap、sync、doctor、CFM 和测试统一使用 WSL `python3` 与 Linux 原生命令；正式入口和验收链不调用 `.ps1`、`.cmd` 或 hook。
-- 运行前确认 WSL 工作目录和依赖，不因普通非零退出码切换平台重跑；不增加通用 wrapper、逐命令 preflight、守护进程或自动重试。
-- 不擅自搬仓库、复制运行时或重装项目依赖。
-- 新进程的实际 `CODEX_HOME` 与规则加载位置必须核对，不能猜测或整目录复制 `.codex`。
-- 已启动的长会话不会热更新受管 `AGENTS.md`、skills 或 schema；遇到平台边界冲突时，先核对磁盘上的 `AGENTS.md` 与 `.ai-harness/codex-sync.receipt.json`，再新建任务或重启 Codex。
-- Command Failure Memory 简单和复杂参数都直接交给 WSL Python，并继续使用 `/mnt/c/Users/Laptop/.codex/memories/command-failure-memory`；只在原目录内升级格式、锁和 active/archive，不迁移或另建数据。
-- WSL 工具基线包含 `git`、`rg`、`curl`、`wget`、`rsync`、`file`、`lsof`、`python3`、`python3-venv`、Linux `node`/`npm`，以及 `jq`、`unzip`、`zip`、`tree`、`strace`、`shellcheck`、`shfmt`、`fzf`、`fd`、`sqlite3`、`dos2unix`、`build-essential`、`pkg-config`、`cmake`、`ninja`、`python3-pip`、Linux 原生 `pnpm`。
-- 将多个候选路径传给 `rg`、测试或构建前，可选路径先确认存在，不让一个缺失目录使整条命令失败。
-- `ghost snapshot` / `NUL` 索引失败先按平台噪音候选核对；以目标命令退出状态和产物完整性判断任务是否失败。
-- 执行前已明确声明、只运行最小目标测试且实际失败类型与预期一致的 TDD 预期红不触发命令失败闭环；意外的命令、环境或基础设施错误仍照常记录。
-- 命令失败后先记录失败；重试前查询历史；验证成功后立即回写可复用解法。
-- WSL 失败通过当前 WSL Python CFM 记录到上述同一物理库；后端不可达时报告阻塞，不另建记忆库。
-- 最终结论以实际命令输出、测试结果与产物证据为准。
+- Windows 原生 Agent 负责文件工具、Browser、截图和 Windows 插件；项目 Git、Python、Node、测试、构建、CFM 和 Linux 服务命令继续在 WSL 原位执行。WSL Agent 中直接用 Linux 命令；Windows Agent 中先核实发行版，再通过 `wsl.exe -d <发行版> --cd <Linux项目路径> -- bash -lc '<项目命令>'` 调用；Windows 集成终端设置不等于 Agent 环境。
+- `{{HARNESS_ROOT}}` 是同一仓库的 WSL 路径；Windows 文件工具只使用其已核实的等价盘符路径（例如 `/mnt/d/prj` 对应 `D:/prj`）。Linux-only 路径不得猜映射，不搬库、不复制规则源。命令参数避免多层引号，目标退出码如实保留。
+- 机器 Linux 工具仍由 `config/ai/wsl-tool-baseline.json` 声明；项目使用自己的 manifest、lockfile、Linux venv/node_modules，不换成 Windows 依赖。项目首次运行/测试/构建前，在 WSL 中执行已安装 `project-env-doctor.py --project-root <Linux项目路径> --environment <项目路径>/config/ai/environment.json --json`。安装脚本和 CFM 使用实际 Windows CODEX_HOME 的已核实 WSL 等价路径；不假设 WSL 的 `$HOME/.codex` 与 Windows 相同。
+- Windows Browser、Computer Use 使用当前宿主实际暴露的官方能力，不调用 `computer_use_wsl`/`browser_use_wsl`，不修改 app-managed `node_repl`/`cua_repl` 的 command、args、env 或插件缓存。Desktop 重建的字段不能被当作配置漂移反复改回。工具未加载则报告，不靠强制 enabled、临时桥或切换平台掩盖失败。
+- 若 `CODEX_HOME/.ai-harness/windows-native-transition.hold` 存在，表示环境迁移维护中：暂停 bootstrap/sync 及旧 machine doctor 的修复链，读取标志指向的任务记录接续；旧声明与 receipt 待迁移收口，不能声称全局 doctor 通过。正常插件请求和 WSL 项目命令可继续，仍执行项目环境检查。无维护标志时按当前发布版 machine doctor 合同检查一次。
+- 路径先查实存在；允许无匹配的探索型 `rg` 用 `rg ... || test $? -eq 1` 单独执行。真实命令失败继续在 WSL 按 CFM record-failure → query-before-retry → record-success 闭环；预先声明、最小且类型相符的 TDD Red 例外。受管指令和插件配置须新进程加载，磁盘配置不等于实际能力验收。
 
 ## 工具
 

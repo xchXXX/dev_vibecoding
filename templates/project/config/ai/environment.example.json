@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "project_id": "replace-with-project-id",
+  "python": {
+    "pyproject_file": "pyproject.toml",
+    "venv": ".venv",
+    "extras": ["test"]
+  },
+  "node": {
+    "package_json": "package.json",
+    "node_modules": "node_modules"
+  },
+  "capabilities": [
+    {"id": "playwright", "required": false},
+    {"id": "docker", "required": false}
+  ]
+}

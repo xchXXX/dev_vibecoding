@@ -7,10 +7,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import os
 from pathlib import Path
 from typing import Any
 
-from runtime_common import MANAGED_SKILLS, emit, resolve_codex_home, resolve_repo_root, sha256_file
+from runtime_common import MANAGED_SKILLS, MANAGED_WSL_RUNTIME_FILES, command_available, emit, inspect_windows_external_capabilities, load_wsl_baseline, resolve_codex_home, resolve_repo_root, select_wsl_profile, sha256_file
 
 
 MANAGED_MARKER = "<!-- ai-harness:managed-global-agents:v1 -->"
@@ -18,12 +19,6 @@ HOOK_CONFIG_PATTERN = re.compile(
     r"(?im)(?:^\s*\[[^\]\n]*hook[^\]\n]*\]\s*$|"
     r"^\s*[a-z0-9_.-]*hook[a-z0-9_.-]*\s*=|\bhooks?/)"
 )
-WSL_REQUIRED_COMMANDS = (
-    "jq", "unzip", "zip", "tree", "strace", "shellcheck", "shfmt", "fzf",
-    "sqlite3", "dos2unix", "gcc", "g++", "make", "pkg-config", "cmake", "ninja",
-    "pip3", "pnpm",
-)
-WSL_NODE_TOOLCHAIN_COMMANDS = ("node", "npm", "pnpm", "corepack")
 STRICT_CONTRACT_TESTS = (
     "tests.harness.test_pure_codex_cleanup.PureCodexRepositoryCleanupTests.test_active_truth_has_no_affirmative_retired_contracts",
     "tests.harness.test_pure_codex_cleanup.PureCodexRepositoryCleanupTests.test_active_truth_scan_does_not_exempt_mixed_affirmative_contracts",
@@ -35,48 +30,100 @@ STRICT_CONTRACT_TESTS = (
     "tests.harness.test_command_failure_memory.CommandFailureMemoryContractTests.test_parser_rejects_single_dash_pascal_case_aliases",
     "tests.harness.test_wsl_runtime.PreDevBenchmarkEntrypointTests.test_skill_example_runs_real_repo_root_python3_entrypoint",
 )
-MANAGED_SCHEMA_FILES = ("orchestrator-task-state.schema.json",)
 
 
 def _command_path(command: str) -> str:
     located = shutil.which(command)
-    if not located:
-        return ""
-    try:
-        return str(Path(located).resolve())
-    except OSError:
-        return located
+    return located or ""
 
 
 def _is_windows_backed(path: str) -> bool:
     normalized = path.replace("\\", "/").lower()
-    return normalized.startswith("/mnt/c/") or "/program files/" in normalized
+    return bool(re.match(r"^/mnt/[a-z](?:/|$)", normalized) or re.match(r"^[a-z]:/", normalized) or "/program files/" in normalized)
 
 
-def _wsl_tool_audit() -> dict[str, Any]:
-    paths = {command: _command_path(command) for command in WSL_REQUIRED_COMMANDS}
-    fd_path = _command_path("fd")
-    fdfind_path = _command_path("fdfind")
-    fd_command, selected_fd_path = ("fd", fd_path) if fd_path else ("fdfind", fdfind_path)
-    paths.update({command: _command_path(command) for command in WSL_NODE_TOOLCHAIN_COMMANDS})
-    paths["fdfind"] = selected_fd_path
+def _is_linux_native_command_path(path: str) -> bool:
+    if not path:
+        return False
+    if not _is_windows_backed(path):
+        return True
+    normalized = path.replace("\\", "/").lower()
+    if not re.search(r"(?:^|/)\.codex/bin/wsl/[0-9a-f]+/[^/]+$", normalized):
+        return False
+    try:
+        with Path(path).open("rb") as handle:
+            return handle.read(4) == b"\x7fELF"
+    except OSError:
+        return False
 
-    ordered_ids = (*WSL_REQUIRED_COMMANDS, "fdfind", *WSL_NODE_TOOLCHAIN_COMMANDS)
+
+def _is_windows_environment_value(value: str) -> bool:
+    normalized = value.replace("\\", "/").lower()
+    return normalized.startswith("/mnt/") or (len(normalized) >= 3 and normalized[1:3] == ":/")
+
+
+def _machine_environment_findings(tool_audit: dict[str, Any]) -> list[dict[str, str]]:
+    findings: list[dict[str, str]] = []
+    for tool in tool_audit["tools"]:
+        if tool["available"] and not tool["linux_native"]:
+            findings.append({"category": "windows_command_path", "command": tool["id"], "path": tool["path"]})
+    for variable in ("TEMP", "TMP", "TMPDIR"):
+        value = os.environ.get(variable, "")
+        if value and _is_windows_environment_value(value):
+            findings.append({"category": "windows_temp", "variable": variable, "value": value})
+    return findings
+
+
+def _wsl_tool_audit(baseline_path: Path, profile_id: str = "developer") -> dict[str, Any]:
+    baseline, validation_errors = load_wsl_baseline(baseline_path)
+    profile = select_wsl_profile(baseline, profile_id) if baseline else None
+    if validation_errors or profile is None:
+        return {"ok": False, "tools": [], "missing_tools": [], "windows_path_tools": [], "fd_compatibility": {"available": False, "command": "", "path": "", "ubuntu_package": "fd-find", "note": ""}, "errors": validation_errors or ["baseline_profile_missing"]}
+    package_audit: list[dict[str, Any]] = []
+    audit_commands: list[str] = []
+    unhealthy_commands: set[str] = set()
+    for package in profile["packages"]:
+        command = package["command"]
+        path = _command_path(command)
+        available = bool(path) and command_available(package)
+        audit_commands.append(command)
+        audit_commands.extend(package.get("doctor_commands", []))
+        if not available:
+            unhealthy_commands.add(command)
+        entry = {
+            "id": package["name"],
+            "command": command,
+            "available": available,
+            "path": path,
+            "linux_native": _is_linux_native_command_path(path),
+        }
+        package_audit.append(entry)
+    ordered_ids: list[str] = []
+    for package in profile["packages"]:
+        ordered_ids.extend(package.get("doctor_commands", []))
+    if not ordered_ids:
+        ordered_ids = [package["command"] for package in profile["packages"]]
+    ordered_ids = list(dict.fromkeys(ordered_ids))
+    audit_commands = list(dict.fromkeys(audit_commands))
+    paths = {command: _command_path(command) for command in ordered_ids}
+    selected_fd_path = paths.get("fd") or paths.get("fdfind", "")
+    fd_command = "fd" if paths.get("fd") else "fdfind"
     tools = []
-    for command in dict.fromkeys(ordered_ids):
+    for command in ordered_ids:
         path = paths[command]
         tools.append({
             "id": command,
             "available": bool(path),
             "path": path,
-            "linux_native": bool(path) and not _is_windows_backed(path),
+            "linux_native": _is_linux_native_command_path(path),
         })
 
-    missing_tools = [item["id"] for item in tools if not item["available"]]
-    windows_path_tools = [item["id"] for item in tools if item["available"] and not item["linux_native"]]
+    missing_tools = sorted({*unhealthy_commands, *(command for command in audit_commands if not _command_path(command))})
+    windows_path_tools = sorted({command for command in audit_commands if (path := _command_path(command)) and not _is_linux_native_command_path(path)})
     return {
         "ok": not missing_tools and not windows_path_tools,
         "tools": tools,
+        "package_audit": package_audit,
         "missing_tools": missing_tools,
         "windows_path_tools": windows_path_tools,
         "fd_compatibility": {
@@ -111,45 +158,17 @@ def _read_json_object(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     return payload, None
 
 
-def _runtime_validation_contract() -> dict[str, Any]:
-    return {
-        "six_points": {
-            "do": "Validate the installed GTO runtime.",
-            "do_not": ["Do not write project files."],
-            "change_areas": ["schemas/orchestrator-task-state.schema.json"],
-            "implementation": "Run the installed controller validate action.",
-            "acceptance": ["Installed validation succeeds."],
-            "risks": ["The runtime schema can drift."],
-        },
-        "objective": "Validate the installed GTO runtime.",
-        "scope_in": ["schemas/orchestrator-task-state.schema.json"],
-        "scope_out": ["Do not write project files."],
-        "acceptance": ["Installed validation succeeds."],
-        "stop_conditions": ["The runtime schema can drift."],
-        "decisions": ["Run the installed controller validate action."],
-        "approval": {"status": "approved", "approved_by": "doctor"},
-        "subtasks": [
-            {
-                "subtask_id": "DOCTOR-001",
-                "title": "Validate installed controller",
-                "role": "test-verifier",
-                "status": "ready",
-                "dependencies": [],
-                "read_paths": ["schemas/orchestrator-task-state.schema.json"],
-                "write_paths": [],
-                "assignment": {
-                    "goal": "Validate the installed controller.",
-                    "must_include": ["Use read-only validate."],
-                    "verification": ["Run validate."],
-                },
-            }
-        ],
-    }
+def _runtime_validation_contract(skill_root: Path) -> dict[str, Any]:
+    """Exercise the current packaged contract without maintaining a second schema fixture."""
+    return json.loads((skill_root / "references/revision-3-contract.example.json").read_text(encoding="utf-8"))
 
 
-def _installed_gto_validation(repo_root: Path, codex_home: Path) -> dict[str, Any]:
+def _installed_gto_validation(repo_root: Path, codex_home: Path, *, compare_source: bool = True) -> dict[str, Any]:
     controller = codex_home / "skills" / "global-task-orchestrator" / "scripts" / "orchestrator_ctl.py"
-    source_controller = repo_root / "skills" / "global-task-orchestrator" / "scripts" / "orchestrator_ctl.py"
+    source_controller = (
+        repo_root / "skills" / "global-task-orchestrator" / "scripts" / "orchestrator_ctl.py"
+        if compare_source else controller
+    )
     payload: dict[str, Any] = {
         "controller_path": str(controller),
         "action": "validate",
@@ -167,8 +186,9 @@ def _installed_gto_validation(repo_root: Path, codex_home: Path) -> dict[str, An
     with tempfile.TemporaryDirectory(prefix="ai-harness-gto-doctor-", dir="/tmp") as raw:
         fixture_root = Path(raw)
         task_id = "DOCTOR-001"
-        contract_path = fixture_root / "contract.json"
-        contract_path.write_text(json.dumps(_runtime_validation_contract()), encoding="utf-8")
+        contract_path = fixture_root / ".tmp" / "contract.json"
+        contract_path.parent.mkdir(parents=True, exist_ok=True)
+        contract_path.write_text(json.dumps(_runtime_validation_contract(source_controller.parents[1])), encoding="utf-8")
         initialized = subprocess.run(
             [
                 sys.executable, str(source_controller), "--action", "init-task",
@@ -208,12 +228,15 @@ def _installed_gto_validation(repo_root: Path, codex_home: Path) -> dict[str, An
 def _contract_gate(repo_root: Path) -> dict[str, Any]:
     command = [sys.executable, "-m", "unittest", "-q", *STRICT_CONTRACT_TESTS]
     try:
+        environment = dict(os.environ)
+        environment["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         completed = subprocess.run(
             command,
             cwd=repo_root,
             text=True,
             capture_output=True,
             check=False,
+            env=environment,
         )
     except OSError as error:
         return {
@@ -290,7 +313,121 @@ def _hook_audit(repo_root: Path, codex_home: Path) -> dict[str, Any]:
     return {"hooks_path": str(hooks_path), "issues": issues, "ok": not issues}
 
 
-def audit(repo_root: Path, codex_home: Path) -> dict[str, Any]:
+def _wsl_runtime_audit(repo_root: Path, codex_home: Path, receipt: dict[str, Any] | None) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    runtime_root = codex_home / ".ai-harness" / "runtime" / "wsl-environment"
+    expected_receipt = {str(runtime_root / target): source for target, source in MANAGED_WSL_RUNTIME_FILES}
+    raw_entries = (receipt or {}).get("managed_runtime_files", [])
+    if not isinstance(raw_entries, list) or any(not isinstance(item, dict) for item in raw_entries):
+        issues.append({"type": "managed_runtime_receipt_mismatch", "path": str(runtime_root)})
+        raw_entries = []
+    receipt_entries = {
+        item.get("target_path"): item
+        for item in raw_entries
+        if isinstance(item, dict) and isinstance(item.get("target_path"), str)
+    }
+    if len(receipt_entries) != len(raw_entries) or not set(expected_receipt).issubset(receipt_entries):
+        issues.append({"type": "managed_runtime_receipt_mismatch", "path": str(runtime_root)})
+    for target_relative, source_relative in MANAGED_WSL_RUNTIME_FILES:
+        source = repo_root / source_relative
+        target = runtime_root / target_relative
+        if not source.is_file():
+            issues.append({"type": "managed_runtime_source_missing", "path": str(source)})
+        elif not target.is_file():
+            issues.append({"type": "managed_runtime_missing", "path": str(target)})
+        elif sha256_file(source) != sha256_file(target):
+            issues.append({"type": "managed_runtime_hash_mismatch", "path": str(target)})
+        entry = receipt_entries.get(str(target))
+        if entry is None:
+            issues.append({"type": "managed_runtime_receipt_mismatch", "path": str(target)})
+        else:
+            if entry.get("source_path") != str(source) or entry.get("target_path") != str(target):
+                issues.append({"type": "managed_runtime_receipt_path_mismatch", "path": str(target)})
+            if source.is_file() and target.is_file() and (entry.get("source_sha256") != sha256_file(source) or entry.get("target_sha256") != sha256_file(target)):
+                issues.append({"type": "managed_runtime_receipt_mismatch", "path": str(target)})
+        if any(
+            isinstance(item, dict) and item.get("source_path") == str(source) and item.get("target_path") != str(target)
+            for item in raw_entries
+        ):
+            issues.append({"type": "managed_runtime_receipt_path_mismatch", "path": str(target)})
+    for target_path in receipt_entries:
+        if target_path not in expected_receipt and Path(target_path).is_relative_to(runtime_root):
+            issues.append({"type": "managed_runtime_unexpected", "path": target_path})
+    expected_files = {target for target, _ in MANAGED_WSL_RUNTIME_FILES}
+    if runtime_root.is_dir():
+        for path in runtime_root.rglob("*"):
+            if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc":
+                relative = path.relative_to(runtime_root).as_posix()
+                if relative not in expected_files:
+                    issues.append({"type": "managed_runtime_unexpected", "path": str(path)})
+    return issues
+
+
+def _docker_safe_start_audit(repo_root: Path, codex_home: Path) -> dict[str, Any]:
+    source_relative = Path("modules/wsl-environment/tooling/docker-desktop-safe-start.ps1")
+    installed_relative = Path(".ai-harness/runtime/windows-external/docker-desktop-safe-start.ps1")
+    receipt_path = codex_home / ".ai-harness" / "docker-safe-start.receipt.json"
+    source_path = repo_root / source_relative
+    installed_path = codex_home / installed_relative
+    if not receipt_path.is_file():
+        return {
+            "installed": False,
+            "receipt_path": str(receipt_path),
+            "source_path": str(source_path),
+            "installed_path": str(installed_path),
+            "issues": [],
+            "ok": True,
+        }
+
+    issues: list[dict[str, str]] = []
+    receipt, receipt_error = _read_json_object(receipt_path)
+    if receipt_error:
+        issues.append({"type": "docker_safe_start_receipt_invalid", "path": str(receipt_path), "error": receipt_error})
+        receipt = None
+    if receipt is not None:
+        expected_fields = {
+            "schema_version": 1,
+            "source_relative_path": source_relative.as_posix(),
+            "installed_relative_path": installed_relative.as_posix(),
+            "task_name": "AI Harness Docker Safe Start",
+            "task_registered": False,
+            "startup_entry_name": "AI Harness Docker Safe Start",
+            "startup_entry_registered": True,
+            "startup_entry_mode": "hkcu_run",
+        }
+        for field, expected in expected_fields.items():
+            if receipt.get(field) != expected:
+                issues.append({"type": "docker_safe_start_receipt_mismatch", "path": str(receipt_path), "field": field})
+    if not source_path.is_file():
+        issues.append({"type": "docker_safe_start_source_missing", "path": str(source_path)})
+    if not installed_path.is_file():
+        issues.append({"type": "docker_safe_start_installed_missing", "path": str(installed_path)})
+    if receipt is not None and source_path.is_file() and installed_path.is_file():
+        source_hash = sha256_file(source_path)
+        installed_hash = sha256_file(installed_path)
+        if source_hash != installed_hash:
+            issues.append({"type": "docker_safe_start_hash_mismatch", "path": str(installed_path)})
+        if receipt.get("source_sha256") != source_hash or receipt.get("installed_sha256") != installed_hash:
+            issues.append({"type": "docker_safe_start_receipt_hash_mismatch", "path": str(receipt_path)})
+    return {
+        "installed": True,
+        "receipt_path": str(receipt_path),
+        "source_path": str(source_path),
+        "installed_path": str(installed_path),
+        "issues": issues,
+        "ok": not issues,
+    }
+
+
+def audit(
+    repo_root: Path,
+    codex_home: Path,
+    baseline_path: Path | None = None,
+    managed_skill: str | None = None,
+) -> dict[str, Any]:
+    if managed_skill is not None and managed_skill not in MANAGED_SKILLS:
+        raise ValueError(f"unsupported managed skill audit scope: {managed_skill}")
+    selected_skills = set(MANAGED_SKILLS if managed_skill is None else (managed_skill,))
     source_issues: list[dict[str, str]] = []
     runtime_issues: list[dict[str, str]] = []
     receipt_issues: list[dict[str, str]] = []
@@ -311,40 +448,45 @@ def audit(repo_root: Path, codex_home: Path) -> dict[str, Any]:
         runtime_root = codex_home / "skills" / name
         source_hashes = _files(source_root)
         runtime_hashes = _files(runtime_root)
-        if not source_hashes:
-            source_issues.append({"type": "source_skill_missing", "skill": name, "path": str(source_root)})
-        for relative, digest in source_hashes.items():
+        if name in selected_skills:
+            expected_hashes = source_hashes
+            if not source_hashes:
+                source_issues.append({"type": "source_skill_missing", "skill": name, "path": str(source_root)})
+        else:
+            expected_hashes = {
+                str(item.get("target", ""))[len(name) + 1:]: str(item.get("sha256", ""))
+                for item in (receipt or {}).get("managed_files", [])
+                if isinstance(item, dict) and item.get("skill") == name
+                and str(item.get("target", "")).startswith(name + "/")
+            }
+        for relative, digest in expected_hashes.items():
             if relative not in runtime_hashes:
                 runtime_issues.append({"type": "runtime_file_missing", "skill": name, "target": relative})
             elif runtime_hashes[relative] != digest:
-                runtime_issues.append({"type": "runtime_hash_mismatch", "skill": name, "target": relative})
-        for relative in sorted(set(runtime_hashes) - set(source_hashes)):
+                issue_type = "runtime_hash_mismatch" if name in selected_skills else "runtime_receipt_hash_mismatch"
+                runtime_issues.append({"type": issue_type, "skill": name, "target": relative})
+        for relative in sorted(set(runtime_hashes) - set(expected_hashes)):
             runtime_issues.append({"type": "runtime_unexpected_managed_file", "skill": name, "target": relative})
         skill_issues = [issue for issue in source_issues + runtime_issues if issue.get("skill") == name]
         skills.append({"managed_skill_name": name, "source_file_count": len(source_hashes), "runtime_file_count": len(runtime_hashes), "issues": skill_issues, "ok": not skill_issues})
-    for name in MANAGED_SCHEMA_FILES:
-        source = repo_root / "schemas" / name
-        target = codex_home / "schemas" / name
-        schema_issues: list[dict[str, str]] = []
-        if not source.is_file():
-            issue = {"type": "source_schema_missing", "schema": name, "path": str(source)}
-            source_issues.append(issue)
-            schema_issues.append(issue)
-        elif not target.is_file():
-            issue = {"type": "runtime_schema_missing", "schema": name, "path": str(target)}
-            runtime_issues.append(issue)
-            schema_issues.append(issue)
-        elif sha256_file(source) != sha256_file(target):
-            issue = {"type": "runtime_schema_hash_mismatch", "schema": name, "path": str(target)}
-            runtime_issues.append(issue)
-            schema_issues.append(issue)
-        schemas.append({
-            "managed_schema_name": name,
-            "source_path": str(source),
-            "target_path": str(target),
-            "issues": schema_issues,
-            "ok": not schema_issues,
-        })
+    # GTO has only its package schema; unrelated schema ownership remains auditable.
+    legacy_relative = 'schemas/orchestrator-task-state.schema.json'
+    legacy = codex_home / legacy_relative
+    if legacy.exists() or legacy.is_symlink():
+        runtime_issues.append({"type": "legacy_gto_schema_present", "path": str(legacy)})
+    for row in (receipt or {}).get("managed_schema_files", []):
+        relative = row.get("target", "") if isinstance(row, dict) else ""
+        target = codex_home / relative
+        issues = []
+        if relative == legacy_relative or (isinstance(row, dict) and row.get('source') == legacy_relative):
+            issues.append({"type": "legacy_gto_schema_inventory", "path": relative})
+        elif (not relative.startswith("schemas/") or ".." in Path(relative).parts
+                or target.is_symlink() or not target.resolve().is_relative_to(codex_home.resolve())):
+            issues.append({"type": "receipt_schema_target_invalid", "path": relative})
+        elif not target.is_file() or sha256_file(target) != row.get("sha256"):
+            issues.append({"type": "runtime_schema_receipt_hash_mismatch", "path": str(target)})
+        runtime_issues.extend(issues)
+        schemas.append({"target_path": str(target), "issues": issues, "ok": not issues})
     if receipt is not None:
         if receipt.get("managed_skills") != list(MANAGED_SKILLS):
             receipt_issues.append({"type": "receipt_managed_skills_mismatch", "path": str(receipt_path)})
@@ -358,59 +500,104 @@ def audit(repo_root: Path, codex_home: Path) -> dict[str, Any]:
         }
         actual = {
             (name, f"{name}/{relative}", digest)
-            for name in MANAGED_SKILLS for relative, digest in _files(repo_root / "skills" / name).items()
+            for name in MANAGED_SKILLS
+            for relative, digest in _files(
+                (repo_root / "skills" / name) if name in selected_skills else (codex_home / "skills" / name)
+            ).items()
         }
         if expected != actual:
             receipt_issues.append({"type": "receipt_managed_files_mismatch", "path": str(receipt_path)})
-        expected_schemas = {
-            (item.get("source"), item.get("target"), item.get("sha256"))
-            for item in receipt.get("managed_schema_files", []) if isinstance(item, dict)
-        }
-        actual_schemas = {
-            (f"schemas/{name}", f"schemas/{name}", sha256_file(repo_root / "schemas" / name))
-            for name in MANAGED_SCHEMA_FILES
-            if (repo_root / "schemas" / name).is_file()
-        }
-        if expected_schemas != actual_schemas:
-            receipt_issues.append({"type": "receipt_managed_schema_files_mismatch", "path": str(receipt_path)})
     bootstrap = _bootstrap_audit(repo_root, codex_home)
+    runtime_issues.extend(_wsl_runtime_audit(repo_root, codex_home, _read_json_object(codex_home / ".ai-harness" / "bootstrap.receipt.json")[0]))
     hooks = _hook_audit(repo_root, codex_home)
-    installed_gto_validation = _installed_gto_validation(repo_root, codex_home)
+    docker_safe_start = _docker_safe_start_audit(repo_root, codex_home)
+    windows_external_capabilities = inspect_windows_external_capabilities(
+        codex_home,
+        codex_home / ".ai-harness/runtime/wsl-environment/config/windows-external-capabilities.json",
+    )
+    installed_gto_validation = _installed_gto_validation(
+        repo_root,
+        codex_home,
+        compare_source=managed_skill in {None, "global-task-orchestrator"},
+    )
     if not installed_gto_validation["ok"]:
         runtime_issues.append({"type": "installed_gto_validation_failed", "path": installed_gto_validation["controller_path"]})
-    wsl_tool_audit = _wsl_tool_audit()
+    wsl_tool_audit = _wsl_tool_audit(baseline_path or (repo_root / "config" / "ai" / "wsl-tool-baseline.json"))
+    environment_findings = _machine_environment_findings(wsl_tool_audit)
     tool_issues = ([{"type": "wsl_tool_missing", "tool": tool} for tool in wsl_tool_audit["missing_tools"]] +
-                   [{"type": "wsl_tool_windows_path", "tool": tool} for tool in wsl_tool_audit["windows_path_tools"]])
-    issues = source_issues + runtime_issues + receipt_issues + bootstrap["issues"] + hooks["issues"] + tool_issues
+                   [{"type": "wsl_tool_windows_path", "tool": tool} for tool in wsl_tool_audit["windows_path_tools"]] +
+                   [{"type": finding["category"], "path": finding.get("path", "")} for finding in environment_findings])
+    if wsl_tool_audit.get("errors"):
+        tool_issues.extend({"type": "invalid_wsl_baseline", "error": error} for error in wsl_tool_audit["errors"])
+    issues = source_issues + runtime_issues + receipt_issues + bootstrap["issues"] + hooks["issues"] + docker_safe_start["issues"] + windows_external_capabilities["issues"] + tool_issues
     codex_audit = {
-        "managed_skills": list(MANAGED_SKILLS), "skills": skills, "schemas": schemas,
+        "managed_skills": list(MANAGED_SKILLS), "audit_scope": managed_skill or "all", "skills": skills, "schemas": schemas,
         "source_issues": source_issues, "runtime_issues": runtime_issues,
         "receipt_issues": receipt_issues, "bootstrap": bootstrap,
-        "hooks": hooks, "installed_gto_validation": installed_gto_validation, "ok": not issues,
+        "hooks": hooks, "docker_safe_start": docker_safe_start,
+        "windows_external_capabilities": windows_external_capabilities,
+        "installed_gto_validation": installed_gto_validation, "ok": not issues,
     }
     return {
         "ok": not issues,
         "repo_root": str(repo_root),
         "codex_home": str(codex_home),
         "codex_audit": codex_audit,
+        "windows_external_capabilities": windows_external_capabilities,
         "wsl_tool_audit": wsl_tool_audit,
+        "findings": environment_findings,
         "errors": sorted({issue["type"] for issue in issues}),
         "warnings": [],
     }
+
+
+def audit_environment(repo_root: Path, codex_home: Path, baseline_path: Path | None = None) -> dict[str, Any]:
+    """Environment-only audit never executes managed skills or their schemas."""
+    receipt, error = _read_json_object(codex_home / ".ai-harness/bootstrap.receipt.json")
+    issues = _wsl_runtime_audit(repo_root, codex_home, receipt)
+    if error:
+        issues.append({"type": "bootstrap_receipt_invalid", "error": error})
+    plugins = inspect_windows_external_capabilities(codex_home,
+        codex_home / ".ai-harness/runtime/wsl-environment/config/windows-external-capabilities.json")
+    issues.extend(plugins["issues"])
+    tools = _wsl_tool_audit(baseline_path or repo_root / "config/ai/wsl-tool-baseline.json")
+    findings = _machine_environment_findings(tools)
+    issues.extend({"type": "wsl_tool_missing", "tool": x} for x in tools["missing_tools"])
+    issues.extend({"type": "wsl_tool_windows_path", "tool": x} for x in tools["windows_path_tools"])
+    issues.extend({"type": "invalid_wsl_baseline", "error": x} for x in tools.get("errors", []))
+    issues.extend({"type": x["category"]} for x in findings)
+    return {"ok": not issues, "scope": "environment-only", "issues": issues,
+        "runtime_verified": False, "windows_external_capabilities": plugins,
+        "wsl_tool_audit": tools, "findings": findings,
+        "errors": sorted({x["type"] for x in issues})}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Audit the Linux-native Codex managed-skill runtime.")
     parser.add_argument("--root", "--repo-root", dest="repo_root", default="")
     parser.add_argument("--codex-home", default="")
+    parser.add_argument("--baseline", default="")
     parser.add_argument("--audit-target", choices=("codex_minimal",), default="codex_minimal")
     parser.add_argument("--strict", action="store_true")
+    parser.add_argument("--environment-only", action="store_true", help="Audit environment files and plugins without managed skills or their schemas.")
+    parser.add_argument("--skill", choices=MANAGED_SKILLS, help="Compare only this managed skill to the current source; verify others against the installed receipt.")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     try:
         root = resolve_repo_root(args.repo_root, Path(__file__))
-        payload = audit(root, resolve_codex_home(args.codex_home))
-        if args.strict:
+        if args.environment_only:
+            if args.skill or args.strict:
+                raise ValueError("--environment-only cannot be combined with --skill or --strict")
+            payload = audit_environment(root, resolve_codex_home(args.codex_home),
+                Path(args.baseline).resolve() if args.baseline else None)
+            return emit(payload, as_json=args.json)
+        payload = audit(
+            root,
+            resolve_codex_home(args.codex_home),
+            Path(args.baseline).resolve() if args.baseline else None,
+            managed_skill=args.skill,
+        )
+        if args.strict and args.skill in {None, "global-task-orchestrator"}:
             contract_gate = _contract_gate(root)
             payload["contract_gate"] = contract_gate
             if not contract_gate["ok"]:
@@ -418,8 +605,7 @@ def main() -> int:
                 payload["errors"] = sorted({*payload.get("errors", []), "contract_gate_failed"})
     except (OSError, ValueError) as error:
         payload = {"ok": False, "errors": [str(error)]}
-    code = emit(payload, as_json=args.json, success_message="Codex managed runtime audit passed")
-    return code if args.strict else 0
+    return emit(payload, as_json=args.json, success_message="Codex managed runtime audit passed")
 
 
 if __name__ == "__main__":

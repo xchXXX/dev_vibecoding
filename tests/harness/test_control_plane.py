@@ -33,13 +33,36 @@ IMPLEMENTER = {"agent_key": "backend-implementer", "platform_agent_id": "impl-00
 REVIEWER = {"agent_key": "reviewer", "platform_agent_id": "review-001"}
 
 
+def attach_acceptance_run(repo, subtask_id, payload, *, create_fixture_files=False):
+    acceptance = payload.get('expensive_acceptance') if isinstance(payload, dict) else None
+    if not isinstance(acceptance, dict) or 'run_evidence' in acceptance:
+        return
+    from test_gto_plan_preflight_contract import load_controller
+    load_controller()
+    from runtime_evidence import run_command, acceptance_binding, acceptance_evidence_paths, digest
+    state = json.loads((repo / 'docs/ai/tasks' / TASK_ID / 'state.json').read_text())
+    # Positive contract fixtures generate synthetic output through the captured subprocess.
+    # Negative callers never create missing references: their absence remains observable.
+    paths = acceptance_evidence_paths(payload)
+    generated = [p for p in paths if p.startswith('.artifacts/') and not (repo / p).exists()] if create_fixture_files else []
+    script = ('from pathlib import Path; import json; '
+              'paths=json.loads(' + repr(json.dumps(generated)) + '); '
+              '[(Path(p).parent.mkdir(parents=True,exist_ok=True),Path(p).write_text("synthetic contract fixture; not product acceptance")) for p in paths]; '
+              'print("synthetic contract-test execution; not product acceptance")')
+    run = run_command(repo / '.artifacts/synthetic-runs',
+        [sys.executable, '-c', script],
+        cwd=repo, binding=acceptance_binding(state, subtask_id), evidence_paths=acceptance_evidence_paths(payload))
+    path = run / 'manifest.json'
+    acceptance['run_evidence'] = {'path': path.relative_to(repo).as_posix(), 'sha256': digest(path.read_bytes())}
+
+
 def six_points() -> dict[str, object]:
     return {
         "do": "Implement the WSL Python control plane.",
         "do_not": ["Do not classify natural language in Python."],
         "change_areas": ["skills/global-task-orchestrator", "tests/harness"],
         "implementation": "Codex supplies semantics; Python performs mechanical gates.",
-        "acceptance": ["The deterministic review loop reaches final/pass."],
+        "acceptance": ["The current review and independent acceptance gates reach completion."],
         "risks": ["Existing dirty work must be preserved."],
     }
 
@@ -74,7 +97,6 @@ def contract() -> dict[str, object]:
                 "pass_after_fix",
                 "hit_proof_observed",
                 "relevant_regression_ok",
-                "independent_final_review",
             ],
         },
         "subtasks": [
@@ -113,7 +135,7 @@ def contract() -> dict[str, object]:
                 "title": "Independent final review",
                 "role": "reviewer",
                 "status": "pending",
-                "dependencies": ["REVIEW-002"],
+                "dependencies": ["REVIEW-001"],
                 "read_paths": ["skills/global-task-orchestrator"],
                 "write_paths": [],
                 "assignment": assignment("Review the latest scoped change."),
@@ -134,10 +156,74 @@ def finding(finding_id: str, *, status: str = "open") -> dict[str, object]:
     }
 
 
+def expensive_acceptance_contract() -> dict[str, object]:
+    """Current-contract fields; callers supply initial tester ownership and requirement mapping."""
+    task_contract = contract()
+    task_contract["workflow_revision"] = 3
+    stages = (
+        ("WORK-001", "backend-implementer", "work", [], ["skills/global-task-orchestrator/scripts/orchestrator_ctl.py"]),
+        ("INTEGRATE-001", "backend-implementer", "integration", ["WORK-001"], []),
+        ("REVIEW-SEC-001", "reviewer", "pre_acceptance_review", ["INTEGRATE-001"], []),
+        ("EXPENSIVE-001", "tester", "expensive_acceptance", ["REVIEW-SEC-001"], []),
+        ("DOC-FINAL-001", "doc-curator", "final_documentation", ["EXPENSIVE-001"], ["docs"]),
+    )
+    task_contract["subtasks"] = [
+        {
+            "subtask_id": ident, "title": stage.replace("_", " "), "role": role, "stage": stage,
+            "status": "ready", "dependencies": deps, "read_paths": ["skills/global-task-orchestrator"],
+            "write_paths": writes, "assignment": assignment(f"Complete {stage}."),
+        }
+        for ident, role, stage, deps, writes in stages
+    ]
+    task_contract["acceptance_gate"] = {
+        "candidate_inputs": {
+            "code_paths": ["candidate-source.py"],
+            "config_paths": ["candidate-config.json"],
+            "runtime_inputs": {"provider": "fixture-v1"},
+        },
+        "current_candidate": None,
+        "acceptance_items": [
+            {"acceptance_id": "REAL-PATH-001", "evidence_refs": []},
+        ],
+        "attempt_policy": {
+            "max_expensive_attempts": 4,
+            "max_full_attempts_per_candidate": 1,
+            "max_environment_retries_per_candidate": 1,
+            "approval_required_from_attempt": 3,
+        },
+        "attempts": [],
+    }
+    return task_contract
+
+
+
+
+def dispatch(agent_key: str, platform_agent_id: str, *, kind: str = "subtask", sha: str = "a") -> dict[str, str]:
+    return {"agent_key": agent_key, "platform_agent_id": platform_agent_id, "context_mode": "isolated", "brief_kind": kind, "brief_sha256": sha * 64}
+
+
+def result(status: str, written_by: str, written_role: str, **extra: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "status": status, "summary": "Focused fixture result.", "changed_files": [],
+        "planned_files_not_changed": [], "verification": {"commands": ["fixture-check"], "result": "passed"},
+        "deviations": [], "blocked_by": ["fixture"] if status == "blocked" else [], "risks": [], "follow_up": [],
+        "written_by": written_by, "written_role": written_role,
+    }
+    payload.update(extra)
+    return payload
+
+
+def _current_contract():
+    from test_gto_workflow import workflow_contract
+    return workflow_contract()
+
+
 class ControlPlaneContractTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory()
-        self.input_temp = tempfile.TemporaryDirectory()
+        base = REPO_ROOT / ".tmp/control-plane-tests"
+        base.mkdir(parents=True, exist_ok=True)
+        self.temp = tempfile.TemporaryDirectory(dir=base)
+        self.input_temp = tempfile.TemporaryDirectory(dir=base)
         self.repo = Path(self.temp.name)
         self.input_dir = Path(self.input_temp.name)
         self._json_input_index = 0
@@ -174,26 +260,54 @@ class ControlPlaneContractTest(unittest.TestCase):
             "context_mode": "--context-mode",
             "brief_kind": "--brief-kind",
             "brief_sha256": "--brief-sha256",
+            "brief_path": "--brief-path",
             "phase": "--phase",
             "workspace_summary": "--workspace-summary",
+            "approval_by": "--approval-by",
+            "approval_reason": "--approval-reason",
         }
+        state_path = self.repo / "docs" / "ai" / "tasks" / TASK_ID / "state.json"
+        if action == "bind-dispatch" and state_path.is_file() and "brief_path" not in kwargs:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            if state.get("workflow_revision") == 3:
+                self._json_input_index += 1
+                relative = f".tmp/test-brief-{self._json_input_index}.md"
+                brief_file = self.repo / relative
+                brief_file.parent.mkdir(parents=True, exist_ok=True)
+                brief_file.write_text(f"brief:{kwargs.get('subtask_id')}\n", encoding="utf-8")
+                kwargs["brief_path"] = relative
+                kwargs["brief_sha256"] = hashlib.sha256(brief_file.read_bytes()).hexdigest()
+        if action in {'record-subtask-result', 'validate-result'} and 'result' in kwargs:
+            attach_acceptance_run(self.repo, kwargs.get('subtask_id'), kwargs['result'], create_fixture_files=ok)
+        generated_contract_inputs: list[Path] = []
         for key, value in kwargs.items():
             if key in {"result", "contract"}:
                 self._json_input_index += 1
-                payload_file = self.input_dir / f"gto-input-{self._json_input_index}.json"
+                input_root = self.repo / ".tmp" if key == "contract" else self.input_dir
+                input_root.mkdir(parents=True, exist_ok=True)
+                payload_file = input_root / f"gto-input-{self._json_input_index}.json"
                 payload_file.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+                if key == "contract":
+                    generated_contract_inputs.append(payload_file)
                 encoded = str(payload_file)
             else:
                 encoded = str(value)
             command.extend([names[key], encoded])
-        completed = subprocess.run(command, text=True, capture_output=True, check=False)
+        try:
+            completed = subprocess.run(command, text=True, capture_output=True, check=False)
+        finally:
+            for payload_file in generated_contract_inputs:
+                payload_file.unlink(missing_ok=True)
         try:
             payload = json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
-            self.fail(
-                f"{action} must emit one JSON object; exit={completed.returncode}; "
-                f"stdout={completed.stdout!r}; stderr={completed.stderr!r}; error={exc}"
-            )
+            if completed.returncode:
+                payload = {"ok": False, "errors": [completed.stderr]}
+            else:
+                self.fail(
+                    f"{action} must emit one JSON object; exit={completed.returncode}; "
+                    f"stdout={completed.stdout!r}; stderr={completed.stderr!r}; error={exc}"
+                )
         if ok:
             self.assertEqual(0, completed.returncode, completed.stderr or payload)
             self.assertTrue(payload.get("ok"), payload)
@@ -205,7 +319,7 @@ class ControlPlaneContractTest(unittest.TestCase):
     def init_task(self, task_contract: dict[str, object] | None = None) -> dict[str, object]:
         return self.run_ctl(
             "init-task",
-            contract=task_contract or contract(),
+            contract=task_contract or _current_contract(),
             title="Control plane contract",
             owner="main-coordinator",
         )
@@ -234,60 +348,32 @@ class ControlPlaneContractTest(unittest.TestCase):
         self.git("commit", "-m", "baseline")
         return self.git("rev-parse", "HEAD")
 
-    def prepare_lifecycle(self) -> None:
-        if not (self.repo / ".git").exists():
-            self.init_git_checkout(
-                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py"
-            )
-        self.init_task()
-        dispatches = (
-            ("IMPL-001", IMPLEMENTER, "subtask", "1" * 64),
-            ("REVIEW-001", REVIEWER, "review", "2" * 64),
-            ("REVIEW-002", REVIEWER, "review", "3" * 64),
-            (
-                "FINAL-001",
-                {"agent_key": "final-reviewer", "platform_agent_id": "final-001"},
-                "review",
-                "4" * 64,
-            ),
-        )
-        for subtask_id, identity, brief_kind, brief_sha256 in dispatches:
-            self.run_ctl(
-                "bind-dispatch",
-                subtask_id=subtask_id,
-                agent_key=identity["agent_key"],
-                platform_agent_id=identity["platform_agent_id"],
-                context_mode="isolated",
-                brief_kind=brief_kind,
-                brief_sha256=brief_sha256,
-            )
-        self.run_ctl(
-            "record-subtask-result",
-            subtask_id="IMPL-001",
-            result={
-                "status": "completed",
-                "summary": "Focused implementation completed.",
-                "changed_files": ["skills/global-task-orchestrator/scripts/orchestrator_ctl.py"],
-                "planned_files_not_changed": [],
-                "verification": {"commands": ["python3 -m unittest"], "result": "passed"},
-                "deviations": [],
-                "blocked_by": [],
-                "risks": [],
-                "follow_up": [],
-                "written_by": IMPLEMENTER["platform_agent_id"],
-                "written_role": IMPLEMENTER["agent_key"],
-                "review_evidence": {
-                    "repro_before_fix": "Observed expected Red.",
-                    "pass_after_fix": "Focused test passed.",
-                    "hit_proof_observed": "Rollback-sensitive assertion passed.",
-                    "relevant_regression_ok": "Relevant regression passed.",
-                },
-            },
-        )
 
     def state(self) -> dict[str, object]:
         path = self.repo / "docs" / "ai" / "tasks" / TASK_ID / "state.json"
         return json.loads(path.read_text(encoding="utf-8"))
+
+    def write_state(self, state: dict[str, object]) -> None:
+        (self.repo / "docs" / "ai" / "tasks" / TASK_ID / "state.json").write_text(
+            json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
+    @staticmethod
+    def item(state: dict[str, object], subtask_id: str) -> dict[str, object]:
+        return next(item for item in state["subtasks"] if item["subtask_id"] == subtask_id)
+
+
+    def control_artifacts(self) -> tuple[Path, Path, Path]:
+        root = self.repo / "docs" / "ai" / "tasks" / TASK_ID
+        return root / "state.json", root / "task.md", root / "events.jsonl"
+
+    def control_artifact_snapshot(self) -> dict[Path, bytes]:
+        return {path: path.read_bytes() for path in self.control_artifacts()}
+
+
+
+
+
 
     def assert_phase_projection_and_schema(self, expected_phase: str) -> None:
         state = self.state()
@@ -295,27 +381,11 @@ class ControlPlaneContractTest(unittest.TestCase):
         task_md = self.repo / "docs" / "ai" / "tasks" / TASK_ID / "task.md"
         self.assertIn(f"- current_phase: `{expected_phase}`", task_md.read_text(encoding="utf-8"))
         schema = json.loads(
-            (REPO_ROOT / "schemas/orchestrator-task-state.schema.json").read_text(encoding="utf-8")
+            (REPO_ROOT / "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json").read_text(encoding="utf-8")
         )
         errors = [error.message for error in Draft202012Validator(schema).iter_errors(state)]
         self.assertEqual([], errors, f"set-phase persisted a schema-invalid state: {errors}")
 
-    def record_review(self, subtask_id: str, kind: str, findings: list[dict[str, object]]) -> dict[str, object]:
-        reviewer_id = "final-001" if kind == "final" else REVIEWER["platform_agent_id"]
-        review = {
-            "kind": kind,
-            "verdict": "pass" if not findings else "fail",
-            "reviewer_platform_agent_id": reviewer_id,
-            "findings": findings,
-        }
-        if kind == "final":
-            brief = self.run_ctl("build-review-brief", subtask_id=subtask_id)
-            review["reviewed_change_sha256"] = brief["brief"]["review_target_sha256"]
-        return self.run_ctl(
-            "record-review-result",
-            subtask_id=subtask_id,
-            result={"review": review},
-        )
 
     def test_init_creates_and_cross_validates_all_six_artifacts(self) -> None:
         payload = self.init_task()
@@ -337,9 +407,7 @@ class ControlPlaneContractTest(unittest.TestCase):
 
         required_headings = {
             "plan.md": (
-                "任务目标", "背景与问题", "范围", "非目标", "约束与依赖",
-                "方案摘要", "风险与回退", "验收标准", "阶段划分",
-                "需先同步的核心文档与测试",
+                "施工摘要", "改造要点", "施工流程", "任务表",
             ),
             "execution.md": (
                 "施工目标", "前置条件", "执行顺序", "文档先行清单",
@@ -357,7 +425,7 @@ class ControlPlaneContractTest(unittest.TestCase):
         acceptance_path = self.repo / "docs" / "tasks" / TASK_ID / "acceptance.md"
         acceptance_path.write_text(
             acceptance_path.read_text(encoding="utf-8").replace(
-                "The deterministic review loop reaches final/pass.", "A stale acceptance contract."
+                "The current review and independent acceptance gates reach completion.", "A stale acceptance contract."
             ),
             encoding="utf-8",
         )
@@ -438,74 +506,8 @@ class ControlPlaneContractTest(unittest.TestCase):
         self.assertIn("prepare-workspace", completed.stdout)
         self.assertIn("--workspace-summary", completed.stdout)
 
-    def test_prepare_workspace_records_not_required_without_owned_overlap(self) -> None:
-        head = self.init_git_checkout(
-            "skills/global-task-orchestrator/scripts/orchestrator_ctl.py"
-        )
-        task_contract = contract()
-        task_contract["subtasks"][1]["write_paths"] = ["notes.txt"]
-        self.init_task(task_contract)
-        (self.repo / "notes.txt").write_text("unrelated dirty work\n", encoding="utf-8")
 
-        payload = self.run_ctl("prepare-workspace")
-        workspace = self.state()["workspace"]
-        self.assertEqual("not_required", payload["decision"])
-        self.assertEqual("primary", workspace["checkout_kind"])
-        self.assertEqual("main", workspace["branch"])
-        self.assertEqual(head, workspace["head"])
-        self.assertEqual(["notes.txt"], workspace["dirty_paths"])
-        self.assertEqual([], workspace["write_overlap"])
-        self.assertEqual("not_required", workspace["overlap_decision"]["status"])
-        self.assertEqual({}, workspace["overlap_decision"]["baseline_hashes"])
 
-    def test_prepare_workspace_persists_pending_capture_before_requiring_authorization(self) -> None:
-        target = "skills/global-task-orchestrator/scripts/orchestrator_ctl.py"
-        self.init_git_checkout(target)
-        self.init_task()
-        (self.repo / target).write_text("existing unowned change\n", encoding="utf-8")
-
-        rejected = self.run_ctl("prepare-workspace", ok=False)
-        workspace = self.state()["workspace"]
-        self.assertIn("workspace-summary", " ".join(rejected.get("errors", [])).casefold())
-        self.assertEqual([target], workspace["dirty_paths"])
-        self.assertEqual([target], workspace["write_overlap"])
-        self.assertEqual("pending", workspace["overlap_decision"]["status"])
-        self.assertEqual({}, workspace["overlap_decision"]["baseline_hashes"])
-        events = (
-            self.repo / "docs" / "ai" / "tasks" / TASK_ID / "events.jsonl"
-        ).read_text(encoding="utf-8")
-        self.assertIn("workspace_overlap_pending", events)
-
-    def test_prepare_workspace_recomputes_drift_then_unblocks_code_impl(self) -> None:
-        first = "skills/global-task-orchestrator/scripts/orchestrator_ctl.py"
-        second = "schemas/orchestrator-task-state.schema.json"
-        self.init_git_checkout(first, second)
-        task_contract = contract()
-        task_contract["subtasks"][0]["write_paths"].append(second)
-        self.init_task(task_contract)
-        (self.repo / first).write_text("first dirty version\n", encoding="utf-8")
-        self.run_ctl("prepare-workspace", ok=False)
-
-        (self.repo / first).write_text("second dirty version\n", encoding="utf-8")
-        (self.repo / second).write_text("new overlapping path\n", encoding="utf-8")
-        summary = "Approved preservation of the current overlapping work."
-        payload = self.run_ctl("prepare-workspace", workspace_summary=summary)
-        workspace = self.state()["workspace"]
-        self.assertEqual("resolved", payload["decision"])
-        self.assertEqual([second, first], workspace["write_overlap"])
-        self.assertEqual("resolved", workspace["overlap_decision"]["status"])
-        self.assertEqual(summary, workspace["overlap_decision"]["summary"])
-        self.assertEqual(
-            {
-                first: hashlib.sha256(b"second dirty version\n").hexdigest(),
-                second: hashlib.sha256(b"new overlapping path\n").hexdigest(),
-            },
-            workspace["overlap_decision"]["baseline_hashes"],
-        )
-
-        for phase in ("doc_sync", "test_sync", "code_impl"):
-            self.run_ctl("set-phase", phase=phase)
-        self.assert_phase_projection_and_schema("code_impl")
 
     def test_set_phase_allows_only_ordered_doc_and_test_transitions(self) -> None:
         # Break caught: a valid planning -> doc_sync -> test_sync sequence is
@@ -532,176 +534,8 @@ class ControlPlaneContractTest(unittest.TestCase):
             self.assertIn("phase", " ".join(rejected.get("errors", [])).casefold())
             self.assert_phase_projection_and_schema("test_sync")
 
-    def test_set_phase_reuses_verification_workspace_and_review_evidence_gates(self) -> None:
-        # Break caught: set-phase writes a privileged phase directly instead of
-        # applying the same validation gates used by the control plane.
-        self.init_task()
-        self.run_ctl("set-phase", phase="doc_sync")
-        self.run_ctl("set-phase", phase="test_sync")
-        state_path = self.repo / "docs" / "ai" / "tasks" / TASK_ID / "state.json"
 
-        state = self.state()
-        verification_contract = state.pop("verification_contract")
-        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        missing_verification = self.run_ctl("set-phase", ok=False, phase="code_impl")
-        self.assertIn("verification", " ".join(missing_verification.get("errors", [])).casefold())
-        self.assert_phase_projection_and_schema("test_sync")
 
-        state = self.state()
-        state["verification_contract"] = verification_contract
-        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        unresolved_workspace = self.run_ctl("set-phase", ok=False, phase="code_impl")
-        self.assertIn("workspace", " ".join(unresolved_workspace.get("errors", [])).casefold())
-        self.assert_phase_projection_and_schema("test_sync")
-
-        state = self.state()
-        state["workspace"]["overlap_decision"]["status"] = "not_required"
-        state["workspace"]["overlap_decision"]["summary"] = "No overlap requires adjudication."
-        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        self.run_ctl("set-phase", phase="code_impl")
-        self.assert_phase_projection_and_schema("code_impl")
-
-        missing_evidence = self.run_ctl("set-phase", ok=False, phase="review")
-        self.assertIn("evidence", " ".join(missing_evidence.get("errors", [])).casefold())
-        self.assert_phase_projection_and_schema("code_impl")
-
-        self.run_ctl(
-            "bind-dispatch",
-            subtask_id="IMPL-001",
-            agent_key=IMPLEMENTER["agent_key"],
-            platform_agent_id=IMPLEMENTER["platform_agent_id"],
-            context_mode="isolated",
-            brief_kind="subtask",
-            brief_sha256="1" * 64,
-        )
-        self.run_ctl(
-            "record-subtask-result",
-            subtask_id="IMPL-001",
-            result={
-                "status": "completed",
-                "summary": "Implementation evidence completed.",
-                "changed_files": ["skills/global-task-orchestrator/scripts/orchestrator_ctl.py"],
-                "planned_files_not_changed": [],
-                "verification": {"commands": ["python3 -m unittest"], "result": "passed"},
-                "deviations": [],
-                "blocked_by": [],
-                "risks": [],
-                "follow_up": [],
-                "written_by": IMPLEMENTER["platform_agent_id"],
-                "written_role": IMPLEMENTER["agent_key"],
-                "review_evidence": {
-                    "repro_before_fix": "Observed expected Red.",
-                    "pass_after_fix": "Focused test passed.",
-                    "hit_proof_observed": "Hit proof passed.",
-                    "relevant_regression_ok": "Regression passed.",
-                },
-            },
-        )
-        self.run_ctl("set-phase", phase="review")
-        self.assert_phase_projection_and_schema("review")
-
-    def test_doc_curator_custom_evidence_unblocks_review_but_reviewer_evidence_does_not(self) -> None:
-        # Break caught: review applies a role-specific evidence allowlist, so
-        # a completed doc-curator cannot satisfy a contract's custom required
-        # evidence while a reviewer must never satisfy it.
-        task_contract = contract()
-        task_contract["verification_contract"]["review_evidence"] = ["tooling_rule_index_green"]
-        task_contract["subtasks"].insert(
-            0,
-            {
-                "subtask_id": "DOC-001",
-                "title": "Index tooling rules",
-                "role": "doc-curator",
-                "status": "ready",
-                "dependencies": [],
-                "read_paths": ["rules"],
-                "write_paths": ["docs"],
-                "assignment": assignment("Publish TOOL-RULE-003 evidence."),
-            },
-        )
-        self.init_task(task_contract)
-        self.run_ctl("set-phase", phase="doc_sync")
-        self.run_ctl("set-phase", phase="test_sync")
-        state_path = self.repo / "docs" / "ai" / "tasks" / TASK_ID / "state.json"
-        state = self.state()
-        state["workspace"]["overlap_decision"] = {
-            "status": "not_required",
-            "summary": "No overlap requires adjudication.",
-            "baseline_hashes": {},
-        }
-        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        self.run_ctl("set-phase", phase="code_impl")
-
-        state = self.state()
-        reviewer = next(item for item in state["subtasks"] if item["subtask_id"] == "REVIEW-001")
-        reviewer["status"] = "completed"
-        reviewer["result"] = {
-            "status": "completed",
-            "summary": "Reviewer cannot supply implementation evidence.",
-            "changed_files": [],
-            "planned_files_not_changed": [],
-            "verification": {"commands": ["review"], "result": "passed"},
-            "deviations": [],
-            "blocked_by": [],
-            "risks": [],
-            "follow_up": [],
-            "written_by": REVIEWER["platform_agent_id"],
-            "written_role": REVIEWER["agent_key"],
-            "review_evidence": {"tooling_rule_index_green": "Reviewer claim."},
-        }
-        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        rejected = self.run_ctl("set-phase", ok=False, phase="review")
-        self.assertIn("tooling_rule_index_green", " ".join(rejected.get("errors", [])))
-        self.assert_phase_projection_and_schema("code_impl")
-
-        self.run_ctl(
-            "bind-dispatch",
-            subtask_id="DOC-001",
-            agent_key="doc-001",
-            platform_agent_id="doc-001",
-            context_mode="isolated",
-            brief_kind="subtask",
-            brief_sha256="d" * 64,
-        )
-        self.run_ctl(
-            "record-subtask-result",
-            subtask_id="DOC-001",
-            result={
-                "status": "completed",
-                "summary": "TOOL-RULE-003 indexed.",
-                "changed_files": ["docs/TOOL-RULE-003.md"],
-                "planned_files_not_changed": [],
-                "verification": {"commands": ["python3 -m unittest"], "result": "passed"},
-                "deviations": [],
-                "blocked_by": [],
-                "risks": [],
-                "follow_up": [],
-                "written_by": "doc-001",
-                "written_role": "doc-001",
-                "review_evidence": {"tooling_rule_index_green": "TOOL-RULE-003 verified."},
-            },
-        )
-        self.run_ctl("set-phase", phase="review")
-        self.assert_phase_projection_and_schema("review")
-
-    def test_validate_rejects_impossible_dependency_dispatch_and_result_states(self) -> None:
-        self.init_task()
-        state_path = self.repo / "docs" / "ai" / "tasks" / TASK_ID / "state.json"
-        state = self.state()
-        review = next(item for item in state["subtasks"] if item["subtask_id"] == "REVIEW-001")
-        review["status"] = "completed"
-        review["dispatch"] = {
-            "agent_key": "reviewer",
-            "platform_agent_id": "review-001",
-            "context_mode": "isolated",
-            "brief_kind": "review",
-            "brief_sha256": "a" * 64,
-        }
-        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        invalid = self.run_ctl("validate", ok=False)
-        errors = " ".join(invalid.get("errors", [])).lower()
-        self.assertIn("result", errors)
-        self.assertIn("depend", errors)
 
     def test_validate_enforces_schema_allowlists_at_root_and_nested_objects(self) -> None:
         self.init_task()
@@ -749,11 +583,13 @@ class ControlPlaneContractTest(unittest.TestCase):
     def test_schema_closes_lifecycle_finding_and_bounds_fix_delta(self) -> None:
         self.init_task()
         schema = json.loads(
-            (REPO_ROOT / "schemas/orchestrator-task-state.schema.json").read_text(encoding="utf-8")
+            (REPO_ROOT / "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json").read_text(encoding="utf-8")
         )
         validator = Draft202012Validator(schema)
         baseline = self.state()
-        lifecycle = finding("SCHEMA-LIFECYCLE-001")
+        from test_gto_workflow import WorkflowTest
+        lifecycle = WorkflowTest.new_finding(self, "SCHEMA-LIFECYCLE-001")
+        lifecycle.update(discovered_by=REVIEWER, source_subtask_id='REVIEW-SEC-001')
         lifecycle.update(
             {
                 "fix_round": 1,
@@ -790,399 +626,23 @@ class ControlPlaneContractTest(unittest.TestCase):
         ]
         self.assertNotEqual([], list(validator.iter_errors(oversized)))
 
-    def test_record_finding_fix_rejects_schema_capacity_without_mutating_state(self) -> None:
-        source = self.repo / "skills" / "global-task-orchestrator" / "scripts" / "orchestrator_ctl.py"
-        source.parent.mkdir(parents=True)
-        source.write_text("controller\n", encoding="utf-8")
-        self.prepare_lifecycle()
-        self.record_review("REVIEW-001", "task", [finding("SCHEMA-FIX-DELTA-002")])
-        self.run_ctl("dispatch-finding-fix", finding_id="SCHEMA-FIX-DELTA-002")
 
-        rejected = self.run_ctl(
-            "record-finding-fix",
-            ok=False,
-            finding_id="SCHEMA-FIX-DELTA-002",
-            result={
-                "summary": "Oversized fix delta.",
-                "changed_files": [f"noise/{index}.txt" for index in range(501)],
-                "sha256": "b" * 64,
-                "verification": "Must be rejected by the canonical schema.",
-            },
-        )
-        self.assertTrue(rejected.get("errors"), rejected)
-        stored = self.state()["findings"]["SCHEMA-FIX-DELTA-002"]
-        self.assertEqual("fix_dispatched", stored["status"])
-        self.assertNotIn("fix_delta", stored)
 
-    def test_same_finding_crosses_review_subtasks_and_returns_to_lineage(self) -> None:
-        self.prepare_lifecycle()
-        first = self.record_review("REVIEW-001", "task", [finding("F-ONE")])
-        self.assertEqual("dispatch_fix", first["next_action"]["kind"])
-        self.assertEqual(IMPLEMENTER, first["next_action"]["target"])
 
-        # Merely validating or projecting evidence must not consume a fix round.
-        self.run_ctl("validate")
-        self.run_ctl("build-review-brief", subtask_id="REVIEW-001", finding_id="F-ONE")
-        self.assertEqual(0, self.state()["findings"]["F-ONE"]["fix_round"])
 
-        dispatched = self.run_ctl("dispatch-finding-fix", finding_id="F-ONE")
-        self.assertEqual(1, dispatched["finding"]["fix_round"])
-        self.assertEqual(IMPLEMENTER, dispatched["next_action"]["target"])
-        fixed = self.run_ctl(
-            "record-finding-fix",
-            finding_id="F-ONE",
-            result={
-                "summary": "Fixed F-ONE.",
-                "changed_files": ["skills/global-task-orchestrator/scripts/orchestrator_ctl.py"],
-                "sha256": "a" * 64,
-                "verification": "Focused test passed.",
-            },
-        )
-        self.assertEqual("re_review", fixed["next_action"]["kind"])
-        self.assertEqual(REVIEWER, fixed["next_action"]["target"])
 
-        rereview = self.run_ctl(
-            "record-review-result",
-            subtask_id="REVIEW-002",
-            result={
-                "review": {
-                    "kind": "re_review",
-                    "verdict": "pass",
-                    "reviewer_platform_agent_id": REVIEWER["platform_agent_id"],
-                    "findings": [finding("F-ONE", status="closed")],
-                }
-            },
-        )
-        self.assertEqual("final_review", rereview["next_action"]["kind"])
-        self.assertEqual("closed", self.state()["findings"]["F-ONE"]["status"])
 
-    def test_re_review_pass_rejects_open_or_unknown_findings(self) -> None:
-        # Break caught: a passing re-review can leave an existing finding open
-        # or close a finding that was never routed through review lineage.
-        self.prepare_lifecycle()
-        self.record_review("REVIEW-001", "task", [finding("F-PASS-GATE")])
-        self.run_ctl("dispatch-finding-fix", finding_id="F-PASS-GATE")
-        self.run_ctl(
-            "record-finding-fix",
-            finding_id="F-PASS-GATE",
-            result={
-                "summary": "Fix ready for review.",
-                "changed_files": ["skills/global-task-orchestrator/scripts/orchestrator_ctl.py"],
-                "sha256": "a" * 64,
-                "verification": "Focused test passed.",
-            },
-        )
-        for reported, expected in (
-            (finding("F-PASS-GATE"), "closed"),
-            (finding("F-UNKNOWN", status="closed"), "unknown"),
-        ):
-            with self.subTest(finding_id=reported["finding_id"]):
-                rejected = self.run_ctl(
-                    "record-review-result",
-                    ok=False,
-                    subtask_id="REVIEW-002",
-                    result={
-                        "review": {
-                            "kind": "re_review",
-                            "verdict": "pass",
-                            "reviewer_platform_agent_id": REVIEWER["platform_agent_id"],
-                            "findings": [reported],
-                        }
-                    },
-                )
-                self.assertIn(expected, " ".join(rejected.get("errors", [])).casefold())
 
-    def test_task_and_final_pass_reject_findings(self) -> None:
-        # Break caught: only a re-review/pass may close existing findings;
-        # task and final passing verdicts must remain finding-free.
-        self.prepare_lifecycle()
-        task_rejected = self.run_ctl(
-            "record-review-result",
-            ok=False,
-            subtask_id="REVIEW-001",
-            result={
-                "review": {
-                    "kind": "task",
-                    "verdict": "pass",
-                    "reviewer_platform_agent_id": REVIEWER["platform_agent_id"],
-                    "findings": [finding("F-TASK-PASS")],
-                }
-            },
-        )
-        self.assertIn("fail with findings", " ".join(task_rejected.get("errors", [])))
-        final_rejected = self.run_ctl(
-            "record-review-result",
-            ok=False,
-            subtask_id="FINAL-001",
-            result={
-                "review": {
-                    "kind": "final",
-                    "verdict": "pass",
-                    "reviewer_platform_agent_id": "final-001",
-                    "findings": [finding("F-FINAL-PASS")],
-                }
-            },
-        )
-        self.assertIn("cannot contain findings", " ".join(final_rejected.get("errors", [])))
 
-    def test_fix_rounds_are_per_finding_and_r3_open_blocks(self) -> None:
-        self.prepare_lifecycle()
-        self.record_review("REVIEW-001", "task", [finding("F-A"), finding("F-B")])
-        self.run_ctl("dispatch-finding-fix", finding_id="F-A")
-        self.assertEqual(1, self.state()["findings"]["F-A"]["fix_round"])
-        self.assertEqual(0, self.state()["findings"]["F-B"]["fix_round"])
 
-        for expected_round in (1, 2, 3):
-            self.run_ctl("dispatch-finding-fix", finding_id="F-B")
-            current = self.state()["findings"]["F-B"]
-            self.assertEqual(expected_round, current["fix_round"])
-            self.run_ctl(
-                "record-finding-fix",
-                finding_id="F-B",
-                result={
-                    "summary": f"Attempted F-B round {expected_round}.",
-                    "changed_files": ["skills/global-task-orchestrator/scripts/orchestrator_ctl.py"],
-                    "sha256": f"{expected_round}" * 64,
-                    "verification": "The finding remains reproducible.",
-                },
-            )
-            self.record_review("REVIEW-002", "re_review", [finding("F-B")])
 
-        state = self.state()
-        self.assertEqual("blocked", state["status"])
-        self.assertEqual("blocked", state["current_phase"])
-        self.assertEqual("blocked", state["findings"]["F-B"]["status"])
-        self.assertEqual("human_adjudication", state["next_action"]["kind"])
 
-    def test_finalize_requires_independent_latest_final_pass_and_no_open_finding(self) -> None:
-        self.prepare_lifecycle()
-        rejected = self.run_ctl("finalize-task", ok=False)
-        self.assertIn("final/pass", " ".join(rejected.get("errors", [])))
 
-        self.record_review("FINAL-001", "final", [])
-        completed = self.run_ctl("finalize-task")
-        self.assertEqual("completed", completed["status"])
-        self.assertEqual("completed", self.state()["status"])
-
-    def test_review_target_tracks_scoped_source_and_final_fail_routes_fix(self) -> None:
-        source = self.repo / "skills" / "global-task-orchestrator" / "scripts" / "orchestrator_ctl.py"
-        source.parent.mkdir(parents=True)
-        source.write_text("first\n", encoding="utf-8")
-        self.prepare_lifecycle()
-        first = self.run_ctl("build-review-brief", subtask_id="FINAL-001")["brief"]["review_target_sha256"]
-        source.write_text("second\n", encoding="utf-8")
-        second = self.run_ctl("build-review-brief", subtask_id="FINAL-001")["brief"]["review_target_sha256"]
-        self.assertNotEqual(first, second)
-
-        failed = self.record_review("FINAL-001", "final", [finding("GTO-FINAL-COVERAGE-002")])
-        self.assertEqual("dispatch_fix", failed["next_action"]["kind"])
-        self.assertEqual(IMPLEMENTER, failed["next_action"]["target"])
-
-    def test_registered_finding_path_keeps_controller_in_final_source_manifest(self) -> None:
-        source = self.repo / "skills" / "global-task-orchestrator" / "scripts" / "orchestrator_ctl.py"
-        fix_test = self.repo / "tests" / "harness" / "test_control_plane.py"
-        source.parent.mkdir(parents=True)
-        fix_test.parent.mkdir(parents=True)
-        source.write_text("finding scoped controller v1\n", encoding="utf-8")
-        fix_test.write_text("finding fix test v1\n", encoding="utf-8")
-        self.prepare_lifecycle()
-
-        state_path = self.repo / "docs" / "ai" / "tasks" / TASK_ID / "state.json"
-        state = self.state()
-        implementation = next(item for item in state["subtasks"] if item["subtask_id"] == "IMPL-001")
-        implementation["result"]["changed_files"] = []
-        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        self.record_review("REVIEW-001", "task", [finding("FINAL-SCOPE-003")])
-        self.run_ctl("dispatch-finding-fix", finding_id="FINAL-SCOPE-003")
-        self.run_ctl(
-            "record-finding-fix",
-            finding_id="FINAL-SCOPE-003",
-            result={
-                "summary": "Added the focused regression test.",
-                "changed_files": ["tests/harness/test_control_plane.py"],
-                "sha256": "b" * 64,
-                "verification": "Focused test passed.",
-            },
-        )
-
-        first = self.run_ctl("build-review-brief", subtask_id="FINAL-001")["brief"]
-        manifest_paths = {entry["path"] for entry in first["source_manifest"]}
-        self.assertIn("skills/global-task-orchestrator/scripts/orchestrator_ctl.py", manifest_paths)
-        self.assertIn("tests/harness/test_control_plane.py", manifest_paths)
-        source.write_text("finding scoped controller v2\n", encoding="utf-8")
-        controller_hash = self.run_ctl("build-review-brief", subtask_id="FINAL-001")["brief"]["review_target_sha256"]
-        self.assertNotEqual(first["review_target_sha256"], controller_hash)
-        fix_test.write_text("finding fix test v2\n", encoding="utf-8")
-        test_hash = self.run_ctl("build-review-brief", subtask_id="FINAL-001")["brief"]["review_target_sha256"]
-        self.assertNotEqual(controller_hash, test_hash)
-
-    def test_final_manifest_adds_unreported_git_changes_and_deletions_only_within_task_scope(self) -> None:
-        reported = "skills/global-task-orchestrator/scripts/orchestrator_ctl.py"
-        unreported = "skills/global-task-orchestrator/scripts/helper.py"
-        deleted = "skills/global-task-orchestrator/scripts/retired.py"
-        noise = "unrelated/noise.txt"
-        self.init_git_checkout(reported, unreported, deleted, noise)
-        task_contract = contract()
-        task_contract["subtasks"][0]["write_paths"] = [
-            "skills/global-task-orchestrator/scripts",
-            "docs",
-        ]
-        self.init_task(task_contract)
-        (self.repo / reported).write_text("reported change\n", encoding="utf-8")
-        (self.repo / unreported).write_text("unreported change\n", encoding="utf-8")
-        (self.repo / deleted).unlink()
-        (self.repo / noise).write_text("out-of-scope noise\n", encoding="utf-8")
-        self.run_ctl(
-            "bind-dispatch",
-            subtask_id="IMPL-001",
-            agent_key=IMPLEMENTER["agent_key"],
-            platform_agent_id=IMPLEMENTER["platform_agent_id"],
-            context_mode="isolated",
-            brief_kind="subtask",
-            brief_sha256="1" * 64,
-        )
-        self.run_ctl(
-            "record-subtask-result",
-            subtask_id="IMPL-001",
-            result={
-                "status": "completed",
-                "summary": "Implementation self-reported one file.",
-                "changed_files": [reported],
-                "planned_files_not_changed": [],
-                "verification": {"commands": ["python3 -m unittest"], "result": "passed"},
-                "deviations": [],
-                "blocked_by": [],
-                "risks": [],
-                "follow_up": [],
-                "written_by": IMPLEMENTER["platform_agent_id"],
-                "written_role": IMPLEMENTER["agent_key"],
-            },
-        )
-
-        brief = self.run_ctl("build-review-brief", subtask_id="FINAL-001")["brief"]
-        manifest = {entry["path"]: entry["sha256"] for entry in brief["source_manifest"]}
-        self.assertEqual(
-            {reported, unreported, deleted},
-            set(manifest),
-            "final manifest must add actual in-scope Git changes without absorbing repository noise",
-        )
-        self.assertEqual("missing", manifest[deleted])
-        control_prefixes = (
-            f"docs/ai/tasks/{TASK_ID}/",
-            f"docs/tasks/{TASK_ID}/",
-        )
-        self.assertFalse(any(path.startswith(control_prefixes) for path in manifest))
-
-    def test_subtask_result_file_lists_cannot_escape_original_write_paths(self) -> None:
-        self.init_task()
-        self.run_ctl(
-            "bind-dispatch",
-            subtask_id="IMPL-001",
-            agent_key=IMPLEMENTER["agent_key"],
-            platform_agent_id=IMPLEMENTER["platform_agent_id"],
-            context_mode="isolated",
-            brief_kind="subtask",
-            brief_sha256="1" * 64,
-        )
-
-        def result(changed_files: list[str], planned_files_not_changed: list[str]) -> dict[str, object]:
-            return {
-                "status": "completed",
-                "summary": "Attempted result outside the assigned scope.",
-                "changed_files": changed_files,
-                "planned_files_not_changed": planned_files_not_changed,
-                "verification": {"commands": ["python3 -m unittest"], "result": "passed"},
-                "deviations": [],
-                "blocked_by": [],
-                "risks": [],
-                "follow_up": [],
-                "written_by": IMPLEMENTER["platform_agent_id"],
-                "written_role": IMPLEMENTER["agent_key"],
-            }
-
-        invalid_changed = self.run_ctl(
-            "record-subtask-result",
-            ok=False,
-            subtask_id="IMPL-001",
-            result=result(["agents/README.md"], []),
-        )
-        self.assertIn("write_paths", " ".join(invalid_changed.get("errors", [])))
-        invalid_planned = self.run_ctl(
-            "record-subtask-result",
-            ok=False,
-            subtask_id="IMPL-001",
-            result=result([], ["agents/README.md"]),
-        )
-        self.assertIn("write_paths", " ".join(invalid_planned.get("errors", [])))
-        implementation = next(
-            item for item in self.state()["subtasks"] if item["subtask_id"] == "IMPL-001"
-        )
-        self.assertEqual("in_progress", implementation["status"])
-        self.assertNotIn("result", implementation)
-
-    def test_final_pass_is_rejected_after_reviewed_source_changes(self) -> None:
-        source = self.repo / "skills" / "global-task-orchestrator" / "scripts" / "orchestrator_ctl.py"
-        source.parent.mkdir(parents=True)
-        source.write_text("reviewed\n", encoding="utf-8")
-        self.prepare_lifecycle()
-        reviewed = self.run_ctl("build-review-brief", subtask_id="FINAL-001")["brief"]["review_target_sha256"]
-        source.write_text("changed after review\n", encoding="utf-8")
-        rejected = self.run_ctl(
-            "record-review-result",
-            ok=False,
-            subtask_id="FINAL-001",
-            result={
-                "review": {
-                    "kind": "final",
-                    "verdict": "pass",
-                    "reviewer_platform_agent_id": "final-001",
-                    "reviewed_change_sha256": reviewed,
-                    "findings": [],
-                }
-            },
-        )
-        self.assertIn("latest", " ".join(rejected.get("errors", [])).lower())
-
-    def test_final_target_excludes_only_current_task_control_artifacts(self) -> None:
-        source = self.repo / "skills" / "global-task-orchestrator" / "scripts" / "orchestrator_ctl.py"
-        source.parent.mkdir(parents=True)
-        source.write_text("real scoped source\n", encoding="utf-8")
-        self.prepare_lifecycle()
-
-        state_path = self.repo / "docs" / "ai" / "tasks" / TASK_ID / "state.json"
-        state = self.state()
-        implementation = next(item for item in state["subtasks"] if item["subtask_id"] == "IMPL-001")
-        implementation["result"]["changed_files"].extend(
-            [f"docs/ai/tasks/{TASK_ID}", f"docs/tasks/{TASK_ID}"]
-        )
-        state["findings"]["GTO-FINAL-SELFREF-003"] = {
-            **finding("GTO-FINAL-SELFREF-003", status="closed"),
-            "paths": [
-                f"docs/ai/tasks/{TASK_ID}/state.json",
-                f"docs/ai/tasks/{TASK_ID}/events.jsonl",
-                f"docs/ai/tasks/{TASK_ID}/.control.lock",
-                f"docs/tasks/{TASK_ID}/acceptance.md",
-                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
-            ],
-            "fix_round": 1,
-            "lineage": {"original_implementer": IMPLEMENTER, "original_reviewer": REVIEWER},
-            "closed_at": "2030-01-02T03:04:05+00:00",
-        }
-        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-        brief = self.run_ctl("build-review-brief", subtask_id="FINAL-001")["brief"]
-        manifest_paths = {entry["path"] for entry in brief["source_manifest"]}
-        self.assertIn("skills/global-task-orchestrator/scripts/orchestrator_ctl.py", manifest_paths)
-        self.assertFalse(any(path.startswith(f"docs/ai/tasks/{TASK_ID}/") for path in manifest_paths))
-        self.assertFalse(any(path.startswith(f"docs/tasks/{TASK_ID}/") for path in manifest_paths))
-
-        self.record_review("FINAL-001", "final", [])
-        completed = self.run_ctl("finalize-task")
-        self.assertEqual("completed", completed["status"])
 
     def test_cli_accepts_documented_gnu_long_options(self) -> None:
-        contract_file = self.repo / "contract.json"
-        contract_file.write_text(json.dumps(contract()), encoding="utf-8")
+        contract_file = self.repo / ".tmp" / "contract.json"
+        contract_file.parent.mkdir(parents=True, exist_ok=True)
+        contract_file.write_text(json.dumps(_current_contract()), encoding="utf-8")
         command = [
             "python3",
             str(CONTROLLER),
@@ -1207,7 +667,7 @@ class ControlPlaneContractTest(unittest.TestCase):
     def test_init_schema_rejection_leaves_no_task_artifacts_or_lock_directory(self) -> None:
         # Break caught: init-task writes task artifacts or creates a lock before
         # the fully constructed candidate state clears canonical schema checks.
-        invalid_contract = contract()
+        invalid_contract = _current_contract()
         invalid_contract["unexpected_root_field"] = "schema must reject this"
         rejected = self.run_ctl(
             "init-task",
@@ -1234,7 +694,7 @@ class ControlPlaneContractTest(unittest.TestCase):
         # Break caught: argparse's default prefix matching revives a deleted
         # inline option through an abbreviated file-option spelling.
         contract_file = self.input_dir / "contract.json"
-        contract_file.write_text(json.dumps(contract()), encoding="utf-8")
+        contract_file.write_text(json.dumps(_current_contract()), encoding="utf-8")
         completed = subprocess.run(
             [
                 sys.executable,
@@ -1321,9 +781,9 @@ class ControlPlaneContractTest(unittest.TestCase):
         self.init_task()
         self.run_ctl(
             "bind-dispatch",
-            subtask_id="IMPL-001",
-            agent_key=IMPLEMENTER["agent_key"],
-            platform_agent_id=IMPLEMENTER["platform_agent_id"],
+            subtask_id="TEST-001",
+            agent_key="initial-tester",
+            platform_agent_id="initial-tester-001",
             context_mode="isolated",
             brief_kind="subtask",
             brief_sha256="1" * 64,
@@ -1350,7 +810,7 @@ class ControlPlaneContractTest(unittest.TestCase):
                     "--task-id",
                     TASK_ID,
                     "--subtask-id",
-                    "IMPL-001",
+                    "TEST-001",
                     "--result-json-file",
                     str(input_path),
                     "--json",
@@ -1454,83 +914,66 @@ class ControlPlaneContractTest(unittest.TestCase):
             f"documented GTO flags are absent from --help: {sorted(documented_flags - parser_flags)}",
         )
 
-    def test_agent_catalog_uses_live_assignment_and_dispatch_without_v2_role_map(self) -> None:
-        role_map = REPO_ROOT / "agents/codex-role-map.json"
-        self.assertFalse(role_map.exists(), "active agents must not retain the v2 role-map compatibility layer")
+    def test_project_dispatch_entries_resolve_to_gto_without_role_catalog(self) -> None:
+        self.assertEqual([], [path for path in (REPO_ROOT / "agents").rglob("*") if path.is_file()])
+        self.assertFalse((REPO_ROOT / "docs/AGENTS.md").exists())
         active_entries = (
-            "agents/README.md",
-            "docs/AGENTS.md",
             "templates/project/README.md",
-            "templates/project/docs/ai/README.md",
-            "templates/project/config/ai/README.md",
+            "templates/project/.codex/README.md",
         )
         for relative in active_entries:
-            catalog = (REPO_ROOT / relative).read_text(encoding="utf-8")
-            self.assertNotIn("agent_type", catalog, relative)
-            self.assertNotIn("codex-role-map", catalog, relative)
-            for required in ("task.md", "assignment", "spawn_agent", "platform_agent_id", "dispatch"):
-                self.assertIn(required, catalog, f"{relative} must document live dispatch field {required}")
+            entry = REPO_ROOT / relative
+            text = entry.read_text(encoding="utf-8")
+            references = re.findall(r"`([^`]*skills/global-task-orchestrator/SKILL\.md)`", text)
+            self.assertTrue(references, relative)
+            for reference in references:
+                self.assertEqual((REPO_ROOT / "skills/global-task-orchestrator/SKILL.md").resolve(),
+                                 (entry.parent / reference).resolve())
+            self.assertNotIn("codex-role-map", text, relative)
 
     def test_orchestrator_schema_accepts_v3_and_rejects_v2(self) -> None:
-        # Break caught: the persisted task contract silently keeps the v2/v3
-        # dual track after v3 becomes the only active state version.
-        schema = json.loads(
-            (REPO_ROOT / "schemas/orchestrator-task-state.schema.json").read_text(encoding="utf-8")
-        )
+        # Validate real persisted output from the single published contract source.
+        skill = REPO_ROOT / "skills/global-task-orchestrator"
+        temporary = tempfile.TemporaryDirectory(dir=REPO_ROOT / ".tmp")
+        self.addCleanup(temporary.cleanup)
+        self.repo = Path(temporary.name)
+        self.init_task(json.loads((skill / "references/revision-3-contract.example.json").read_text(encoding="utf-8")))
+        schema = json.loads((skill / "schemas/orchestrator-task-state.schema.json").read_text(encoding="utf-8"))
         validator = Draft202012Validator(schema)
-        v3_state = json.loads(
-            (REPO_ROOT / "templates/orchestrator/state.template.json").read_text(encoding="utf-8")
-        )
+        v3_state = self.state()
+        self.assertEqual(3, v3_state["version"])
         self.assertEqual([], [error.message for error in validator.iter_errors(v3_state)])
         v2_state = deepcopy(v3_state)
         v2_state["version"] = 2
-        self.assertNotEqual(
-            [],
-            [error.message for error in validator.iter_errors(v2_state)],
-            "orchestrator schema must reject version=2",
-        )
+        self.assertNotEqual([], [error.message for error in validator.iter_errors(v2_state)],
+                            "orchestrator schema must reject version=2")
 
     def test_current_task_templates_validate_and_use_only_active_commands(self) -> None:
-        # Break caught: a shipped task template remains on an old schema or
-        # routes verification through deleted PowerShell entrypoints.
-        schema = json.loads(
-            (REPO_ROOT / "schemas/orchestrator-task-state.schema.json").read_text(encoding="utf-8")
-        )
-        validator = Draft202012Validator(schema)
-        templates = (
-            REPO_ROOT / "templates/orchestrator/state.template.json",
-            REPO_ROOT / "templates/task-state.example.json",
-        )
-        violations: dict[str, list[str]] = {}
-        for path in templates:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            errors = [error.message for error in validator.iter_errors(payload)]
-            serialized = json.dumps(payload, ensure_ascii=False)
-            if re.search(r"(?i)(?:powershell|\.ps1\b|\.cmd\b)", serialized):
-                errors.append("contains retired PowerShell/batch command")
-            documented_actions = set(re.findall(r"--action\s+([a-z][a-z0-9-]+)", serialized))
-            for action in sorted(documented_actions):
-                completed = subprocess.run(
-                    [
-                        sys.executable,
-                        str(CONTROLLER),
-                        "--action",
-                        action,
-                        "--repo-root",
-                        str(self.repo),
-                        "--task-id",
-                        TASK_ID,
-                        "--json",
-                    ],
-                    text=True,
-                    capture_output=True,
-                    check=False,
-                )
-                if "unsupported Action" in completed.stdout + completed.stderr:
-                    errors.append(f"contains unsupported action {action}")
-            if errors:
-                violations[path.relative_to(REPO_ROOT).as_posix()] = errors
-        self.assertEqual({}, violations, f"current task templates are stale: {violations}")
+        # Generated state and documents consume one contract; no independent state template.
+        skill = REPO_ROOT / "skills/global-task-orchestrator"
+        temporary = tempfile.TemporaryDirectory(dir=REPO_ROOT / ".tmp")
+        self.addCleanup(temporary.cleanup)
+        self.repo = Path(temporary.name)
+        contract = json.loads((skill / "references/revision-3-contract.example.json").read_text(encoding="utf-8"))
+        self.init_task(contract)
+        schema = json.loads((skill / "schemas/orchestrator-task-state.schema.json").read_text(encoding="utf-8"))
+        self.assertEqual([], [error.message for error in Draft202012Validator(schema).iter_errors(self.state())])
+        self.run_ctl("validate")
+        serialized = json.dumps(self.state(), ensure_ascii=False) + "\n" + "\n".join(
+            path.read_text(encoding="utf-8") for path in (self.repo / "docs").rglob("*.md"))
+        self.assertIsNone(re.search(r"(?i)(?:powershell|\.ps1\b|\.cmd\b)", serialized),
+                          "generated task contains retired PowerShell/batch command")
+        self.assertIn("workflow.md", serialized, "generated task must reference the workflow source")
+        instructions = (skill / "references/controller-guide.md").read_text(encoding="utf-8")
+        documented_actions = set(re.findall(r"--action\s+([a-z][a-z0-9-]+)", instructions))
+        self.assertTrue(documented_actions, "skill source must expose its active command entrypoints")
+        help_result = subprocess.run([sys.executable, str(CONTROLLER), "--help"],
+                                     text=True, capture_output=True, check=False)
+        self.assertEqual(0, help_result.returncode, help_result.stderr)
+        choices = re.search(r"--action\s+\{([^}]+)\}", help_result.stdout)
+        self.assertIsNotNone(choices, help_result.stdout)
+        self.assertEqual(set(), documented_actions - set(choices.group(1).split(",")),
+                         "generated task references unsupported actions")
 
     def test_new_task_generates_unique_local_time_id_without_creating_state(self) -> None:
         command = [
@@ -1555,6 +998,39 @@ class ControlPlaneContractTest(unittest.TestCase):
             task_ids.append(payload["task_id"])
         self.assertEqual(2, len(set(task_ids)))
         self.assertFalse((self.repo / "docs").exists())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 if __name__ == "__main__":

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "files": {
+    "business-root/request.txt": "8d53150eb9b9623b550ce379c2a2e4dd4b4ebbf221ae57977405d32794c001a5",
+    "state-slice.json": "1a3e5c43a0a64907339a774890ec352125c315bfc9d06b2dfbb99e146e037134",
+    "tool-root/installed.marker": "aabaf79733907b96b848a42cd88effc16f4b855ee829fc6def9f0f9400a2d9eb"
+  }
+}

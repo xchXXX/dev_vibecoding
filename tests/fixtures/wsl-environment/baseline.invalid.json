@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "developer",
+      "packages": [
+        {
+          "name": "jq",
+          "source": "https://unreviewed.example.invalid/install.sh",
+          "command": "jq"
+        }
+      ]
+    }
+  ]
+}

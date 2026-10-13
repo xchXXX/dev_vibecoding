@@ -9,7 +9,7 @@
 建立一套可跨项目复用的纯 Codex/WSL 协作控制面：
 
 - Codex 负责理解对话语义、选择相关规则、使用 skill、派发代理和作出非机械判断。
-- WSL Python 3 标准库脚本负责索引生成、结构校验、状态持久化、同步、doctor 与确定性状态推进。
+- WSL Python 3脚本负责索引生成、结构校验、状态持久化、同步、doctor 与确定性状态推进。
 - Linux 原生命令负责日常文件操作、Git、测试、构建与诊断。
 - 当前合同不保留其他代理平台、事件拦截器、Windows launcher 或旧控制面兼容路径。
 
@@ -21,7 +21,7 @@
 
 - `AGENTS.md` 与 `docs/` 当前入口。
 - `rules/items/` 规则正文和 `rules/registry/RULES_INDEX.json` 元数据索引。
-- `skills/`、`schemas/`、`templates/`、`agents/`、`scripts/` 与 `tests/`。
+- `skills/`、`schemas/`、`templates/`、`scripts/` 与 `tests/`。
 
 仓库内部只维护相对路径或 `<harness-root>` 占位；机器绝对路径不进入通用合同。
 
@@ -67,23 +67,26 @@ Python 只在离线维护和验收时生成、校验索引；正常交互链不�
 - 控制器只接受 `orchestrator_ctl.py --help` 当前公开且实际实现的 action；文档、模板和角色说明不得发明 action。
 - CLI 参数统一使用 GNU 双横线形式。单横线 PascalCase 别名不是当前接口。
 - 执行合同保存在 `state.json.subtasks[].assignment`，执行结果保存在 `state.json.subtasks[].result`；不生成承担当前状态职责的第二套 package 或会话状态。
-- 派发必须绑定平台返回的真实代理身份和真实隔离参数；review finding 返回原实现者，并由原 reviewer re-review。
-- 最终完成需要独立 reviewer 对最新 `HEAD` 或最终变更哈希给出 `final/pass`。
+- 派发必须绑定平台返回的真实代理身份和真实隔离参数；revision 3 的代码 finding 返回原整合责任者；review finding 由原 reviewer re-review，验收 finding 直接由原验收者复验；旧 revision 2 保留原实现者返工。
+- 当前通用流程和普通返工、skill 黑盒出口统一见 [GTO 流程真源](../../skills/global-task-orchestrator/references/workflow.md)；字段和可用接口核对同候选 schema 与实际 CLI，在途任务使用其冻结运行版本和同一合同；当前包不兼容旧合同。
 
 ## WSL 正常链
 
-正式命令只使用 WSL `python3`、Linux 原生命令和 GNU 双横线参数。例如：
+正式命令只使用 WSL `python3`、Linux 原生命令和 GNU 双横线参数。以下维护命令在 harness 根执行；GTO 则使用实际加载的 skill 绝对位置，并单独传入业务项目根：
 
 ```bash
+GTO_SKILL_DIR=/absolute/path/to/the/loaded/global-task-orchestrator
+GTO_CONTROLLER="$GTO_SKILL_DIR/scripts/orchestrator_ctl.py"
+repo_root=/absolute/path/to/the/consumer-project
 python3 scripts/generate_rules_index.py --repo-root .
 python3 scripts/validate_rules.py --repo-root .
 python3 scripts/validate_plan_docs.py --repo-root .
 python3 scripts/validate_doc_routing.py --repo-root .
-python3 scripts/bootstrap-local.py --harness-root . --codex-home "$CODEX_HOME" --json
-python3 scripts/sync-codex.py --harness-root . --codex-home "$CODEX_HOME" --json
-python3 scripts/doctor-core.py --repo-root . --codex-home "$CODEX_HOME" --strict --json
-python3 skills/global-task-orchestrator/scripts/orchestrator_ctl.py \
-  --action validate --repo-root . --task-id "$task_id" --json
+python3 scripts/bootstrap-local.py --harness-root . --codex-home "${CODEX_HOME:?set verified Windows Codex home WSL path}" --json
+python3 scripts/sync-codex.py --harness-root . --codex-home "${CODEX_HOME:?set verified Windows Codex home WSL path}" --json
+python3 scripts/doctor-core.py --repo-root . --codex-home "${CODEX_HOME:?set verified Windows Codex home WSL path}" --strict --json
+python3 "$GTO_CONTROLLER" \
+  --action validate --repo-root "$repo_root" --task-id "$task_id" --json
 ```
 
 普通非零退出码按 Command Failure Memory 闭环处理；不能因为失败而自动跨平台重跑、扫描其他 clone、创建 wrapper 或切换到另一套实现。
@@ -101,11 +104,11 @@ bootstrap、sync 和 doctor 只处理受管 Codex 入口、上述 skill、规则
 
 ## 文档与实施路线
 
-1. 先冻结六要点、六份任务工件、写入边界和验收命令。
-2. 以最小失败测试证明当前缺口。
-3. 先同步当前长期真源与测试，再修改实现、schema 和模板。
-4. 运行最小相关验证，再运行 bootstrap、sync、strict doctor 与完整回归。
-5. 由独立 reviewer 审查全部变更；finding 经原实现者修复并由原 reviewer 复审。
+见 [GTO 流程真源](../../skills/global-task-orchestrator/references/workflow.md)。本文只保留架构入口与历史证据，不另维护施工顺序或强制全量投放步骤。
+
+### 历史实现证据（非当前候选验收）
+
+此前批次已关闭七项 findings；在授权移除 `/mnt/c/Users/Laptop/.claude` 后，全量 harness 回归 `106/106` 通过，耗时 `421.377` 秒。候选目标为 `e0f68c62afc9b9f05780ba85f8692e5b7f48457556802202dd638dd9a6980e9b`；真实外部昂贵验收不适用，`real_call_count=0`。这些是历史证据，不构成本次候选通过：仍需独立 reviewer 对最新变更给出 `final/pass`。
 
 ## 历史与退役边界
 
@@ -122,7 +125,7 @@ bootstrap、sync 和 doctor 只处理受管 Codex 入口、上述 skill、规则
 - 六份 GTO 工件全部存在、相互一致且 `events.jsonl` 非可选。
 - 文档中的 action 与参数均可由真实 CLI 验证。
 - v3 schema、当前模板、bootstrap、sync、strict doctor 和全量测试全部通过。
-- 最终审查覆盖全部实际变更并对最新版本给出 `final/pass`。
+- 当前通用流程和普通返工、skill 黑盒出口统一见 [GTO 流程真源](../../skills/global-task-orchestrator/references/workflow.md)；字段和可用接口核对同候选 schema 与实际 CLI，在途任务使用其冻结运行版本和同一合同；当前包不兼容旧合同。
 
 ## 停止条件
 
@@ -131,4 +134,8 @@ bootstrap、sync 和 doctor 只处理受管 Codex 入口、上述 skill、规则
 - 需要写入未授权路径或覆盖来源不明的 dirty 内容。
 - 当前文档、schema、模板与真实 CLI 无法对齐。
 - 目标机器运行时同步会扩大已批准边界。
-- 验证失败原因不清、review 仍有 open finding，或最终版本尚未获得独立 `final/pass`。
+- 验证失败原因不清、review 仍有 open finding，或最新候选缺少适用版本要求的有效审查/验收证据。
+
+## GTO revision 3
+
+- 当前通用流程和普通返工、skill 黑盒出口统一见 [GTO 流程真源](../../skills/global-task-orchestrator/references/workflow.md)；字段和可用接口核对同候选 schema 与实际 CLI，在途任务使用其冻结运行版本和同一合同；当前包不兼容旧合同。

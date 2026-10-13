@@ -1,0 +1,78 @@
+{
+  "files": [
+    {
+      "sha256": "a4aac626cce50e03f9cddcc2e144ad96df088453c18ae9136cc2ef65412a27bb",
+      "path": "SKILL.md"
+    },
+    {
+      "sha256": "5798ed708ca7300cadaf724f139c08daf1fe2b743e02e3fd25963ad86639b009",
+      "path": "agents/openai.yaml"
+    },
+    {
+      "sha256": "b75b38f7154196d609f5817bcb565ad3751dc475c78e4249fe7f726284a5757b",
+      "path": "references/blackbox-methodology.md"
+    },
+    {
+      "sha256": "d55c7bb094228d36b8b0932c2a30b396442419e17583caad3a741c4f252eefcf",
+      "path": "references/controller-guide.md"
+    },
+    {
+      "sha256": "82e6bda0d50fff49a9efd0775b93873dd386ae6fe38e56dfadf548b3aa4ddfde",
+      "path": "references/governance-essentials.md"
+    },
+    {
+      "sha256": "3e2e2c8ab1da146d5fb9f18308fa6ff123c916607601b25c650e57421a69a07e",
+      "path": "references/plan-guide.md"
+    },
+    {
+      "sha256": "e2e4936355b2b1bfb10f066d6a67f19eff5bc13a58d5d1fd8f2548fb732fbdd5",
+      "path": "references/plan-reading-examples.md"
+    },
+    {
+      "sha256": "cf8ca317c9b565bc0200ed268ea704fb97ec2e2b4b97497d1ed748a824923fec",
+      "path": "references/revision-3-contract.example.json"
+    },
+    {
+      "sha256": "ea87948690a2c0c2189d6d7f5f53fff53990d472b09bacd40d509a844d04e7a6",
+      "path": "references/revision-3-results.example.json"
+    },
+    {
+      "sha256": "40fdbff05715968a02e5b837c33becbaa528bc07249bede5bbaaa3c62fc10656",
+      "path": "references/runtime-evidence.md"
+    },
+    {
+      "sha256": "c797c8d3bdee66aad76c8b7334d9c93290aff27bb4a63946be112f7bcb0f4134",
+      "path": "references/state-schema.md"
+    },
+    {
+      "sha256": "0c026d50efa5e67ecd8f80963f84be8e66708a96414181f4e59d5f8f3099d248",
+      "path": "references/workflow.md"
+    },
+    {
+      "sha256": "3594d0729ffea837ba2402b727313ccc46304331f0b60743b1a0f699c03c2821",
+      "path": "schemas/orchestrator-task-state.schema.json"
+    },
+    {
+      "sha256": "5e2f414c1e79178e1e24e5b0539fe40f2953bbfe7aaf6df6a5f3a227335d23aa",
+      "path": "scripts/acceptance_batches.py"
+    },
+    {
+      "sha256": "846776d8ee07eae41b2c7e14d58223a1cce0e7ff55ccd1b4a82c37ea3a8b9129",
+      "path": "scripts/capability_gate.py"
+    },
+    {
+      "sha256": "058849a38c956a47c9559734591b42ed54cdfceb811c6d082e232e4460cd971e",
+      "path": "scripts/orchestrator_ctl.py"
+    },
+    {
+      "sha256": "94859ba4cee195e482bbcc537860e956e894e0133c10796aa0958359db3576eb",
+      "path": "scripts/runtime_evidence.py"
+    },
+    {
+      "sha256": "b835a28ad3c01a678912f56f8f4a6863310200bf1fd8078636e648549c3be7bc",
+      "path": "scripts/start_session.py"
+    }
+  ],
+  "captured_at": "2026-09-29T16:53:21.8204010+08:00",
+  "source": "skills/global-task-orchestrator"
+}

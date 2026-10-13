@@ -16,7 +16,7 @@ description: "在开始实现前设计 benchmark。适用于 Codex 将要构建�
 - 不要把“要做什么”和“怎么验收”混成一段模糊描述。
 
 2. 把验证面拆成不同层。
-- 默认从 `contract`、`component`、`forward`、`blind` 四层开始。
+- 按真实风险选择 `contract`、`component`、`forward`、`blind` 等层，不强制全部具备。
 - 只有在能提升信号质量时，才合并或增加层级。
 - 判断某层是“仅用于诊断”还是“属于最终验收”时，阅读 `references/benchmark-design.md`。
 
@@ -41,20 +41,13 @@ description: "在开始实现前设计 benchmark。适用于 Codex 将要构建�
 - 真正的 blind evaluation 要和任何会泄露隐藏上下文的准备步骤隔离。
 - 需要快速起一套骨架时，从仓库根运行 `python3 skills/pre-dev-benchmark/scripts/scaffold_benchmark.py --output <dir> --slug <name> --title <title>`。
 
-7. 开始编码前先产出具体文件。
-- 至少留下 `benchmark plan`、`fixture matrix` 和 `runbook`。
-- 明确写出通过阈值，以及哪些失败会直接阻断。
-- 即使用户要求马上实现，也要留下最小但清晰的 benchmark 包。
+7. 将基线、通过阈值、fixture 与执行说明写入已有合同。
+- GTO 任务复用同一六工件：要求与范围在 plan，执行分工在 execution，验证与证据在 acceptance；不另建固定 benchmark 文档套餐或第二账本。
+- 只有独立 benchmark 交付本身是用户目标时，才使用下方 scaffold 和模板；落点遵循项目存储规则。
 
 ## 产出合同
 
-输出物必须能直接被后续实现阶段复用：
-
-- `benchmark-plan.md`：改动目标、测试层、通过/失败标准、阈值和自动化范围
-- `fixture-matrix.md`：稳定 case 清单，包括 setup、信号、污染风险与隔离说明
-- `runbook.md`：执行顺序、证据留存要求，以及哪些套件是诊断、哪些是验收
-
-如果仓库已经有约定好的 benchmark 位置，就写到那个位置；如果没有，就在仓库的 `benchmark/` 下建一个聚焦目录，不要只把方案留在聊天里。
+输出需让后续执行者可复用：可观察标准、稳定 fixture、诊断/验收区分、运行入口和证据位置。材料的唯一存放位置由现有任务合同决定，无需每种内容单建文件。skill 效果黑盒的投放、无提示顶层会话、准备复查与正式首轮停止出口引用 [GTO 黑盒方法](../global-task-orchestrator/references/blackbox-methodology.md#结果分类)，不在这里另建返工规则。
 
 ## 资源导航
 
@@ -66,7 +59,7 @@ description: "在开始实现前设计 benchmark。适用于 Codex 将要构建�
 
 ```bash
 python3 skills/pre-dev-benchmark/scripts/scaffold_benchmark.py \
-  --output benchmark/my-change \
+  --output .tmp/benchmark/my-change \
   --slug my-change \
   --title "我的改动"
 ```

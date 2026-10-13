@@ -1,0 +1,22 @@
+{
+  "schema_version": 3,
+  "capabilities": [
+    {
+      "id": "codex-browser",
+      "kind": "windows_native",
+      "provider": "codex_builtin_browser",
+      "required_plugins": [
+        "browser@openai-bundled",
+        "unified-computer-use@openai-bundled"
+      ]
+    },
+    {
+      "id": "computer-use",
+      "kind": "windows_native",
+      "provider": "official_computer_use",
+      "required_plugins": [
+        "computer-use@openai-bundled"
+      ]
+    }
+  ]
+}

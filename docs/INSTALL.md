@@ -1,5 +1,7 @@
 # INSTALL
 
+> 当前使用 Windows 原生 Agent 与 WSL 开发环境。CODEX_HOME/.ai-harness/windows-native-transition.hold 存在时，下文 bootstrap/sync 命令会在写入前停止；不要删标志重试。按 [接续任务](tasks/20260910-windows-native-transition/task.md) 完成源码/安装/receipt 收口与隔离重复发布验证后解除。项目 WSL 命令和官方 Windows 插件使用不依赖这些安装命令。
+
 ## 目标
 
 本文冻结 `ai-harness` 的纯 Codex/WSL bootstrap、sync、doctor 与本机工具基线合同。
@@ -9,22 +11,22 @@
 在已选定的 `<harness-root>` 下使用 WSL Python：
 
 ```bash
-python3 ./scripts/bootstrap-local.py
+python3 ./scripts/bootstrap-local.py --codex-home "${CODEX_HOME:?set verified Windows Codex home WSL path}"
 ```
 
 - harness 根按显式 CLI 参数、`AI_HARNESS_ROOT`、脚本所在仓库的顺序选择。
-- Codex home 按显式 CLI 参数、`CODEX_HOME`、当前 Linux 用户目录的顺序选择。
+- Codex home 必须通过显式 `--codex-home` 或已核实的 `CODEX_HOME` 指定；Windows Agent 调用 WSL 时传入该 Windows 目录的 WSL 等价路径。缺失即报错，不回退到 Linux 用户目录、不建立另一套安装。
 - 无效的显式值直接失败；不扫描 sibling clone、整盘目录或其他工作区。
 - bootstrap 渲染 managed 全局 `AGENTS.md`、写 machine-local receipt，并调用 Codex skill、规则索引与 doctor 链路。
 - 非空未托管全局入口默认拒绝覆盖；只有显式 `--force-global-agents` 才先创建内容寻址备份再替换。
-- 正式 bootstrap 成功路径只使用 WSL `python3` 和 Linux 原生命令，不调用 hook、`.ps1` 或 `.cmd`。
+- Windows 原生 Agent 使用 PowerShell/文件工具及官方 Browser、Computer Use；项目 Git/Python/Node/测试构建通过指定 Ubuntu-24.04 的 wsl.exe --exec 在 Linux 执行，不替换为 Windows 项目依赖、旧 launcher、batch 或 hook。
 
 ## Codex 运行时映射
 
 - 真源：`<harness-root>/skills/*`
 - 运行时：`CODEX_HOME/skills/*`
-- GTO schema 真源：`<harness-root>/schemas/orchestrator-task-state.schema.json`
-- GTO schema 运行时：`CODEX_HOME/schemas/orchestrator-task-state.schema.json`
+- GTO schema 真源：`<harness-root>/skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json`
+- GTO schema 运行时：`CODEX_HOME/skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json`
 - managed 全局入口模板：`<harness-root>/templates/codex/AGENTS.global.md`
 - 目标入口：`CODEX_HOME/AGENTS.md`
 
@@ -74,6 +76,21 @@ doctor 只读检查：
 
 doctor 不自动修复、不安装工具、不接管项目目录，也不清理未托管运行时内容。
 
+## 分层环境准备
+
+完整合同和路径图见 [WSL 环境工程交付说明](modules/wsl-environment/delivery/engineering/wsl-environment-delivery.md)。不要把“工具命令能执行”误当成项目、浏览器或 Windows GUI 已就绪。
+
+| 层级 | 真源/入口 | 操作边界 |
+| --- | --- | --- |
+| 机器公共工具 | `config/ai/wsl-tool-baseline.json`、`scripts/provision-wsl.py`、`scripts/doctor-core.py` | provision 默认输出计划；只有显式 apply 才能在批准范围内安装最小缺口 |
+| 项目依赖隔离 | 项目 manifest/lock、`schemas/project-environment.schema.json`、`scripts/project-env-doctor.py` | 只在当前 WSL 项目内恢复和诊断，不复用 Windows 工件，也不自动删除旧目录 |
+| 可选能力 | 项目环境声明 | Playwright、Docker、数据库、云 CLI 等必须声明且本次任务确实需要 |
+| Windows 外部能力 | 官方 Browser、Computer Use、Desktop 运行时、原生插件声明 | Windows Agent 使用官方工具；harness 只读检查，不改 transport、安全设置、插件开关或注册 WSL GUI 桥 |
+
+在新 worktree setup 完成后、GTO 长任务第一次运行代码前，或普通任务第一次触及运行时，运行一次 machine doctor；该项目第一次需要运行时时再运行 project doctor。不要把这些检查扩展为 hook、daemon、逐命令 wrapper、自动重试或自动修复。
+
+Windows 原生 Agent 负责文件、Browser、截图与 Computer Use；项目 Git/Python/Node/测试/构建继续通过指定发行版的 wsl.exe --exec 执行。外部能力声明 v3 只列 windows_native 与 required_plugins；bootstrap/doctor 不写插件配置或官方 transport，不创建 WSL GUI 桥。磁盘 enabled 不等于 GUI 验收。
+
 ## WSL 工具部署
 
 已有并保留：
@@ -82,7 +99,7 @@ doctor 不自动修复、不安装工具、不接管项目目录，也不清理�
 - `python3`、`python3-venv`
 - Linux 原生 `node`、`npm`
 
-在 Ubuntu WSL 中一次性安装固定基线：
+如已获得对本机工具部署的明确授权，可在 Ubuntu WSL 中按 `provision-wsl.py` 的计划执行固定基线；不要把下列示例当成 bootstrap/doctor 的隐式副作用：
 
 ```bash
 sudo apt update
@@ -90,14 +107,14 @@ sudo apt install -y jq unzip zip tree strace shellcheck shfmt fzf fd-find sqlite
   build-essential pkg-config cmake ninja-build python3-pip
 ```
 
-然后在 **Linux 原生 Node.js 已安装且其 `node`/`npm`/`corepack` 不来自 `/mnt/c`** 的 shell 中安装 Linux 原生 `pnpm`：
+然后在 **Linux 原生 Node.js 已安装且其 `node`/`npm` 不来自 `/mnt/c`** 的 shell 中，通过已批准的外部运行时或包来源安装 Linux 原生 `pnpm`：
 
 ```bash
 curl -fsSL https://get.pnpm.io/install.sh | sh -
 exec "$SHELL" -l
 ```
 
-doctor 固定审计 `jq unzip zip tree strace shellcheck shfmt fzf fdfind sqlite3 dos2unix gcc g++ make pkg-config cmake ninja pip3 pnpm`，以及 `node npm pnpm corepack` 的可用性和 Linux 原生路径。Ubuntu 的 `fd-find` 通常提供命令 `fdfind`；`fd` 是兼容替代。doctor 会将 `/mnt/c` 或 Windows Program Files 中的 Node 工具（包括 Windows `corepack`）报告为路径泄漏。bootstrap 与 doctor 之后只检查，不重复安装。
+doctor 固定审计 `jq unzip zip tree strace shellcheck shfmt fzf fdfind sqlite3 dos2unix gcc g++ make pkg-config cmake ninja pip3 pnpm`，以及 `node npm pnpm` 的可用性和 Linux 原生路径。Corepack 不是机器基线要求；Ubuntu 的 `fd-find` 通常提供命令 `fdfind`，`fd` 是兼容替代。doctor 会将 `/mnt/c` 或 Windows Program Files 中的受审计 Node 工具报告为路径泄漏。bootstrap 与 doctor 之后只检查，不重复安装、升级发行版或自动修复项目依赖。
 
 ## 删除边界
 
@@ -109,7 +126,7 @@ doctor 固定审计 `jq unzip zip tree strace shellcheck shfmt fzf fdfind sqlite
 
 - 不安装 Docker、数据库服务、云 CLI 或账号工具。
 - 不做 Codex 运行时目录全盘 takeover。
-- 不移动仓库，不复制整个 `.codex`，不自动创建 worktree。
+- 不移动仓库、不复制整个 `.codex`；独立并行任务按授权使用隔离 worktree。
 - 不在 bootstrap 或 doctor 中加入包管理器自动安装、自动重试或跨平台回退。
 
 ## 最小验收
@@ -119,3 +136,23 @@ doctor 固定审计 `jq unzip zip tree strace shellcheck shfmt fzf fdfind sqlite
 - 规则索引只含元数据，运行时无 Python matcher 和固定规则套餐。
 - 用户旧运行时删除边界与 CFM 保留边界清晰且互不重叠。
 - WSL 工具全部可执行，Linux 原生 `pnpm` 可用。
+
+## GTO 默认发布版本
+
+GTO 当前默认发布版为 `workflow_revision=3`。新任务直接使用已安装 skill 中的 revision 3 合同，无需用户提醒版本。主工作区 `skills/global-task-orchestrator/` 是包含 schema 在内的唯一同步真源；开发 worktree 中的候选只有整合到此真源并执行 `python3 scripts/sync-codex.py --harness-root "$PWD" --codex-home "${CODEX_HOME:?set verified Windows Codex home WSL path}" --json` 后才成为默认安装。
+
+发布时整套同步 SKILL、agents 元数据、references、controller 和 schema，随后运行 `doctor-core.py` 核对同步回执和安装哈希，并用已安装的 revision 3 合同实际初始化及校验隔离任务。以后版本更新按同一发布链完成，不保留第二个旧版默认入口。已经启动的会话可能持有旧 skill 元数据；发布后新任务加载更新后的入口，已有会话需要重新读取或重启后刷新。
+
+## Windows 原生迁移的限定维护入口
+
+维护标志存在时发布入口拒绝写入。先在隔离目标验证，再冻结候选、受控解除、正式定向发布，失败恢复标志。
+
+- `python3 scripts/bootstrap-local.py --environment-only --harness-root <root> --codex-home <home> --json`：只投放环境 runtime 并更新其真实 receipt；不改动 AGENTS、hooks、插件 config、其他技能和 schema。
+- `python3 scripts/sync-codex.py --retire-legacy-gui --harness-root <root> --codex-home <home> --json`：旧桥 MCP 已明确停用且技能符合既有 receipt 时，仅将旧技能移入私有恢复目录并更新该技能记录；未知改动拒绝退役。
+- `python3 scripts/doctor-core.py --environment-only --root <root> --codex-home <home> --json`：只审计环境 runtime/receipt、Linux 工具和原生插件配置；不执行 GTO 或其 schema，不等价于全局 doctor 通过。
+
+bootstrap/doctor 不修改原生插件配置。一次性迁移在私有备份和定点核对后删除旧 WSL GUI 桥配置、代码与技能；完成后不保留旧运行或发现入口。Windows 调用 WSL 时使用 `wsl.exe -d <distro> --cd <project> --exec python3 <script>`；复杂内容先写脚本文件，避免默认 shell 解释反引号、重定向或变量。
+
+## 并发任务、固定运行版本与能力证明
+
+当前操作合同见 [GTO 运行与证据](../skills/global-task-orchestrator/references/runtime-evidence.md)。普通流程职责维护于全局 AGENTS 模板；技能开关唯一声明在 `config/ai/skill-policy.json`，由 `scripts/configure-skill-policy.py` 更新实际 path 配置，插件升级后重新检查路径并用新会话验明。方法技能不能接管流程。磁盘配置、CLI 快照验证和真实新会话加载分别报告。

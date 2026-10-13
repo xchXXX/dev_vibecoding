@@ -15,7 +15,7 @@
 1. 在项目根 `AGENTS.md` 声明“角色优先”入口，引用全局 `../../docs/SUBAGENT_GOVERNANCE.md`，不复制正文。
 2. 在 `docs/ai/README.md` 记录 role-first 委派入口与项目增量边界。
 3. 在 `config/ai/README.md` 记录项目级配置覆盖边界。
-4. 在 `.codex/` 仅放项目增量说明，并指向全局 `../../agents/*.md`；普通模型直接消费 `task.md` 与显式子任务 `assignment`，主协调器调用 `spawn_agent` 并把返回的 `platform_agent_id` 绑定为该子任务的 `dispatch` 实时身份。
+4. 在 `.codex/` 仅放项目增量说明；子代理提示词与派发约定引用 `../../skills/global-task-orchestrator/SKILL.md`，不维护项目角色模板。
 5. 按全局目录基线建立 `modules/`、`docs/modules/`、`docs/tasks/`、`tests/fixtures/`、`.tmp/` 与 `.artifacts/`。
 
 模板目录建议包含：

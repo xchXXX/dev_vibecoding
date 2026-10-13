@@ -1,5 +1,0 @@
-{"ts":"2026-08-26T18:54:57+08:00","actor":"main-coordinator","type":"task_initialized","summary":"Initialized task control plane.","refs":["docs/ai/tasks/20260826-185451-portable-harness-bootstrap-8c51e6/state.json","docs/ai/tasks/20260826-185451-portable-harness-bootstrap-8c51e6/task.md"]}
-
-{"ts":"2026-08-26T19:04:48+08:00","actor":"main-coordinator","type":"planning_contract_written","summary":"已落盘跨机器 bootstrap 方案、施工与验收文档，并通过计划文档、doc routing 与 task state 校验。","refs":[]}
-
-{"ts":"2026-08-26T19:37:56+08:00","actor":"main-coordinator","type":"doc_sync_completed","summary":"DOC-PORTABILITY-002 经一轮返工和复审通过，任务进入 test_sync。","refs":[]}

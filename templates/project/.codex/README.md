@@ -4,7 +4,7 @@
 
 用于放项目级说明或占位配置，并与项目根 `AGENTS.md`、`docs/ai/`、`config/ai/` 协同工作。
 
-Codex 侧角色委派映射以 `../../../agents/codex-role-map.json` 为真源，项目 `.codex/` 只补项目增量说明，不复制全局治理正文。
+子代理提示词与派发约定引用 `../../../skills/global-task-orchestrator/SKILL.md`，项目 `.codex/` 只补项目增量说明，不复制全局治理正文。
 
 约束：
 

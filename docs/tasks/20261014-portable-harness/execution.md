@@ -122,3 +122,15 @@ Docker独立诊断定位4.90后端处理遗留AF_UNIX socket时Error1920。根�
 
 本人close仅同步事实文档，原生accept-artifact-update→record CLOSE→finalize-task→最终validate均exit0。最终status=completed、next_action.kind=none，根实际读取state核实；原ACCEPT模板ready保留，实际attempt子任务completed。后续包/ZIP独立核验已保存在independent-final-bundle-container-supplement.json，产品与冻结source一致，冻结后仅三份任务状态文档更新。GTO全流程缺口关闭；独立Linux主机、新顶层会话、云端和未识别父会话最终复查仍明确未取得，不代签。
 
+
+## Git 到 dots 云端交付收口（2026-10-14）
+
+用户明确选择 dots 云端从 Git 拉取，并授权提交推送。独立 Tester /root/gto_recovery_tests、实现者 /root/gto_resume 和独立 Reviewer /root/cloud_reviewer 完成仓库内云接入增量；三项边界 Red 后修复，最终7项测试通过，pip无用户缓存专项1项通过（覆盖重叠不累加）。Review无剩余阻塞项，实际新会话和云端能力仍单列。
+
+javirs在核实旧HEAD和空index后，以expected-old update-ref快进到已验5a0606候选，read-tree仅更新index、不覆盖工作树，再正常提交436e52c71d9c371af0e11e3d8249460bd49d8310。树4b9813b550076c3a81b745ee16e183640e5783ac，16项云端delta符合白名单，四技能链接均为Git mode120000；.tmp/.artifacts/.venv/config/local未纳入Git。固定候选历史可追溯，原始脏checkout保持不动。cloud-git-commit.json记录此时提交事实。
+
+干净接收者容器从该提交的真实Git bundle克隆到带中文与空格的路径，Python3.11.17/Git2.39.5，9条命令全部exit0、14检查全true。首次运行文档原命令33.852秒，从PyPI实际安装依赖并完成真实GTO doctor；重复安装3.399秒，--check 1.919秒；7项新增测试在新克隆全部通过。预置用户配置、AGENTS、其他技能、记忆和pip配置字节保全，外部PIP目标未创建，无用户pip缓存，无源码pyc，Git工作树干净。报告cloud-git-recipient/recipient.json。该容器使用WSL2内核，不能替代独立Linux主机或dots新会话技能发现；session_verified=false保留。
+
+首次Git推送因Windows GCM在Linux-path worktree中调用Windows Git而失败，未读取或输出凭据。仅本次Git命令使用临时helper wrapper，在已核实的Windows用户目录执行既有GCM并移除继承的Git工作区变量，不改全局配置；重试退出0，origin/javirs成功建立并设为上游。原失败cloud-git-push.log与成功cloud-git-push-host-helper.log均保留。缺可选git-policy仍记录CONFIG_INVALID，依分支规则人工核实实际范围，不伪造配置。后续仅同步本节和验收摘要的文档提交，不改已验证产品。
+
+接收者配置和可直接交给dots的新任务验收请求唯一维护在[云端接入说明](../../modules/portable-harness/delivery/engineering/dots-cloud.md)。云端最后一段实机验收交由用户环境执行，不以本地容器或读取技能文件抵扣。

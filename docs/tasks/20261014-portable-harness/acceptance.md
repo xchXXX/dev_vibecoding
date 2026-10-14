@@ -1,6 +1,6 @@
 # Portable Harness 验收记录
 
-2026-10-14追加交付：用户要求继续剩余验收并授权Git提交推送，明确由dots云端从Git拉取。已补仓库技能发现入口、隔离venv安装/只读检查命令及[dots云接入说明](../../modules/portable-harness/delivery/engineering/dots-cloud.md)。独立新增7项测试通过，最终pip隔离/无用户缓存专项1项通过（覆盖重叠不累加）。真实干净Git克隆及推送结果继续在执行记录和本轮交付回执中留证；新云任务加载与dots宿主能力由用户云端按同一提交验收。
+2026-10-14追加交付：用户要求继续剩余验收并授权Git提交推送，明确由dots云端从Git拉取。已补仓库技能发现入口、隔离venv安装/只读检查命令及[dots云接入说明](../../modules/portable-harness/delivery/engineering/dots-cloud.md)。独立新增7项测试通过，最终pip隔离/无用户缓存专项1项通过（覆盖重叠不累加）。产品提交436e52c71d9c371af0e11e3d8249460bd49d8310已推送到GitHub的javirs分支。该提交在干净Linux容器从Git bundle克隆后，9条命令和14项检查全部通过，首次真实PyPI安装、重复安装、只读检查、真实GTO doctor及7项新增测试均通过；新云任务加载与dots宿主能力仍由用户云端按交付提交验收。
 
 状态：当前固定候选为5a0606ac6b11，已完成中断身份恢复修复、独立测试及源码/清洁分发目录Review。Windows和WSL既有原文命令、生命周期、配置及依赖证据保留，原验收者已签署部分验收报告并关闭PAC-01。新增Windows原生恢复成功链及Linux容器Python3.11完整生命周期通过。旧全量31条失败记录均已有目标Green，未重跑全套。用户明确本轮仅自用／内部交付，来源审核完成。Docker官方升级、故障恢复命中和两轮重启验收通过。完整GTO已在原任务执行到completed并最终validate通过；独立Linux主机、新会话和云端尚未通过，不宣称全部规格验收完成。
 
@@ -26,7 +26,7 @@
 
 正式独立结论见证据目录acceptance-final-report-bb17b02f54fe.md，由/root/portable_acceptance签名；本表仅汇总，不替代其逐项范围。后续Windows GTO执行证据见acceptance-windows-gto-execution-bb17b0.json及dependency-preparation记录。新增恢复修复由/root/gto_recovery_tests独立测试、/root/recovery_reviewer独立Review，报告为recovery-review.md；不把旧bb17验收签名扩大至新增范围。父会话最终复查尚未取得，不代签。
 ## 剩余限制
-连接、WSL映射和Windows Python已核实。独立Linux主机、云端、新顶层Codex会话尚无验收证据；不以CLI、子代理或模拟抵扣。真实Linux容器使用WSL内核，其16项检查通过不能冒称独立Linux主机。内部交付的来源审核已完成，未来对外许可另行决定。缺项目git-policy，检查器未通过，不伪造配置。只在javirs指定工作区修改，原始脏checkout未作交付写入；候选用临时Git index与commit-tree冻结，未改分支HEAD/index，未推送、合并、发布或安装portable包到真实全局环境。用户追加授权的Docker修复已完成，具体范围与未做的登录/恢复演练见下文。
+连接、WSL映射和Windows Python已核实。独立Linux主机、云端、新顶层Codex会话尚无验收证据；不以CLI、子代理或模拟抵扣。真实Linux容器使用WSL内核，其16项检查通过不能冒称独立Linux主机。内部交付的来源审核已完成，未来对外许可另行决定。缺项目git-policy，检查器未通过，不伪造配置。只在javirs指定工作区修改，原始脏checkout未作交付写入；早期候选用临时Git index与commit-tree冻结；用户追加Git授权后，javirs已快进到5a固定候选并正常提交云端接入增量436e52c，再推送至origin/javirs。未合并main、发布release或安装portable包到真实全局环境。用户追加授权的Docker修复已完成，具体范围与未做的登录/恢复演练见下文。
 
 ## 5a0606候选补验
 

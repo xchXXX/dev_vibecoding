@@ -166,6 +166,9 @@
               }
             }
           ]
+        },
+        "recovery_coordinator_id": {
+          "$ref": "#/$defs/platformAgentId"
         }
       },
       "additionalProperties": false
@@ -187,6 +190,13 @@
     "checkout_binding": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "interruption_recoveries": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/interruptionRecovery"
+      }
     }
   },
   "additionalProperties": false,
@@ -2606,11 +2616,9 @@
             "$ref": "#/$defs/writerIdentity"
           },
           "environment": {
-            "enum": [
-              "wsl",
-              "windows_native",
-              "other"
-            ]
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
           },
           "tool": {
             "enum": [
@@ -2992,6 +3000,138 @@
         "evidence",
         "recorded_at"
       ],
+      "additionalProperties": false
+    },
+    "interruptionRecoveryRequest": {
+      "type": "object",
+      "required": [
+        "approval",
+        "previous_coordinator_id",
+        "new_coordinator_id",
+        "subtask_id",
+        "previous_platform_agent_id",
+        "new_platform_agent_id"
+      ],
+      "properties": {
+        "approval": {
+          "type": "object",
+          "required": [
+            "approved_by",
+            "authorization_source",
+            "reason",
+            "evidence"
+          ],
+          "properties": {
+            "approved_by": {
+              "const": "user"
+            },
+            "authorization_source": {
+              "$ref": "#/$defs/shortText"
+            },
+            "reason": {
+              "$ref": "#/$defs/shortText"
+            },
+            "evidence": {
+              "type": "object",
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "$ref": "#/$defs/relativePath"
+                },
+                "sha256": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "previous_coordinator_id": {
+          "$ref": "#/$defs/platformAgentId"
+        },
+        "new_coordinator_id": {
+          "$ref": "#/$defs/platformAgentId"
+        },
+        "subtask_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "previous_platform_agent_id": {
+          "$ref": "#/$defs/platformAgentId"
+        },
+        "new_platform_agent_id": {
+          "$ref": "#/$defs/platformAgentId"
+        }
+      },
+      "additionalProperties": false
+    },
+    "interruptionRecovery": {
+      "type": "object",
+      "required": [
+        "request",
+        "recorded_at",
+        "previous_blocker",
+        "previous_dispatch",
+        "runtime_sha256"
+      ],
+      "properties": {
+        "request": {
+          "$ref": "#/$defs/interruptionRecoveryRequest"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "previous_blocker": {
+          "type": "object",
+          "required": [
+            "previous_phase",
+            "result"
+          ],
+          "properties": {
+            "previous_phase": {
+              "type": "string",
+              "enum": [
+                "planning",
+                "doc_sync",
+                "test_sync",
+                "code_impl",
+                "review"
+              ]
+            },
+            "result": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/result"
+                },
+                {
+                  "properties": {
+                    "status": {
+                      "const": "blocked"
+                    },
+                    "written_role": {
+                      "const": "coordinator"
+                    }
+                  }
+                }
+              ]
+            },
+            "recovery_coordinator_id": {
+              "$ref": "#/$defs/platformAgentId"
+            }
+          },
+          "additionalProperties": false
+        },
+        "previous_dispatch": {
+          "$ref": "#/$defs/dispatch"
+        },
+        "runtime_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
       "additionalProperties": false
     }
   }

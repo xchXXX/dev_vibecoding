@@ -495,37 +495,37 @@
   },
   "coordinator_blocked": {
     "status": "blocked",
-    "summary": "必需 CFM 实际不可达，相关失败链已停止。",
+    "summary": "必需任务服务实际不可达，相关失败链已停止。",
     "changed_files": [],
     "planned_files_not_changed": [],
     "verification": {
       "commands": [
-        "test -d <verified-existing-cfm-store>"
+        "<actual-service-health-command>"
       ],
-      "result": "CFM 目录不可达，实际退出码 1，原始失败见 .artifacts/example/cfm-blocked.log。"
+      "result": "任务服务不可达，实际退出码 1，原始失败见 .artifacts/example/service-blocked.log。"
     },
     "deviations": [],
     "blocked_by": [
-      "必需 CFM 无法访问，强制 query-before-retry 尚未成功。"
+      "任务服务无法访问，真实健康检查尚未成功。"
     ],
     "risks": [],
     "follow_up": [
-      "恢复已授权的原能力并成功查询后，由同一协调者提交恢复回执。"
+      "恢复已授权的原能力并检查成功后，由同一协调者提交恢复回执。"
     ],
     "written_by": "ACTUAL_COORDINATOR_ID",
     "written_role": "coordinator"
   },
   "coordinator_resumed": {
     "status": "completed",
-    "summary": "原能力已恢复且强制查询成功；证据已核对，尚未重试业务命令。",
+    "summary": "原能力已恢复且健康检查成功；证据已核对，尚未重试业务命令。",
     "changed_files": [],
     "planned_files_not_changed": [],
     "verification": {
       "commands": [
-        "test -d <verified-existing-cfm-store>",
-        "python3 <loaded-cfm-controller> --action query-before-retry <actual-failure-arguments>"
+        "<actual-service-health-command>",
+        "<actual-service-regression-command>"
       ],
-      "result": "恢复诊断与原失败对应的强制查询均成功，见 .artifacts/example/cfm-recovered.log。"
+      "result": "恢复诊断与原失败对应的健康检查均成功，见 .artifacts/example/service-recovered.log。"
     },
     "deviations": [],
     "blocked_by": [],
@@ -536,26 +536,26 @@
     "checks": [
       {
         "purpose": "regression",
-        "command": "test -d <verified-existing-cfm-store>",
+        "command": "<actual-service-health-command>",
         "scope": [
           "docs/tasks/20300102-030405-example-task"
         ],
         "exit_code": 0,
         "expected_exit_code": 0,
         "evidence_refs": [
-          ".artifacts/example/cfm-recovered.log"
+          ".artifacts/example/service-recovered.log"
         ]
       },
       {
         "purpose": "regression",
-        "command": "python3 <loaded-cfm-controller> --action query-before-retry <actual-failure-arguments>",
+        "command": "<actual-service-regression-command>",
         "scope": [
           "docs/tasks/20300102-030405-example-task"
         ],
         "exit_code": 0,
         "expected_exit_code": 0,
         "evidence_refs": [
-          ".artifacts/example/cfm-recovered.log"
+          ".artifacts/example/service-recovered.log"
         ]
       }
     ]

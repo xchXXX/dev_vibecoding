@@ -7,7 +7,7 @@ description: "在开始实现前设计 benchmark。适用于 Codex 将要构建�
 
 ## 概述
 
-在真正开始改代码前，先冻结一套可执行的 benchmark 方案。最终至少留下明确的通过/失败闸门、fixture 设计和执行说明，供后续迭代与最终验收复用。
+本技能可独立使用，不依赖 GTO，也不创建编排工件、增加审批或擅自派发代理。在真正开始改代码前，先冻结一套可执行的 benchmark 方案。最终至少留下明确的通过/失败闸门、fixture 设计和执行说明，供后续迭代与最终验收复用。
 
 ## 工作流
 
@@ -39,26 +39,28 @@ description: "在开始实现前设计 benchmark。适用于 Codex 将要构建�
 6. 决定哪些步骤需要脚本化。
 - 对重复打分、fixture 搭建、结果收集、报告生成优先脚本化。
 - 真正的 blind evaluation 要和任何会泄露隐藏上下文的准备步骤隔离。
-- 需要快速起一套骨架时，从仓库根运行 `python3 skills/pre-dev-benchmark/scripts/scaffold_benchmark.py --output <dir> --slug <name> --title <title>`。
+- 需要快速起一套骨架时，从消费项目目录运行 `python <实际技能目录>/scripts/scaffold_benchmark.py --output <项目临时目录> --slug <name> --title <title>`（使用当前环境的 Python）。
 
 7. 将基线、通过阈值、fixture 与执行说明写入已有合同。
-- GTO 任务复用同一六工件：要求与范围在 plan，执行分工在 execution，验证与证据在 acceptance；不另建固定 benchmark 文档套餐或第二账本。
+- 普通任务复用已有任务说明或直接在回复给出合同；不要求 state.json、六工件或 preflight。用户已选择 GTO 时才映射到已有 plan/execution/acceptance，不建立第二账本。
 - 只有独立 benchmark 交付本身是用户目标时，才使用下方 scaffold 和模板；落点遵循项目存储规则。
 
 ## 产出合同
 
-输出需让后续执行者可复用：可观察标准、稳定 fixture、诊断/验收区分、运行入口和证据位置。材料的唯一存放位置由现有任务合同决定，无需每种内容单建文件。skill 效果黑盒的投放、无提示顶层会话、准备复查与正式首轮停止出口引用 [GTO 黑盒方法](../global-task-orchestrator/references/blackbox-methodology.md#结果分类)，不在这里另建返工规则。
+输出需让后续执行者可复用：可观察标准、稳定 fixture、诊断/验收区分、运行入口和证据位置。材料的唯一存放位置由现有任务合同决定，无需每种内容单建文件。skill 效果评估、无提示输入、准备核验、结果分类与停止边界见本技能 [黑盒评估](references/blackbox-evaluation.md)。明确选择 GTO 的任务另外遵循其控制面合同；本技能不将该合同施加给普通任务。
 
 ## 资源导航
 
 - 阅读 `references/benchmark-design.md`，了解可复用方法、判定规则和常见反模式。
-- 用 `skills/pre-dev-benchmark/scripts/scaffold_benchmark.py` 从模板生成 starter benchmark bundle。
+- 用本技能 `scripts/scaffold_benchmark.py` 从模板生成 starter benchmark bundle。
 - 优先复用 `assets/benchmark-plan.template.md`、`assets/fixture-matrix.template.md` 和 `assets/runbook.template.md`，不要每次手写结构。
 
 ## 最小使用方式
 
+从消费项目目录运行；Linux/WSL 解释器可用 `python3`，替换技能路径为实际加载位置。输出留在项目临时目录，不写入已安装技能目录。
+
 ```bash
-python3 skills/pre-dev-benchmark/scripts/scaffold_benchmark.py \
+python "<实际技能目录>/scripts/scaffold_benchmark.py" \
   --output .tmp/benchmark/my-change \
   --slug my-change \
   --title "我的改动"

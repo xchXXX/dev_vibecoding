@@ -172,6 +172,8 @@ python3 "$GTO_CONTROLLER" --action set-phase --repo-root "$repo_root" --task-id 
 
 外部状态实际恢复后，同一协调者填 coordinator_resumed：status=completed、blocked_by=[]、非空 verification，以及实际成功的 checks/证据。CFM 缺口须包含原能力恢复与原失败对应的成功 query-before-retry；无成功查询就不能恢复。只允许回到阻塞时的 previous_phase，不跳阶段，不自动重试，不换 task_id。结构检查只核验提交的结果与证据引用，不能证明命令真实执行；语义真实性由协调者和独立验收核对。
 
+仅下文“会话中断且尚无交付的身份移交”成功登记的接替协调者可代替原协调身份提供恢复回执；原失败回执作者保持不变。
+
 ```bash
 python3 "$GTO_CONTROLLER" --action set-phase --repo-root "$repo_root" --task-id "$task_id" --phase "$previous_phase" --result-json-file "$recovered_json_file" --json
 ```
@@ -179,6 +181,16 @@ python3 "$GTO_CONTROLLER" --action set-phase --repo-root "$repo_root" --task-id 
 阻塞/恢复完整回执追加保存于 events.jsonl；恢复只清除当前 coordinator_blocker。当前包拒绝旧合同。
 
 ## Revision 3 CLI 顺序示例
+
+### 会话中断且尚无交付的身份移交
+
+原协调者或初始代理因宿主会话中断不可达，且用户明确允许接替时，可使用 `recover-interrupted-dispatch --result-json-file <回执>`。它只适用于 blocked 的 doc_sync/test_sync 初始任务：仅一个活动派发、没有任何子任务结果、候选、attempt 或 finding，交付范围内没有非本任务受管工件文件。空目录可保留；符号链接不允许。已有交付不适用此入口。
+
+回执包含 `approval={approved_by:"user",authorization_source,reason,evidence:{path,sha256}}`、`previous_coordinator_id`、`new_coordinator_id`、`subtask_id`、`previous_platform_agent_id`、`new_platform_agent_id`。身份必须来自实际宿主；新代理先独立创建、仅准备等待，不提前写交付。授权证据必须位于消费项目 `.artifacts/` 且 hash 匹配；控制器检查结构与留存，协调者仍负责核实真实用户授权与身份。
+
+成功后仍保持 blocked，原阻塞回执、原派发与执行包 hash 留在 `interruption_recoveries` 和追加事件中。目标回到 ready，随后只接受授权的新代理正常 bind；新协调者提供真实成功恢复 checks，通过原 `set-phase` 回到原阶段，再正常 preflight、绑定和施工。不更改批准合同、依赖、范围、预算或业务结果，不自动完成或重试。没有移交时仍要求原协调者身份恢复。
+
+此入口不修改冻结包或放宽候选 runtime 校验。尚无候选时使用修复后的包须有用户授权并追加包版本证据；已冻结候选不适用本入口。
 
 完整普通流程的载荷和分段命令见 `state-schema.md` 的“现场调用与回执”。先完成整合，再获取审查 brief；独立 reviewer 检查后才填写结果文件：
 

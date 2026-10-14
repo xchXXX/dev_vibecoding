@@ -1,6 +1,6 @@
-"""Receipt-bound runtime snapshots and append-only, locally retained run evidence.
+"""Content-bound runtime snapshots and append-only, locally retained run evidence.
 
-This is a production module shared by the controller and benchmark runner.
+This is a production module used by the controller and evidence CLI.
 Manifests inventory evidence; the task state remains the only workflow ledger.
 """
 from __future__ import annotations
@@ -58,7 +58,7 @@ def freeze_tree(source, destination):
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
-    (destination / '.snapshot.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    (destination / '.snapshot.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     verify_tree(destination, manifest)
     return manifest
 
@@ -71,7 +71,7 @@ def verify_tree(root, expected):
 
 def _write_manifest(path, value):
     temporary = path.with_name(path.name + '.writing')
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     temporary.replace(path)
 
 
@@ -113,6 +113,32 @@ def acceptance_evidence_paths(result):
     return sorted(paths)
 
 
+def _terminate_process_tree(process):
+    if os.name == 'nt':
+        result = subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                                capture_output=True, timeout=10)
+        if result.returncode and process.poll() is None:
+            raise OSError('taskkill failed; the retained run requires manual process cleanup')
+        process.wait(timeout=5)
+        return
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+    # A reaped parent does not mean its process group is empty. Descendants may
+    # ignore SIGTERM and keep running after the leader exits.
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    if process.poll() is None:
+        process.wait()
+
+
 def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_paths=()):
     retained_root = Path(retained_root)
     if any(p.is_symlink() for p in (retained_root, *retained_root.parents)):
@@ -138,15 +164,10 @@ def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_
                 manifest['exit_code'] = process.wait(timeout=timeout)
                 manifest['status'] = 'passed' if process.returncode == 0 else 'failed'
             except (subprocess.TimeoutExpired, KeyboardInterrupt):
-                os.killpg(process.pid, signal.SIGTERM)
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.wait()
+                _terminate_process_tree(process)
                 manifest['exit_code'] = process.returncode
                 manifest['status'] = 'interrupted'
-    except OSError as exc:
+    except (OSError, subprocess.TimeoutExpired) as exc:
         manifest['status'] = 'failed'
         manifest['error'] = str(exc)
     finally:
@@ -168,7 +189,7 @@ def verify_run(run, binding, *, repo=None):
     run = Path(run)
     if any(p.is_symlink() for p in (run, *run.parents)):
         raise ValueError('run evidence path must not contain symlinks')
-    manifest = json.loads((run / 'manifest.json').read_text())
+    manifest = json.loads((run / 'manifest.json').read_text(encoding="utf-8"))
     if manifest.get('binding') != binding:
         raise ValueError('run binding does not match candidate/runtime')
     if manifest.get('status') not in {'passed', 'failed', 'interrupted', 'invalidated'}:
@@ -355,7 +376,7 @@ def main():
                           'status': manifest['status'], 'exit_code': manifest['exit_code']}
     except Exception as exc:
         result = {'ok': False, 'errors': [str(exc)]}
-    print(json.dumps(result, ensure_ascii=False))
+    print(json.dumps(result, ensure_ascii=True))
     return 0 if result.get('ok') else 2
 
 

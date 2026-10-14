@@ -11,8 +11,8 @@ import sys
 def inspect_runtime():
     root = Path(__file__).resolve().parents[1]
     issues = []
-    if sys.version_info < (3, 10):
-        issues.append('需要 Python 3.10 或更新版本。')
+    if sys.version_info < (3, 11):
+        issues.append('需要 Python 3.11 或更新版本。')
     try:
         from jsonschema import Draft202012Validator, FormatChecker
         version = importlib.metadata.version('jsonschema')

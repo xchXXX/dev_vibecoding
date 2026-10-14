@@ -187,13 +187,16 @@ class WslEnvironmentContractTests(unittest.TestCase):
             self.assertFalse(payload["ok"], payload)
             self.assertIn("missing_python_requirement", finding_categories(payload), payload)
 
-    def test_global_agents_gives_fresh_sessions_the_exact_project_doctor_entrypoint(self) -> None:
+    def test_global_agents_gives_fresh_sessions_host_and_dependency_contract(self) -> None:
         template = (REPO_ROOT / "templates/codex/AGENTS.global.md").read_text(encoding="utf-8")
-        self.assertIn("config/ai/environment.json", template)
-        self.assertIn('实际 Windows CODEX_HOME', template)
-        self.assertIn('已核实 WSL 等价路径', template)
-        self.assertIn('project-env-doctor.py --project-root <Linux项目路径>', template)
-        self.assertIn('首次运行/测试/构建前', template)
+        self.assertIn("Windows 原生、Linux 或 WSL", template)
+        self.assertIn("不混用跨系统 venv 或 node_modules", template)
+        self.assertIn("基础安装与 doctor 使用 Python 3.11+", template)
+        self.assertIn("项目首次运行时按项目已有环境声明核验所需依赖", template)
+        self.assertIn("没有选择 WSL 的项目不承担 WSL 工具清单", template)
+        self.assertIn("当前宿主实际暴露的能力", template)
+        self.assertIn("先核实发行版、同一项目路径和 Codex home 映射", template)
+        self.assertIn("指令更新须在新会话核验", template)
 
     def run_json(
         self,

@@ -264,8 +264,8 @@ def main() -> int:
                 restart_reasons.append("managed_global_agents_changed")
             payload["restart_reasons"] = restart_reasons
             payload["restart_required"] = bool(restart_reasons)
-            payload["hooks_cleared"] = _clear_hooks(codex_home)
-            payload["completed_steps"].append("hook_cleanup")
+            # Hooks belong to the user. Publishing harness files grants no hook ownership.
+            payload["hooks_cleared"] = False
             scripts = Path(__file__).parent
             if args.skip_sync and args.skill:
                 raise ValueError("--skill cannot be combined with --skip-sync")

@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Lazy imports during resume must not leave unowned caches in the skill.
+sys.dont_write_bytecode = True
 
 
 ARTIFACTS = (
@@ -31,7 +33,7 @@ def resume_session(repo_root: Path, task_id: str, controller: Path | None = None
             "ok": False, "mode": "resume", "task_id": task_id,
             "errors": ["task_artifacts_missing"], "missing_artifacts": missing,
         }
-    state = json.loads(artifact_paths[0].read_text())
+    state = json.loads(artifact_paths[0].read_text(encoding="utf-8"))
     candidate = state.get('acceptance_gate', {}).get('current_candidate') or {}
     snapshot = candidate.get('runtime_snapshot')
     controller_path = controller or Path(__file__).resolve().with_name("orchestrator_ctl.py")
@@ -40,7 +42,7 @@ def resume_session(repo_root: Path, task_id: str, controller: Path | None = None
         root = repo_root / snapshot['path']
         if not root.resolve().is_relative_to(repo_root.resolve()):
             return {'ok': False, 'errors': ['runtime snapshot escapes repository']}
-        manifest = json.loads((root / '.snapshot.json').read_text())
+        manifest = json.loads((root / '.snapshot.json').read_text(encoding="utf-8"))
         if manifest.get('sha256') != snapshot['sha256']:
             return {'ok': False, 'errors': ['runtime snapshot binding mismatch']}
         verify_tree(root, manifest)
@@ -53,6 +55,7 @@ def resume_session(repo_root: Path, task_id: str, controller: Path | None = None
             "--repo-root", str(repo_root), "--task-id", task_id, "--json",
         ],
         text=True,
+        encoding='utf-8',
         capture_output=True,
         check=False,
     )
@@ -95,7 +98,7 @@ def main() -> int:
         payload = resume_session(root, args.task_id)
     except (OSError, ValueError) as error:
         payload = {"ok": False, "mode": "resume", "task_id": args.task_id, "errors": [str(error)]}
-    print(json.dumps(payload, ensure_ascii=False))
+    print(json.dumps(payload, ensure_ascii=True))
     return 0 if payload.get("ok") else 2
 
 

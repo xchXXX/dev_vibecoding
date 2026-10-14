@@ -142,22 +142,29 @@ class ConvergenceResumeTest(unittest.TestCase):
     init_task = legacy.ControlPlaneContractTest.init_task
     state = legacy.ControlPlaneContractTest.state
 
-    def test_frozen_legacy_state_without_requirements_resumes_without_migration(self):
+    def test_copied_frozen_legacy_state_is_rejected_without_migration(self):
         fixture = ROOT / 'tests/harness/fixtures/harness-minimal-convergence/legacy-no-requirements'
+        fixture_before = {p.relative_to(fixture).as_posix(): p.read_bytes()
+                          for p in fixture.rglob('*') if p.is_file()}
         provenance = json.loads((fixture / 'provenance.json').read_text())
         for relative, digest in provenance['artifacts'].items():
             self.assertEqual(digest, hashlib.sha256((fixture / relative).read_bytes()).hexdigest())
         shutil.copytree(fixture / 'docs', self.repo / 'docs')
         before = {p.relative_to(self.repo).as_posix(): p.read_bytes()
-                  for p in self.repo.rglob('*') if p.is_file() and p.name != '.control.lock'}
+                  for p in self.repo.rglob('*') if p.is_file()}
         self.assertFalse(any(value.startswith('REQ-') for value in self.state()['decisions']))
         self.assertEqual('doc_sync', self.state()['current_phase'])
-        # Public controller read entry: no init, migration, or writable phase transition.
-        validated = self.run_ctl('validate')
-        self.assertTrue(validated['ok'], validated)
+        self.assertNotIn('checkout_binding', self.state())
+        # A copied historical task has no binding to this checkout. Public validate
+        # must reject it without silently migrating or rewriting its frozen facts.
+        validated = self.run_ctl('validate', ok=False)
+        self.assertIn('checkout binding', ' '.join(validated['errors']))
         after = {p.relative_to(self.repo).as_posix(): p.read_bytes()
-                 for p in self.repo.rglob('*') if p.is_file() and p.name != '.control.lock'}
-        self.assertEqual(before, after, '历史活动任务不能因新清单合同被隐式迁移')
+                 for p in self.repo.rglob('*') if p.is_file()}
+        self.assertEqual(before, after, '拒绝复制的历史任务时不得自动迁移或改写任何文件')
+        self.assertEqual(fixture_before, {p.relative_to(fixture).as_posix(): p.read_bytes()
+                         for p in fixture.rglob('*') if p.is_file()},
+                         '原始历史fixture、provenance和全部hash对应字节必须保持不变')
 
     def test_phase_io_failure_preserves_previous_six_artifacts_and_is_diagnosable(self):
         # Synthetic projects only; inject one actual write failure, retaining model gates and real I/O.

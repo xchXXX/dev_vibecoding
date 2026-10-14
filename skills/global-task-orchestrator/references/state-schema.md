@@ -1,5 +1,11 @@
 # state.json 字段说明
 
+## 中断身份移交记录
+
+`interruption_recoveries` 是追加历史；每项包含经 schema 校验的 `request`、控制器入库时间 `recorded_at`、完整 `previous_blocker`、`previous_dispatch` 与当次执行包 `runtime_sha256`。request 含明确用户授权及留存证据 hash、旧新协调身份和目标派发旧新身份。入库时间不代表用户消息时间；历史身份和失败不改写。
+
+`coordinator_blocker.recovery_coordinator_id` 只标识已批准的当前接替协调者，必须与最新恢复记录一致；原 `result.written_by` 保留。移交不恢复阶段、不提供业务结果、不变更批准合同和预算；正常阶段恢复仍需成功检查。目标回到 ready 后只能绑定批准的新真实代理。适用边界与 CLI 唯一见 [控制器身份移交](controller-guide.md#会话中断且尚无交付的身份移交)。
+
 ## 计划代理与只读结果预检
 
 新方案各子任务填写 `planned_agent_key`，表示施工前确认的代理代号；`role` 仍表示任务职责。相同代号绑定同一 `dispatch.platform_agent_id`，不同代号不得使用同一真实身份；`dispatch.agent_key` 必须等于计划代号。不全面禁止测试代理兼任验收。
@@ -234,7 +240,7 @@ schema 对固定结构使用字段 allowlist，并限制字符串、数组和哈
 - 所有代码 finding 的修复责任固定为原整合责任者；修复须依据问题合同，不能放宽测试、删断言或改预期。原并行实现者不返工。修复及重新整合结果追加保存，终态不重开。
 - review finding 修复并重新整合后交原 reviewer 范围复审。首次验收在完整审查及必要复审通过后覆盖本任务全部范围；每个验收条目有实际证据映射。
 - 验收 finding 修复并重新整合后直接交同一验收者范围复验并检查修复 delta，不回 reviewer。保留首审与复审基线，记录最新候选、改动路径、影响范围、当前通过项及保留证据依据。失败或未运行项不能继承为通过，范围无法证明时扩大复验至必要的全量。
-- review 与验收分别记录实际使用证据：真实执行者、环境、工具、入口/命令、操作范围、结果与证据引用。WSL 网页使用官方 Browser；Windows GUI 仅 Windows native Computer Use；非 UI 使用真实 CLI/API 并明确适用性。
+- review 与验收分别记录实际使用证据：真实执行者、环境、工具、入口/命令、操作范围、结果与证据引用。网页使用宿主实际提供的官方 Browser；桌面 GUI 使用宿主支持的官方 Computer Use；非 UI 使用真实 CLI/API 并明确适用性。
 - 验收通过后由一个文档子代理直接排查并同步遗漏的正式文档与六工件事实，不增加双人文档 review。纯文字纠正可直接收口，并不限于空白或排版；真正行为、契约或配置变化才返回验收链。记录同步范围和判定依据，不能任意豁免文档变化。
 - 候选覆盖各职责的测试、代码、配置、运行输入和受影响正式文档；仅本任务六工件、内部锁及允许的明确日志按既有边界处理。复验、文档同步与历史证据间的关联必须可追溯。
 
@@ -248,7 +254,7 @@ schema 对固定结构使用字段 allowlist，并限制字符串、数组和哈
 jq '.acceptance_pass' "$GTO_SKILL_DIR/references/revision-3-results.example.json" > "$result_json_file"
 ```
 
-这里仅生成待填写载荷，不能立即把示例当成真实结果提交。所有 `ACTUAL_*` 替换为真实平台返回身份；普通结果 written_role 与 bind 的 agent_key 一致，review 使用独立 reviewer 身份。路径按批准合同填写，检查命令/退出码/证据/次数/耗时来自实际运行。产品实施 work 的 red 必须命中预先声明的缺失行为；文档、测试准备和汇总按各自职责提供检查，不强制伪造产品 Red/Green。预期 Red 判定引用 CFM 真源。integration 单独提交全部受影响 document_paths。reviewed_candidate_fingerprint 从本轮 build-review-brief 取值；covered_paths 覆盖实际完整审查范围。
+这里仅生成待填写载荷，不能立即把示例当成真实结果提交。所有 `ACTUAL_*` 替换为真实平台返回身份；普通结果 written_role 与 bind 的 agent_key 一致，review 使用独立 reviewer 身份。路径按批准合同填写，检查命令/退出码/证据/次数/耗时来自实际运行。产品实施 work 的 red 必须命中预先声明的缺失行为；文档、测试准备和汇总按各自职责提供检查，不强制伪造产品 Red/Green。预期 Red 判定见 [包内命令失败规则](governance.md#命令失败与重试)。integration 单独提交全部受影响 document_paths。reviewed_candidate_fingerprint 从本轮 build-review-brief 取值；covered_paths 覆盖实际完整审查范围。
 
 合同五个镜像必须逐值一致：objective/do、scope_in/change_areas、scope_out/do_not、acceptance/acceptance、stop_conditions/risks。斜杠右侧均为 six_points 字段；decisions 包含 six_points.implementation。新 init 从 six_points 派生缺失镜像、补 implementation 并保留独立 REQ 清单；调用方不需要手填两遍，显式冲突仍拒绝。既有 state 不批量迁移。
 
@@ -317,7 +323,7 @@ python3 "$GTO_CONTROLLER" --action record-subtask-result --repo-root "$repo_root
 python3 "$GTO_CONTROLLER" --action finalize-task --repo-root "$repo_root" --task-id "$task_id" --json
 ```
 
-遇到任一步意外非零，保存失败并进入适用的命令失败闭环；必需 CFM 不可达时停止该失败链，不能继续后面的依赖命令。以上分段是不同阶段的示例，不能把 finding/验收/收尾的 action 清单当作无条件连续执行脚本。
+遇到任一步意外非零，保存失败并进入适用的命令失败闭环；缺少必需能力时停止该失败链，不能继续后面的依赖命令。以上分段是不同阶段的示例，不能把 finding/验收/收尾的 action 清单当作无条件连续执行脚本。
 
 ## Revision 3 协调层阻塞回执
 
@@ -325,15 +331,15 @@ python3 "$GTO_CONTROLLER" --action finalize-task --repo-root "$repo_root" --task
 
 当前阻塞期间禁止新派发、新候选/attempt、修复调度和 finalize；允许 validate、build-review-brief、accept-artifact-update、`extend-acceptance-budget`，以及已绑定独立任务登记结果/审查回执。治理续批只追加用户授权并递增本任务总 attempt 上限，不恢复阶段，next_action 仍保持 human_adjudication。单个子任务的 blocked 结果不会自动推断整个任务是否受阻，由协调者明确判断并登记。
 
-恢复使用同一个 set-phase，目标只能是保存的 previous_phase，载荷取 `revision-3-results.example.json` 的 coordinator_resumed：同一 written_by、written_role=coordinator、completed、blocked_by=[]、非空 verification、成功 checks（至少 regression，所有退出码=0）及证据引用。CFM 缺口要记录原能力恢复与对应失败的成功 query-before-retry；不得在实际查询未成功时填入成功回执。控制器仅核验结构化声明，不执行命令、不读取外部库、不通过命令名猜测根因。阻塞和恢复完整 result 追加到 coordinator_blocked/coordinator_resumed 事件；只清除当前 blocker，不删除历史、不自动重试。
+恢复使用同一个 set-phase，目标只能是保存的 previous_phase，载荷取 `revision-3-results.example.json` 的 coordinator_resumed：同一 written_by、written_role=coordinator、completed、blocked_by=[]、非空 verification、成功 checks（至少 regression，所有退出码=0）及证据引用。能力缺口要记录原能力恢复及对应失败证据的复核；不得在真实探针未成功时填入成功回执。控制器仅核验结构化声明，不执行命令、不读取外部库、不通过命令名猜测根因。阻塞和恢复完整 result 追加到 coordinator_blocked/coordinator_resumed 事件；只清除当前 blocker，不删除历史、不自动重试。
 
-未初始化成功的任务不能调用这一状态入口；此时保留失败证据并明确报告 blocked，不为造 state 重试 init。若原 CFM 不可达，不能访问未授权历史、创建替代库或忽略强制查询。恢复前仅保留独立安全工作和事实，不能把局部业务通过改写为整体 completed。
+未初始化成功的任务不能调用这一状态入口；此时保留失败证据并明确报告 blocked，不为造 state 重试 init。不能访问未授权历史或伪造恢复证据。恢复前仅保留独立安全工作和事实，不能把局部业务通过改写为整体 completed。
 
 ## Revision 3 机械字段与验收返工接口
 
 - `initial_test_owners` 当前标识初始测试任务；目标依赖与复用合同见 [测试协作](workflow.md#测试协作与文档清理)。文档/测试准备/汇总不冒充产品实现；按可达依赖等待测试，同一测试负责人可复用，测试与实现/整合保持身份独立。控制器检查传递可达的依赖和真实绑定身份；结构通过不能证明平台实际隔离。
 - 新 finding 必须有 `root_cause`、`fix_plan`、`regression_proof` 和 `documentation_update`。后者包含 `written_by`、`status=updated|not_applicable`、`paths`、`reason`；updated 必须列出正式文档，not_applicable 说明原因。证明作者与文档同步作者均为发现者，失败退出码非零且等于预期；`routed_to` 固定为首个 integration 的真实身份。
-- review 和 expensive_acceptance 各自包含非空 `usage_evidence` 数组。每项为 `written_by/environment/tool/entry/scope/result/evidence_refs/ui_applicability/ui_not_applicable_reason`；required 使用 Browser 或 Windows native 的 Computer Use；not_applicable 使用实际 CLI/API 并说明 UI 不适用原因。回执是对真实操作的索引，字段格式本身不是实际使用证明。
+- review 和 expensive_acceptance 各自包含非空 `usage_evidence` 数组。每项为 `written_by/environment/tool/entry/scope/result/evidence_refs/ui_applicability/ui_not_applicable_reason`；required 使用宿主实际提供的 Browser 或 Computer Use，不按操作系统限制工具；`environment` 如实填写实际执行环境的非空名称，无操作系统白名单。not_applicable 使用实际 CLI/API 并说明 UI 不适用原因。回执是对真实操作的索引，字段格式本身不是实际使用证明。
 - expensive_acceptance 包含 `mode=full|scoped`、`scope_acceptance_ids`；首次始终 full。`evidence_by_acceptance_id` 仅记录实际通过项，控制器生成 `passed_acceptance_ids`。scope 之外通过项必须在 `retained_evidence_by_acceptance_id` 中逐项给出最近 attempt 的 `source_attempt_id/evidence_refs/reason`，作者保持同一验收身份。失败和未运行项不能继承。
 - scoped 必须提交 `impact.changed_paths/affected_acceptance_ids/reason`。控制器核对两次实际候选 manifest，包括删除项；每个 acceptance item 的 `paths` 声明其依赖路径，所有被改动命中的项目都必须重新执行。输入/验收合同变化、未映射改动或证据不足时运行 full，不靠自报影响范围保留旧证据。
 - 验收发现的问题可声明 `acceptance_ids`，这些项目不能同时被本轮记录为通过。修复回执使其进入 `awaiting_retest`；创建并完成新的 integration 后 freeze 新 candidate，再 create-subtask-attempt，绑定同验收者。通过复验在 `closed_finding_ids` 列出全部待关闭验收 finding，控制器追加 `closed_by_attempt_id` 并直接关闭，不调用 create-re-review-subtask。首次完整审查形成的 `review_baseline` 及每次实际候选快照由控制器维护，后续免重复review不能靠预种失败回执获得。

@@ -148,11 +148,23 @@ class AcceptanceEvidenceContractTest(unittest.TestCase):
         with self.assertRaises(ctl.ControlError):
             self.record(acceptance_state(), result)
 
-    def test_wsl_ui_cannot_claim_windows_computer_use(self):
+    def test_ui_acceptance_records_actual_environment_without_os_allowlist(self):
+        # Controlled receipts verify recording/gates, not actual GUI availability.
+        for environment in ("wsl", "windows_native", "linux", "remote-desktop"):
+            with self.subTest(environment=environment):
+                state, result = acceptance_state(), acceptance_result()
+                evidence = result["expensive_acceptance"]["usage_evidence"]
+                evidence[0].update(tool="Computer Use", environment=environment,
+                    ui_applicability="required", entry="host-exposed desktop capability",
+                    ui_not_applicable_reason="")
+                self.record(state, result)
+                attempt = state["acceptance_gate"]["attempts"][-1]
+                self.assertEqual("pass", attempt["outcome"])
+                self.assertEqual(evidence, attempt["usage_evidence"])
         result = acceptance_result()
         result["expensive_acceptance"]["usage_evidence"][0].update(
-            tool="Computer Use", environment="wsl", ui_applicability="required",
-            entry="http://localhost:8000/form", ui_not_applicable_reason="")
+            tool="Computer Use", environment="", ui_applicability="required",
+            entry="host-exposed desktop capability", ui_not_applicable_reason="")
         with self.assertRaises(ctl.ControlError):
             self.record(acceptance_state(), result)
 
@@ -411,6 +423,9 @@ class BlackboxMachineEntryTest(unittest.TestCase):
 
     def test_effect_failure_schema_preserves_trace_and_existing_report_reference(self):
         evidence = acceptance_result()['expensive_acceptance']
+        # Synthetic schema-only reference; this test does not claim a real run.
+        evidence['run_evidence'] = {
+            'path': '.artifacts/schema-fixture/manifest.json', 'sha256': '0' * 64}
         receipt = legacy.result('completed', 'accept-001', 'tester', expensive_acceptance=evidence)
         self.assertEqual([], ctl._canonical_schema_errors(receipt, definition='result'),
                          '先证明既有回执结构合法，不拿缺通用字段冒充效果入口Red')
@@ -653,9 +668,14 @@ class BlackboxLifecycleTest(unittest.TestCase):
         self.finish_attempt('preparation')
         attempt = self.create_attempt('blackbox')
         invalid = self.receipt('blackbox', 'environment_failure')
+        # Give the negative case complete run evidence so it reaches the
+        # missing invalid_observation gate, without mutating the later receipt.
+        negative = deepcopy(invalid)
+        legacy.attach_acceptance_run(self.repo, attempt['subtask_id'], negative,
+                                     create_fixture_files=True)
         before = self.state()
-        rejected = self.run_ctl('record-subtask-result', subtask_id=attempt['subtask_id'], result=invalid, ok=False)
-        self.assertRegex(' '.join(rejected['errors']).lower(), 'invalid.observation|evidence|reason')
+        rejected = self.run_ctl('record-subtask-result', subtask_id=attempt['subtask_id'], result=negative, ok=False)
+        self.assertIn('invalid_observation', ' '.join(rejected['errors']))
         self.assertEqual(before, self.state())
         invalid['expensive_acceptance']['invalid_observation'] = {
             'reason': 'evidence_capture', 'evidence_refs': ['.artifacts/capture-failure.log'],

@@ -1,5 +1,11 @@
 # state.json 字段说明
 
+## 中断身份移交记录
+
+`interruption_recoveries` 是追加历史；每项包含经 schema 校验的 `request`、控制器入库时间 `recorded_at`、完整 `previous_blocker`、`previous_dispatch` 与当次执行包 `runtime_sha256`。request 含明确用户授权及留存证据 hash、旧新协调身份和目标派发旧新身份。入库时间不代表用户消息时间；历史身份和失败不改写。
+
+`coordinator_blocker.recovery_coordinator_id` 只标识已批准的当前接替协调者，必须与最新恢复记录一致；原 `result.written_by` 保留。移交不恢复阶段、不提供业务结果、不变更批准合同和预算；正常阶段恢复仍需成功检查。目标回到 ready 后只能绑定批准的新真实代理。适用边界与 CLI 唯一见 [控制器身份移交](controller-guide.md#会话中断且尚无交付的身份移交)。
+
 ## 计划代理与只读结果预检
 
 新方案各子任务填写 `planned_agent_key`，表示施工前确认的代理代号；`role` 仍表示任务职责。相同代号绑定同一 `dispatch.platform_agent_id`，不同代号不得使用同一真实身份；`dispatch.agent_key` 必须等于计划代号。不全面禁止测试代理兼任验收。

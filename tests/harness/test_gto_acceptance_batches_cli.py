@@ -236,13 +236,20 @@ class BlackboxBatchCliTest(BatchHarness, unittest.TestCase):
         failure = self.rejected('finalize-task')
         self.assertIn('ordinary', ' '.join(failure['errors']).lower())
         ordinary = self.attempt('ordinary')
-        self.write_json('.artifacts/observation.log', {'functional': 'independent synthetic observation'})
+        # Preparation evidence is immutable after its run has been recorded.
+        preparation_bytes = (self.repo / '.artifacts/observation.log').read_bytes()
+        ordinary_path = '.artifacts/ordinary-observation.json'
+        self.write_json(ordinary_path, {'functional': 'independent synthetic observation'})
         ordinary_result = BlackboxLifecycleTest.receipt(self, 'ordinary')
-        ordinary_result['review_evidence'] = {'blackbox_output_index': '.artifacts/observation.log'}
-        self.rejected('record-subtask-result', ordinary_result, subtask_id=ordinary['subtask_id'])
-        ordinary_result['review_evidence'] = {'functional_output_index': '.artifacts/observation.log'}
+        ordinary_result['expensive_acceptance']['evidence_refs'] = [ordinary_path]
+        ordinary_result['expensive_acceptance']['evidence_by_acceptance_id'] = {'REAL-PATH-001': [ordinary_path]}
+        ordinary_result['review_evidence'] = {'blackbox_output_index': ordinary_path}
+        failure = self.rejected('record-subtask-result', deepcopy(ordinary_result), subtask_id=ordinary['subtask_id'])
+        self.assertIn('functional_output_index', ' '.join(failure['errors']))
+        ordinary_result['review_evidence'] = {'functional_output_index': ordinary_path}
         self.run_ctl('record-subtask-result', subtask_id=ordinary['subtask_id'], result=ordinary_result)
         self.accepted('validate')
+        self.assertEqual(preparation_bytes, (self.repo / '.artifacts/observation.log').read_bytes())
         self.bind('DOC-FINAL-001', agent='docs-001', role='doc-curator')
         self.run_ctl('record-subtask-result', subtask_id='DOC-FINAL-001',
                      result=legacy.result('completed', 'docs-001', 'doc-curator'))

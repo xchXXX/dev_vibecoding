@@ -29,9 +29,9 @@
 
 ## Bootstrap 与全局模板入口
 
-- 新机器 clone 后，从仓库根运行 `python3 ./scripts/bootstrap-local.py --codex-home <已核实的Windows-Codex-home的WSL路径>`，由脚本以当前仓库作为默认 `<harness-root>`。
-- 需要选择其他已知 harness 时，只能显式传入 Python CLI 对应参数或设置 `AI_HARNESS_ROOT`；不扫描同机 clone，也不自动同步其他工作区。
-- 全局 Codex 入口模板位于 `templates/codex/AGENTS.global.md`，由 bootstrap 渲染到 `CODEX_HOME/AGENTS.md`；模板和本仓入口不保存机器绝对路径。
+- Portable 接收者入口见 `docs/INSTALL.md`；`scripts/harness.py` 从固定 Git 提交构建包，以 receipt 管理安装文件及 AGENTS 区块，不要求作者 checkout 存在。
+- 维护既有 WSL 安装时仍可按明确范围使用旧 bootstrap/sync；普通新接入不走旧机器配置发布链，不扫描同机 clone，也不自动同步其他工作区。
+- 全局 Codex 入口模板位于 `templates/codex/AGENTS.global.md`，安装器按实际规则根和技能目录渲染；模板和本仓入口不保存机器绝对路径。
 
 ## 仓库目录边界
 
@@ -45,6 +45,6 @@
 - `rules/items/`：按 `kind` 组织的规则叶子文件；当前仓库中除 `仓库目录边界`、`真源入口` 外，其余条目默认作为全局规则维护。
 - `skills/*/SKILL.md`：复杂多步流程与可复用工作流真源。
 - `scripts/` 与 `tests/`：可执行校验与回归闸门。
-- 缺失工具的分层安装与授权边界由索引中的 `global.policy.WSL工具分层与缺失依赖处理` 按当前操作决定是否适用。
+- 缺失工具的分层安装与授权边界由索引中的 `global.policy.缺失工具分层与依赖处理` 按当前操作决定是否适用。
 
 若项目规则与全局规则发生冲突，必须通过项目规则 frontmatter 显式声明 `overrides`；未声明时不得静默覆盖。

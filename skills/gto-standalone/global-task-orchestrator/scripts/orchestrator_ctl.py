@@ -22,6 +22,8 @@ import tempfile
 from pathlib import Path
 from typing import Any, Iterator
 
+# Managed skill files must stay unchanged during ordinary CLI use.
+sys.dont_write_bytecode = True
 from jsonschema import Draft202012Validator, FormatChecker
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
@@ -917,6 +919,12 @@ def _state_model_errors(
     errors.extend(_validate_contract(state))
     errors.extend(_semantic_errors(state))
     errors.extend(_subtask_state_errors(state, include_legacy_dependency_errors=include_legacy_dependency_errors))
+    blocker = state.get('coordinator_blocker', {})
+    recoveries = state.get('interruption_recoveries', [])
+    if not errors and blocker.get('recovery_coordinator_id'):
+        if (not recoveries or recoveries[-1]['request']['new_coordinator_id'] != blocker['recovery_coordinator_id']
+                or recoveries[-1]['previous_blocker']['result'] != blocker['result']):
+            errors.append('recovery coordinator must match the retained interruption recovery')
     if state.get("workflow_revision") == 3:
         inputs = state.get("acceptance_gate", {}).get("candidate_inputs", {})
         writer_targets = []
@@ -2824,6 +2832,10 @@ def _verified_brief_path(repo: Path, raw: Any, expected_sha256: str) -> str:
 
 def _bind(args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
     subtask = _find_subtask(state, args.SubtaskId)
+    recovery = next((r for r in reversed(state.get('interruption_recoveries', []))
+                     if r['request']['subtask_id'] == args.SubtaskId), None)
+    if recovery and args.PlatformAgentId != recovery['request']['new_platform_agent_id']:
+        raise ControlError('interrupted dispatch must bind the authorized replacement identity')
     errors = _capability_errors(paths["state.json"].parents[4], state, subtask)
     if errors:
         raise ControlError(*errors)
@@ -3551,6 +3563,72 @@ def _prepare_workspace(
     return {"ok": True, "task_id": args.TaskId, "decision": decision, "workspace": candidate["workspace"]}
 
 
+def _recover_interrupted_dispatch(args: argparse.Namespace, repo: Path, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
+    request = _json_file_arg(args.ResultJsonFile, 'ResultJsonFile')
+    errors = _canonical_schema_errors(request, definition='interruptionRecoveryRequest')
+    if errors:
+        raise ControlError(*errors)
+    blocker = state.get('coordinator_blocker')
+    if any(not request['approval'][key].strip() for key in ('authorization_source', 'reason')):
+        raise ControlError('identity recovery requires explicit nonempty user authorization')
+    gate = state.get('acceptance_gate', {})
+    if (state.get('status') != 'blocked' or not blocker
+            or blocker['previous_phase'] not in {'doc_sync', 'test_sync'}
+            or gate.get('current_candidate') or gate.get('attempts') or state.get('findings')
+            or any(t.get('result') for t in state['subtasks'])):
+        raise ControlError('identity recovery requires a blocked initial task without delivery results, candidates, attempts or findings')
+    coordinator = blocker.get('recovery_coordinator_id', blocker['result']['written_by'])
+    task = _find_subtask(state, request['subtask_id'])
+    dispatch = task.get('dispatch')
+    if (request['previous_coordinator_id'] != coordinator
+            or task.get('status') != 'in_progress' or not dispatch
+            or request['previous_platform_agent_id'] != dispatch['platform_agent_id']):
+        raise ControlError('identity recovery must match the current coordinator and active dispatch')
+    if (request['new_coordinator_id'] == coordinator
+            or request['new_platform_agent_id'] in {dispatch['platform_agent_id'], request['new_coordinator_id']}
+            or any(t is not task and t.get('dispatch') for t in state['subtasks'])):
+        raise ControlError('identity recovery requires new independent identities and a single initial dispatch')
+    excluded = _workspace_control_paths(state)
+    targets = [p for t in state['subtasks'] for p in t['write_paths']]
+    targets += [p for field in ('code_paths', 'config_paths', 'runtime_input_paths', 'document_paths')
+                for p in gate['candidate_inputs'].get(field, [])]
+    for raw in targets:
+        relative = _safe_relative_path(raw)
+        if relative is None:
+            raise ControlError('identity recovery delivery path must be repository relative')
+        path = repo / relative
+        if any(p.is_symlink() for p in [path, *path.parents] if p.is_relative_to(repo)):
+            raise ControlError('identity recovery delivery paths cannot use symlinks')
+        if path.is_dir() and any(p.is_symlink() for p in path.rglob('*')):
+            raise ControlError('identity recovery delivery paths cannot contain symlinks')
+        for record in _candidate_path_records(repo, 'recovery', relative):
+            if record['path'] not in excluded and record['sha256'] not in {'missing', 'directory'}:
+                raise ControlError('identity recovery cannot replace an author after delivery files exist')
+    evidence = request['approval']['evidence']
+    relative = _safe_relative_path(evidence['path'])
+    if relative is None or not relative.startswith('.artifacts/'):
+        raise ControlError('identity recovery authorization evidence must be retained in .artifacts')
+    evidence_path = repo / relative
+    if (any(p.is_symlink() for p in [evidence_path, *evidence_path.parents] if p != repo.parent)
+            or not evidence_path.resolve().is_relative_to(repo.resolve())
+            or not evidence_path.is_file() or _sha(evidence_path.read_bytes()) != evidence['sha256']):
+        raise ControlError('identity recovery authorization evidence is missing, unsafe or changed')
+    candidate = copy.deepcopy(state)
+    target = _find_subtask(candidate, request['subtask_id'])
+    record = {'request': request, 'recorded_at': _now(), 'previous_blocker': copy.deepcopy(blocker),
+              'previous_dispatch': target.pop('dispatch'),
+              'runtime_sha256': tree_manifest(SCRIPT_DIRECTORY.parent)['sha256']}
+    candidate.setdefault('interruption_recoveries', []).append(record)
+    candidate['coordinator_blocker']['recovery_coordinator_id'] = request['new_coordinator_id']
+    target['status'] = 'ready'
+    errors = _state_model_errors(repo, candidate)
+    if errors:
+        raise ControlError(*errors)
+    _write_state(paths, candidate)
+    _append_event(paths['events.jsonl'], args.TaskId, 'interrupted_dispatch_recovered', recovery=record)
+    return {'ok': True, 'task_id': args.TaskId, 'status': 'blocked', 'recovery': record}
+
+
 def _set_phase(args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
     order = ("planning", "doc_sync", "test_sync", "code_impl", "review")
     current = state.get("current_phase")
@@ -3568,7 +3646,7 @@ def _set_phase(args: argparse.Namespace, paths: dict[str, Path], state: dict[str
         if result["written_role"] != "coordinator" or not result["summary"].strip() or not result["verification"]["commands"] or not result["verification"]["result"].strip():
             raise ControlError("coordinator block/resume requires coordinator identity and explicit verification")
         if blocker:
-            if result["status"] != "completed" or result["blocked_by"] or result["written_by"] != blocker["result"]["written_by"]:
+            if result["status"] != "completed" or result["blocked_by"] or result["written_by"] != blocker.get('recovery_coordinator_id', blocker["result"]["written_by"]):
                 raise ControlError("resume requires completed result, empty blocked_by and the same coordinator")
             errors = _checks_errors(result.get("checks"), {"regression"})
             if errors:
@@ -3811,6 +3889,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             if errors:
                 raise ControlError(*errors)
         if state.get("coordinator_blocker") and args.Action not in {
+            "recover-interrupted-dispatch",
             "set-phase", "build-review-brief", "accept-artifact-update", "record-subtask-result", "record-review-result",
             "record-acceptance-findings", "record-finding-fix", "record-blackbox-decision", "extend-acceptance-budget",
             "record-verification-evidence", "record-capability-probe", "capture-capability-context",
@@ -3886,6 +3965,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             return _prepare_workspace(args, repo, paths, state)
         if args.Action == "set-phase":
             return _set_phase(args, paths, state)
+        if args.Action == "recover-interrupted-dispatch":
+            return _recover_interrupted_dispatch(args, repo, paths, state)
         if args.Action == "freeze-candidate":
             return _freeze_candidate(args, repo, paths, state)
         if args.Action == "create-subtask-attempt":
@@ -3922,6 +4003,7 @@ def _parser() -> argparse.ArgumentParser:
             "build-review-brief",
             "prepare-workspace",
             "set-phase",
+            "recover-interrupted-dispatch",
             "freeze-candidate",
             "create-subtask-attempt",
             "finalize-task",

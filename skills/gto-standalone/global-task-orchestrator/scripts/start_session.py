@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Lazy imports during resume must not leave unowned caches in the skill.
+sys.dont_write_bytecode = True
 
 
 ARTIFACTS = (

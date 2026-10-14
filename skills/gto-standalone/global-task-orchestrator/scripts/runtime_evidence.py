@@ -249,6 +249,72 @@ def acceptance_run_errors(repo, state, subtask, result):
         return ['acceptance run evidence: ' + str(exc)]
 
 
+def copy_installed_gto(host_codex, isolated_codex):
+    """Snapshot receipt-bound installed tools, never rebuild them from a source checkout."""
+    receipt_relative = '.ai-harness/codex-sync.receipt.json'
+    receipt_path = host_codex / receipt_relative
+    if receipt_path.is_symlink():
+        raise RuntimeError('installation receipt must not be a symlink')
+    receipt_bytes = receipt_path.read_bytes()
+    receipt = json.loads(receipt_bytes)
+    legacy_relative = 'schemas/orchestrator-task-state.schema.json'
+    legacy = host_codex / legacy_relative
+    if legacy.exists() or legacy.is_symlink() or any(
+            item.get('source') == legacy_relative or item.get('target') == legacy_relative
+            for item in receipt.get('managed_schema_files', [])):
+        raise RuntimeError('legacy GTO root schema must be retired before copying the installed runtime')
+    expected = {}
+    skills = receipt.get('managed_skills', [])
+    if 'global-task-orchestrator' not in skills:
+        raise RuntimeError('installation receipt lacks global-task-orchestrator')
+    for item in receipt.get('managed_files', []):
+        if item.get('skill') not in skills:
+            raise RuntimeError('receipt contains an unlisted managed skill')
+        relative = 'skills/' + item['target']
+        if not relative.startswith('skills/' + item['skill'] + '/'):
+            raise RuntimeError('receipt target is outside its installed skill scope')
+        expected[relative] = item['sha256']
+    for item in receipt.get('managed_schema_files', []):
+        relative = item['target']
+        if not relative.startswith('schemas/'):
+            raise RuntimeError('receipt schema target is outside installed schema scope')
+        expected[relative] = item['sha256']
+    required = {'skills/global-task-orchestrator/SKILL.md',
+                'skills/global-task-orchestrator/scripts/orchestrator_ctl.py',
+                'skills/global-task-orchestrator/scripts/start_session.py',
+                'skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json'}
+    if not required.issubset(expected):
+        raise RuntimeError('installed GTO receipt is incomplete')
+    contents = {}
+    for name in skills:
+        if not name or '/' in name or name in {'.', '..'}:
+            raise RuntimeError('unsafe receipt skill scope')
+        root = host_codex / 'skills' / name
+        if root.is_symlink():
+            raise RuntimeError('installed skill root must not be a symlink')
+        for path in root.rglob('*'):
+            if path.is_symlink():
+                raise RuntimeError('installed skill contains a symlink outside receipt scope')
+            if path.is_file() and path.relative_to(host_codex).as_posix() not in expected:
+                if '__pycache__' not in path.parts and path.suffix != '.pyc':
+                    raise RuntimeError('installed skill has unlisted receipt content')
+    for relative, digest in expected.items():
+        path = host_codex / relative
+        if '..' in Path(relative).parts or path.is_symlink() or not path.resolve().is_relative_to(host_codex.resolve()):
+            raise RuntimeError('installed receipt path is outside its scope or a symlink')
+        content = path.read_bytes()
+        if hashlib.sha256(content).hexdigest() != digest:
+            raise RuntimeError('installed file hash disagrees with receipt: ' + relative)
+        contents[relative] = content
+    contents[receipt_relative] = receipt_bytes
+    # Validate the entire snapshot before writing, so a rejected source leaves no partial runtime.
+    for relative, content in contents.items():
+        target = isolated_codex / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+    return {'source_hashes': {p: hashlib.sha256(b).hexdigest() for p, b in contents.items()}}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--action', choices=('freeze', 'run', 'verify'), required=True)

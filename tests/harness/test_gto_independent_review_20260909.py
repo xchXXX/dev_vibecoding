@@ -43,6 +43,7 @@ class IndependentReviewTest(unittest.TestCase):
             raise
         finally:
             path = legacy.REPO_ROOT / '.artifacts/review-acceptance-routing/review' / (self._testMethodName + '.jsonl')
+            path.parent.mkdir(parents=True, exist_ok=True)
             with path.open('a') as stream:
                 stream.write(json.dumps(entry) + '\n')
 
@@ -87,7 +88,13 @@ class IndependentReviewTest(unittest.TestCase):
                     'usage_evidence': workflow.usage('accept-001', 'accept'),
                     'evidence_by_acceptance_id': {}, 'finding_id': 'RAR-REPEATED'}
         self.run_ctl('record-subtask-result', subtask_id=first,
-                     result=legacy.result('blocked', 'accept-001', 'tester', expensive_acceptance=evidence))
+                     result=legacy.result('blocked', 'accept-001', 'tester', expensive_acceptance=deepcopy(evidence)))
+        first_history = deepcopy(self.state()['acceptance_gate']['attempts'][0])
+        first_manifest = self.repo / first_history['run_evidence']['path']
+        recorded = json.loads(first_manifest.read_text())
+        first_paths = [p for p in first_manifest.parent.iterdir() if p.is_file()]
+        first_paths.extend(self.repo / path for path in recorded['evidence_files'])
+        first_bytes = {p: p.read_bytes() for p in first_paths}
         self.fix('RAR-REPEATED')
         self.reintegrate()
         self.run_ctl('freeze-candidate')
@@ -97,11 +104,18 @@ class IndependentReviewTest(unittest.TestCase):
         # ID must reopen; creating a duplicate ID loses fix-round/history limits.
         self.run_ctl('record-acceptance-findings', subtask_id=second,
                      result={'written_by': 'accept-001', 'findings': [finding]})
+        # A new attempt must capture its own run, preserving the first receipt.
+        second_evidence = deepcopy(evidence)
+        second_evidence['evidence_refs'] = ['.artifacts/second.log']
         self.run_ctl('record-subtask-result', subtask_id=second,
-                     result=legacy.result('blocked', 'accept-001', 'tester', expensive_acceptance=evidence))
+                     result=legacy.result('blocked', 'accept-001', 'tester', expensive_acceptance=second_evidence))
         self.assertEqual('open', self.state()['findings']['RAR-REPEATED']['status'])
         self.run_ctl('dispatch-finding-fix', finding_id='RAR-REPEATED')
         self.assertEqual(2, self.state()['findings']['RAR-REPEATED']['fix_round'])
+        attempts = self.state()['acceptance_gate']['attempts']
+        self.assertNotEqual(first_history['run_evidence']['path'], attempts[1]['run_evidence']['path'])
+        self.assertEqual(first_history, attempts[0])
+        self.assertEqual(first_bytes, {p: p.read_bytes() for p in first_paths})
 
     def test_rar_001_symlink_test_writer_paths_must_not_overlap(self):
         tests = self.repo / 'tests'
@@ -120,11 +134,15 @@ class IndependentReviewTest(unittest.TestCase):
         self.run_ctl('init-task', contract=payload, title='Symlink writer paths',
                      owner='main-coordinator', ok=False)
 
-    def test_rar_003_gto_documentation_keeps_native_gui_boundary(self):
-        doc = (legacy.REPO_ROOT / 'docs/CODEX_COMPAT.md').read_text()
-        section = doc.split('## Revision 3 行为证据与版本一致性', 1)[1]
+    def test_rar_003_documentation_requires_actual_host_capabilities(self):
+        doc = (legacy.REPO_ROOT / 'docs/CODEX_COMPAT.md').read_text(encoding='utf-8')
+        section = doc.split('## 环境与能力', 1)[1].split('\n## ', 1)[0]
         self.assertNotIn('computer_use_wsl', section)
-        self.assertIn('Windows-native Agent environment', section)
+        self.assertIn('Browser、Computer Use', section)
+        self.assertIn('当前宿主真实暴露的能力', section)
+        self.assertIn('不修改 app-managed transport', section)
+        self.assertIn('文件存在、当前进程可运行、真实新会话已加载是三种证据', section)
+        self.assertIn('已有会话可能缓存旧指令', section)
 
     def test_rar_004_document_receipt_cannot_forgive_changed_code(self):
         self.start()

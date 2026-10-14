@@ -25,26 +25,19 @@ TDD 预期 Red 仅在同时满足以下条件时零触发：
 
 ## Runner 与数据边界
 
-```bash
-: "${CODEX_HOME:?set verified Windows Codex home WSL path}"
-runner="skills/command-failure-memory/scripts/command-failure-memory.py"
-if [[ ! -f "$runner" ]]; then
-  runner="${CODEX_HOME:?CODEX_HOME must be set}/skills/command-failure-memory/scripts/command-failure-memory.py"
-fi
-```
+本技能可以独立使用，不依赖 GTO 或六工件。runner 位于实际加载技能目录的 `scripts/command-failure-memory.py`；不要假定技能目录等于源码路径或 home/skills，自定义安装位置也从实际技能发现。示例中的 `$runner` 和 `$CODEX_HOME` 应替换为核实路径，所用解释器与执行环境一致。
 
-- 后端使用 WSL `python3` 和 GNU 双横线 argv；Windows 原生 Agent 通过指定发行版的 wsl.exe --exec 发起调用。先核实实际 Windows CODEX_HOME 的 WSL 等价路径，每次显式传入 `--codex-home`；缺失时后端报错，不回退到 Linux HOME。
-- 复杂文本直接作为 `--command-text`、`--error-text`、`--resolution` 等 argv 值传入。
-- `--json` 只选择机器可读输出形式。
-- 数据根始终是 `$CODEX_HOME/memories/command-failure-memory`，不迁移、不另建库。
-- 同一数据根使用跨 WSL 进程互斥锁与原子替换；active 超过工作集上限时转入 archive，不丢弃 pending 或拒绝新 case 来伪装容量受控。
+- Windows 原生使用当前 Python 和 Windows 路径；Linux/WSL 使用本环境 Python（通常 `python3`）与 Linux 路径。选择 Windows Agent + WSL 时才核实发行版和映射后调用 wsl.exe；不强制所有接收者使用 WSL。
+- 每次显式传 `--codex-home`，或按 runner 公开合同解析已核实 home；不得猜其他账户或回退 HOME。复杂文本作为独立 argv 传递，`--json` 只选择输出格式。
+- 数据根是明确 home 下的 `memories/command-failure-memory`。程序和用户数据分离，分发包不带作者记录；新用户从空数据开始，安装更新卸载不复制、迁移或删除个人库。
+- 同一数据根使用跨进程互斥与原子替换，Windows/WSL 共享根的锁行为须由实际测试证明；不以文档声明代替平台验证。active 超限时按归档合同处理，不丢弃 pending 或拒绝新记录伪装容量受控。
 
 ## 标准闭环
 
 1. 失败后记录：
 
 ```bash
-python3 "$runner" --codex-home "$CODEX_HOME" --action record-failure \
+python "$runner" --codex-home "$CODEX_HOME" --action record-failure \
   --project-id ai-harness \
   --command-text 'pnpm install' \
   --error-text 'ERR_PNPM_FETCH_500 registry request failed' \
@@ -54,7 +47,7 @@ python3 "$runner" --codex-home "$CODEX_HOME" --action record-failure \
 2. 重试前查询：
 
 ```bash
-python3 "$runner" --codex-home "$CODEX_HOME" --action query-before-retry \
+python "$runner" --codex-home "$CODEX_HOME" --action query-before-retry \
   --project-id ai-harness \
   --command-text 'pnpm install' \
   --error-text 'ERR_PNPM_FETCH_500 registry request failed' \
@@ -64,7 +57,7 @@ python3 "$runner" --codex-home "$CODEX_HOME" --action query-before-retry \
 3. 修复验证成功后回写：
 
 ```bash
-python3 "$runner" --codex-home "$CODEX_HOME" --action record-success \
+python "$runner" --codex-home "$CODEX_HOME" --action record-success \
   --project-id ai-harness \
   --command-text 'pnpm install' \
   --error-text 'ERR_PNPM_FETCH_500 registry request failed' \
@@ -77,7 +70,7 @@ python3 "$runner" --codex-home "$CODEX_HOME" --action record-success \
 4. 只读查看索引和 pending 数量：
 
 ```bash
-python3 "$runner" --codex-home "$CODEX_HOME" --action inspect --json
+python "$runner" --codex-home "$CODEX_HOME" --action inspect --json
 ```
 
 ## 真实 action 与 argv
@@ -87,7 +80,7 @@ python3 "$runner" --codex-home "$CODEX_HOME" --action inspect --json
 - `record-success`：必填 `--project-id`、`--command-text`、`--error-text`、`--resolution`；新 case 还必须给 `--scope-kind`。
 - `inspect`：无额外必填业务参数。
 
-其他 parser 参数为 `--codex-home`、`--scope-confidence`、`--scope-reason`、`--project-specific`、`--json`。以 `python3 "$runner" --help` 为最终 argv 真源。
+其他 parser 参数为 `--codex-home`、`--scope-confidence`、`--scope-reason`、`--project-specific`、`--json`。以 `python "$runner" --help` 为最终 argv 真源。
 
 ## 结果判读
 

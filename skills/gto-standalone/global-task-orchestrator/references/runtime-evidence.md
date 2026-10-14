@@ -8,7 +8,7 @@
 
 每个工作区明确负责的文件、端口、数据库/队列和进程。共享服务允许复用只读资源；有数据写入或启动/停止冲突时使用独立实例，或排队使用一套全量验收环境。两个 worktree 本身不会隔离端口、数据库、全局安装或凭据。不得停止无法确认归属的进程。
 
-共享安装由一个发布者按顺序更新；独立分发包没有全局 sync 锁，更新前核对任务占用并备份当前安装。不能在其他任务使用未冻结入口时覆盖安装。先验证各任务，再对组合候选做相关回归；不自动合并其他任务。
+共享安装由一个发布者按顺序更新；安装器的锁只覆盖实际使用该入口的操作，手工复制不受安装锁保护。更新前核对任务占用并备份当前安装，不能在其他任务使用未冻结入口时覆盖安装。先验证各任务，再对组合候选做相关回归；不自动合并其他任务。
 
 Windows 原生 worktree 的 Git 指针可能是 Windows 路径。WSL 必须先验证 Git 可达；必要时对该工作区 Git 命令显式指定 `--git-dir`、`--work-tree`，不要把这些环境变量泄漏给使用独立 Git 仓库的测试。工作区归档前检查活动进程、未提交工作和忽略证据；原生归档不保证保留 `.artifacts` 等忽略文件。
 
@@ -33,11 +33,13 @@ python3 "$GTO_CONTROLLER" --action preflight --repo-root "$repo_root" \
 
 ## 固定验收版本
 
+无交付、无候选的初始中断任务经用户明确批准，可从修复后的 GTO 包调用受审计身份移交入口；旧包保留，记录新旧包版本与授权，任务和预算沿用。此例外不修改已有 runtime snapshot，也不适用于冻结候选；已有候选的版本校验不放宽。具体限制见 [身份移交](controller-guide.md#会话中断且尚无交付的身份移交)。
+
 `freeze-candidate` 同时冻结声明的产品候选和正在使用的 GTO 包；指纹包含工具、schema、skill 和 references 的逐文件哈希。候选清单与字节存入 `.artifacts/gto/<task_id>/candidates/<candidate_id>/`，运行包存入同任务的 `runtimes/<sha256>/`。state 中 `current_candidate.runtime_snapshot` 指向该包，`candidate_archive` 指向带哈希的候选归档清单；消费时重新校验归档清单和内容。不得修改快照内容。每个 attempt 保存创建时的 `runtime_sha256`，verification receipt 的历史候选指纹使用该值与当时的覆盖记录共同计算，不读取后来安装的运行包代替。
 
 冻结后的控制器明确使用 `runtime_snapshot.path/scripts/orchestrator_ctl.py`。`start_session.py` 恢复任务时验证快照并选择此入口。共享安装或源码随后更新不改变该快照；用另一版本提交结果会因候选指纹不匹配而拒绝。产品输入变动要求重新整合/审查或验收 delta，再冻结新候选；历史快照和失败不覆盖。
 
-安装态隔离实验从实际加载的 skill 目录取包，以 `runtime_evidence.freeze_tree` 创建包含精确文件清单与哈希的独立快照，使用 `verify_tree` 校验；不能反向读取原 harness 或要求其安装 receipt。分发文件清单用于传输完整性核对，不是发布者身份认证。正式代码不反向导入 tests。其他环境工具按原声明单独验证；模型和外部服务只能记录实际版本/设置，不能声称由文件快照冻结。
+运行快照从实际加载的 skill 目录取包，以 `runtime_evidence.freeze_tree` 创建包含精确文件清单与哈希的独立快照，使用 `verify_tree` 校验；基本运行不要求 harness 或安装 receipt。需要验证原 sync 安装态的实验显式调用 `copy_installed_gto(host_codex, isolated_codex)`，核对旧 sync receipt 的精确清单、哈希和路径边界后复制实际安装字节；不得以内容快照代替 receipt 核验。该接口仅支持旧 sync receipt 与 `home/skills` 布局，portable 安装 receipt 和自定义技能目录需专用适配，不能混充。分发文件清单用于传输完整性核对，不是发布者身份认证。正式代码不反向导入 tests。其他环境工具按原声明单独验证；模型和外部服务只能记录实际版本/设置，不能声称由文件快照冻结。
 
 CLI 快照通过只证明脚本版本；全局 Skill 配置与安装发布后，还必须新建实际进程/会话验证加载目录、可见能力和行为，不能用磁盘配置代替。
 

@@ -3,11 +3,18 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import runpy
 import zipfile
 
 
 def build(source, output):
     source, output = Path(source).resolve(), Path(output).resolve()
+    repository = Path(__file__).resolve().parents[2]
+    if source == Path(__file__).resolve().parent / 'global-task-orchestrator':
+        generate = runpy.run_path(str(repository / 'scripts/generate-gto-standalone.py'))['generate']
+        checked = generate(repository / 'skills/global-task-orchestrator', source, check=True)
+        if not checked['ok']:
+            raise ValueError('generated package drift; run scripts/generate-gto-standalone.py')
     if output.is_relative_to(source):
         raise ValueError('release output must be outside the skill')
     required = {'SKILL.md', 'README.md', 'SOURCE.json', 'requirements.txt'}
@@ -26,6 +33,12 @@ def build(source, output):
         contents[relative.as_posix()] = path.read_bytes()
     if not required.issubset(contents):
         raise ValueError('incomplete skill: missing required root files')
+    declared = json.loads(contents['SOURCE.json'])
+    expected = {row['path']: row['sha256'] for row in declared['files']}
+    actual = {name: hashlib.sha256(data).hexdigest() for name, data in contents.items()
+              if name != 'SOURCE.json'}
+    if expected != actual:
+        raise ValueError('generated package manifest hash mismatch')
     output.mkdir(parents=True, exist_ok=True)
     archive = output / 'global-task-orchestrator.zip'
     temporary = output / 'global-task-orchestrator.zip.writing'

@@ -49,7 +49,7 @@ python3 "$GTO_CONTROLLER" \
 `--result-json-file` 与 `--contract-json-file` 读取；不支持在命令行直接传递 JSON。
 `init-task` 仅在完整候选 state 通过 schema 校验后才创建任务目录和六工件；拒绝的合同不留下 `.control.lock`。
 
-每条依赖命令只在前一步退出码为 0 且 JSON `ok=true` 后执行；失败先保存原始输出，按适用的 CFM 规则处理。不能连续粘贴整段 action 清单，把尚未记录成功的验收当作 CLOSE 的前提。预期 TDD Red 的判定与真实失败处理统一引用 [CFM 触发边界](../../command-failure-memory/SKILL.md#触发边界)，按预先声明的最小目标和实际失败类型判断。
+每条依赖命令只在前一步退出码为 0 且 JSON `ok=true` 后执行；失败先保存原始输出，按包内命令失败规则处理。不能连续粘贴整段 action 清单，把尚未记录成功的验收当作 CLOSE 的前提。预期 TDD Red 的判定与真实失败处理统一引用 [命令失败与重试](governance.md#命令失败与重试)，按预先声明的最小目标和实际失败类型判断。
 
 ## JSON 文件输入与只读预检
 
@@ -71,8 +71,8 @@ python3 "$GTO_CONTROLLER" \
 
 具体阶段、测试负责人复用、文档与实现先后及两条普通返工回路统一执行 [任务流程](workflow.md)；黑盒的层级选择、准备、停止和结果统一执行 [分层黑盒测试方法论](blackbox-methodology.md)。本入口不重复维护步骤表；独立测试者先建立行为证明，实现者不得提前给出答案。文档收尾提供事实材料，由主协调器核对后维护六工件。
 
-review 和验收各自实际使用并留证：WSL 网页用官方 Browser，Windows GUI 仅 Windows native Computer Use，非 UI 用真实 CLI/API 并说明适用性。记录真实身份、工具、入口/命令、操作范围、结果及证据引用，不能只记录工具名称或复用一次操作冒充两阶段。本文描述目标规范，机械门禁是否实现须核对同候选 schema、控制器和真实行为证据。
-取消的是重复 verify 工序；实现和整合的测试责任仍保留。环境问题按全局/项目/外部能力真源定位，复用现有 bootstrap/doctor；不做通用自动安装或反复全量诊断。黑盒选层与执行合同见 [分层黑盒测试方法论](blackbox-methodology.md)，通用证据真实性与自有产物清理边界见 `docs/SUBAGENT_GOVERNANCE.md`。
+review 和验收各自实际使用并留证：网页使用宿主实际提供的官方 Browser，桌面 GUI 使用宿主支持的官方 Computer Use，非 UI 用真实 CLI/API 并说明适用性。记录真实身份、工具、入口/命令、操作范围、结果及证据引用，不能只记录工具名称或复用一次操作冒充两阶段。本文描述目标规范，机械门禁是否实现须核对同候选 schema、控制器和真实行为证据。
+取消的是重复 verify 工序；实现和整合的测试责任仍保留。环境问题按实际项目与宿主能力定位，先用包内只读 doctor 检查 GTO 依赖；不做通用自动安装或反复全量诊断。黑盒选层与执行合同见 [分层黑盒测试方法论](blackbox-methodology.md)，通用证据真实性与自有产物清理边界见 [包内治理](governance.md)。
 
 ## 阶段推进
 
@@ -160,7 +160,7 @@ completed 或 blocked 子任务都写回 `state.json.subtasks[].result`，至少
 
 ## 必需能力不可达与恢复
 
-适用规则要求 CFM 时，意外命令失败后必须记录失败、重试前成功查询、修复成功后回写。若已核对的原 CFM 库或能力不可达，立即停止该失败链及其依赖命令，保存原始失败和不可达证据并报告真实 blocked。不得访问未授权历史、开放宿主边界、建立替代库、换平台或跳过强制查询；业务测试通过也不能把受阻流程判为 completed。仅继续与该失败链无关、已授权且安全的独立观察或既有工作，清楚列明其局部结果。
+意外命令失败按 [包内治理](governance.md#命令失败与重试) 保留原始输出并核对重试条件；只有任务依赖的必需能力缺失才阻塞相关操作。
 
 如果 init-task 尚未成功，没有可更新 state：在本任务允许的证据落点保留失败和阻塞说明，直接告知主协调器/用户；不得为造出 state 而重试受阻 init。若任务已存在，使用 `revision-3-results.example.json` 的 coordinator_blocked 完整载荷，填真实协调者身份、非空 blocked_by 和实际失败证据：
 
@@ -172,6 +172,8 @@ python3 "$GTO_CONTROLLER" --action set-phase --repo-root "$repo_root" --task-id 
 
 外部状态实际恢复后，同一协调者填 coordinator_resumed：status=completed、blocked_by=[]、非空 verification，以及实际成功的 checks/证据。CFM 缺口须包含原能力恢复与原失败对应的成功 query-before-retry；无成功查询就不能恢复。只允许回到阻塞时的 previous_phase，不跳阶段，不自动重试，不换 task_id。结构检查只核验提交的结果与证据引用，不能证明命令真实执行；语义真实性由协调者和独立验收核对。
 
+仅下文“会话中断且尚无交付的身份移交”成功登记的接替协调者可代替原协调身份提供恢复回执；原失败回执作者保持不变。
+
 ```bash
 python3 "$GTO_CONTROLLER" --action set-phase --repo-root "$repo_root" --task-id "$task_id" --phase "$previous_phase" --result-json-file "$recovered_json_file" --json
 ```
@@ -179,6 +181,16 @@ python3 "$GTO_CONTROLLER" --action set-phase --repo-root "$repo_root" --task-id 
 阻塞/恢复完整回执追加保存于 events.jsonl；恢复只清除当前 coordinator_blocker。当前包拒绝旧合同。
 
 ## Revision 3 CLI 顺序示例
+
+### 会话中断且尚无交付的身份移交
+
+原协调者或初始代理因宿主会话中断不可达，且用户明确允许接替时，可使用 `recover-interrupted-dispatch --result-json-file <回执>`。它只适用于 blocked 的 doc_sync/test_sync 初始任务：仅一个活动派发、没有任何子任务结果、候选、attempt 或 finding，交付范围内没有非本任务受管工件文件。空目录可保留；符号链接不允许。已有交付不适用此入口。
+
+回执包含 `approval={approved_by:"user",authorization_source,reason,evidence:{path,sha256}}`、`previous_coordinator_id`、`new_coordinator_id`、`subtask_id`、`previous_platform_agent_id`、`new_platform_agent_id`。身份必须来自实际宿主；新代理先独立创建、仅准备等待，不提前写交付。授权证据必须位于消费项目 `.artifacts/` 且 hash 匹配；控制器检查结构与留存，协调者仍负责核实真实用户授权与身份。
+
+成功后仍保持 blocked，原阻塞回执、原派发与执行包 hash 留在 `interruption_recoveries` 和追加事件中。目标回到 ready，随后只接受授权的新代理正常 bind；新协调者提供真实成功恢复 checks，通过原 `set-phase` 回到原阶段，再正常 preflight、绑定和施工。不更改批准合同、依赖、范围、预算或业务结果，不自动完成或重试。没有移交时仍要求原协调者身份恢复。
+
+此入口不修改冻结包或放宽候选 runtime 校验。尚无候选时使用修复后的包须有用户授权并追加包版本证据；已冻结候选不适用本入口。
 
 完整普通流程的载荷和分段命令见 `state-schema.md` 的“现场调用与回执”。先完成整合，再获取审查 brief；独立 reviewer 检查后才填写结果文件：
 

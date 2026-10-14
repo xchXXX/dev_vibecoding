@@ -19,6 +19,12 @@ GTO 启动条件唯一遵循 [全局入口模板](../templates/codex/AGENTS.glob
 - 项目级规则应由各仓库在 `rules/registry/*` 与 `rules/items/<kind>/*` 中维护，并由项目入口文档引用。
 - 历史上的旧控制面对象仅可作为迁移背景，不再是运行时合同来源。
 
+## 普通任务
+
+普通任务由当前主代理按用户授权组织，不因复杂、长耗时或使用方法技能自动启用 GTO。需要委派时按已批准范围使用真实平台身份、明确读取与写入边界；独立 Review/验收需要不同实现身份且不能伪造隔离。证据保存在已有任务载体，不为了使用 benchmark、fix 或 CFM 创建六工件。
+
+下面各节是用户显式选择 GTO 后的专门合同，链接从源码层用于维护；运行时须从实际加载的 GTO 技能查找 references。未安装 GTO 时这些链接不构成普通模块依赖。
+
 ## 角色分工
 
 计划代理分配与职责分开表达，同代号复用、异代号区分，按批准依赖派发；测试与验收是否复用由方案决定，并满足已有独立性约束。唯一行为说明见 [批准分工与依赖](../skills/global-task-orchestrator/references/workflow.md#批准分工与依赖)。结果在派发时提供对应完整模板，正式提交前使用 [只读预检](../skills/global-task-orchestrator/references/state-schema.md#计划代理与只读结果预检)，结构通过不替代证据判断。
@@ -54,7 +60,7 @@ Plan 完整要求清单见 [方案指南](../skills/global-task-orchestrator/ref
 
 阶段顺序、发现者与原整合者分工及两条普通返工回路见 [任务流程](../skills/global-task-orchestrator/references/workflow.md)；黑盒停止出口见 [分层黑盒测试方法论](../skills/global-task-orchestrator/references/blackbox-methodology.md)。以下只定义证据真实性与失效边界。
 
-- review 和验收分别留下实际使用证据，不能共用一次操作冒充两个阶段。Windows 原生 Agent 使用官方 Browser 操作网页，包括运行在 WSL 服务上的页面；Windows GUI 仅在 Windows-native Agent environment 使用 Computer Use，WSL 不得先试调。非 UI 任务使用真实 CLI/API 并明确 UI 不适用原因。证据包含执行者、工具、实际入口/命令、操作范围、结果及引用，截图、HTTP 200 或工具名称本身不等于业务路径通过。
+- review 和验收分别留下实际使用证据，不能共用一次操作冒充两个阶段。UI 证据使用当前宿主真实提供的官方 Browser 或 Computer Use；不能从工具名称推断平台能力，GUI 缺失时单列阻塞。非 UI 任务使用真实 CLI/API 并明确 UI 不适用原因。证据包含执行者、工具、实际入口/命令、操作范围、结果及引用，截图、HTTP 200 或工具名称本身不等于业务路径通过。
 - 候选包含代码、配置、运行输入、验收项和全部受影响正式文档，发现者新增测试也在范围内。验收前变化需对应审查覆盖；验收中修复变化由原验收者承担 delta 检查。验收后纯文档遗漏同步只在无实质行为/契约变化时收口，不能成为任意文档豁免名单。
 - 预算与 attempt kind 的机械限制见包内 schema、控制器及 [状态使用说明](../skills/global-task-orchestrator/references/state-schema.md)。准备检查与正式效果分流，资源消耗不因换 ID 清零；证据映射只覆盖各自验收范围，未覆盖不得推断通过。
 
@@ -275,4 +281,4 @@ revision 3 的整合必须等全部声明 work 子任务 completed；显式 depe
 
 ## 并发任务、固定运行版本与能力证明
 
-当前操作合同见 [GTO 运行与证据](../skills/global-task-orchestrator/references/runtime-evidence.md)。普通流程职责维护于全局 AGENTS 模板；技能开关唯一声明在 `config/ai/skill-policy.json`，由 `scripts/configure-skill-policy.py` 更新实际 path 配置，插件升级后重新检查路径并用新会话验明。方法技能不能接管流程。磁盘配置、CLI 快照验证和真实新会话加载分别报告。
+当前操作合同见 [GTO 运行与证据](../skills/global-task-orchestrator/references/runtime-evidence.md)。普通流程职责维护于全局 AGENTS 模板；portable 安装仅投放受管内容，不编辑用户技能开关或插件配置；需要用户本地开关时依当前产品能力操作并用新会话验明。方法技能不能接管流程。磁盘配置、CLI 快照验证和真实新会话加载分别报告。

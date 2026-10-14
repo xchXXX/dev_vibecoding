@@ -2,6 +2,8 @@
 
 本文描述 portable harness 的接收者合同。当前改造仍需按候选版本完成验收；下列命令是冻结 CLI 接口，不能以本说明替代实际运行结果。取得固定版本的完整包，在包根执行；不要求接收者拥有源码仓库。
 
+若使用 dots 云端直接从 Git 拉取本仓库，走 [Git 仓库的 dots 云端接入](https://github.com/xchXXX/dev_vibecoding/blob/javirs/docs/modules/portable-harness/delivery/engineering/dots-cloud.md)：一条 Install script 准备仓库环境，仓库内技能随 Git 发现，不需要先构建或安装 portable 包。云接入脚本只随源码仓库提供；以下流程用于将固定分发包安装到明确的 Codex home，两条路线的验收分别留证。
+
 ## 依赖与环境
 
 基础安装与 doctor 使用 Python 3.11+ 标准库。先确认所用解释器及真实 Codex home；Windows 示例可用 `python`，Linux/WSL 可用 `python3`。示例统一写 `python`，应替换为当前环境已核实的解释器。基础入口不要求 Node、Docker、GUI、WSL 或任意 MCP。GTO 等可选动作所需依赖由对应技能与 doctor 报告，不能自动安装。

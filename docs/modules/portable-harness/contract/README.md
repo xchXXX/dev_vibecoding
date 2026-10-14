@@ -2,6 +2,10 @@
 
 状态：实施合同；通过情况只见任务验收记录。配置、包格式和生命周期字段以本文为唯一真源；任务计划引用本文。
 
+## 仓库云端接入
+
+从 Git 检出本仓库的 Linux 云环境可运行 `python3 scripts/cloud-setup.py`，只在仓库 `.venv` 准备 requirements；`--check` 为只读依赖、Git、四技能链接及 GTO doctor 检查。入口从脚本位置定位当前仓库，输出真实仓库/提交/解释器/技能路径及 `session_verified=false`，失败退出非零。未知非venv目录及 `.venv` 根符号链接不得接管；正常venv的解释器符号链接允许，但实际sys.prefix必须对应本仓库venv。技能真源和venv安装目录不得通过目录链接逃逸；pip安装目的地不得被继承的target/prefix/user配置改到仓库外。`.agents/skills` 通过相对符号链接引用四个 canonical `skills/` 目录，唯一真源不变。此入口不修改全局 Codex home、技能、配置或个人数据；不会自动启用GTO。云接入脚本只随Git源码提供，用户界面配置与新会话验收唯一入口见 [Git仓库的 dots 云端接入](https://github.com/xchXXX/dev_vibecoding/blob/javirs/docs/modules/portable-harness/delivery/engineering/dots-cloud.md)。
+
 ## 配置与命令
 
 Python >=3.11，基础安装、诊断只需标准库。配置仅接受 `codex_home`、`skills_dir`、`environment`；不接受项目级安装目标覆盖。优先级为 CLI > 用户 JSON > `CODEX_HOME` / `CODEX_SKILLS_DIR` / `HARNESS_ENVIRONMENT` > 默认。home 无隐式默认；skills 默认 home/skills；environment 默认 auto。JSON 内路径相对于 JSON 文件目录，CLI/环境路径必须绝对。空值、未知字段、非法环境与链接路径拒绝。同层配置不得静默覆盖：JSON 字段和 CLI 的 `--codex-home`、`--skills-dir`、`--environment`、`--config` 均只允许出现一次，重复时返回 `CONFIG_INVALID`，即使值相同也拒绝；不同来源仍按上述优先级解析。结果含 Path 类型安装根、实际 environment 和 sources（cli/config/env/default）。指定环境必须与当前运行解释器的系统类型一致；WSL 不自动转换未核实的 Windows 路径。

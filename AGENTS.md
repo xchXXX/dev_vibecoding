@@ -24,6 +24,9 @@
 
 ## 真源入口
 
+- 云端从 Git 接入本仓库时，先读 `docs/modules/portable-harness/delivery/engineering/dots-cloud.md` 并执行 `python3 scripts/cloud-setup.py --check`；使用其报告的本仓库 `.venv` Python。新环境设置由用户授权后运行不带 `--check` 的同一命令。
+- 仓库 `.agents/skills` 只引用 `skills/` 中四个 canonical 技能，不维护副本。普通任务直接执行，GTO 仍须用户显式选择；文件与依赖检查不等于实际新会话加载或平台能力通过。不要求云任务存在 Windows、WSL、作者 Codex home 或个人记忆。
+
 - 总纲：`docs/plans/AI_HARNESS_MASTER_PLAN.md`
 - 项目真源入口：`docs/ARCHITECTURE.md`、`docs/CODEX_COMPAT.md`、`docs/SUBAGENT_GOVERNANCE.md`、`docs/PROJECT_TEMPLATE.md`、`rules/registry/RULES_ENTRY.md`
 

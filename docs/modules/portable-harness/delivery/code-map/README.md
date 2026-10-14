@@ -6,6 +6,8 @@
 - modules/harness/lifecycle.py：所有权预检、模块生命周期、事务恢复、doctor。
 - modules/harness/errors.py：稳定错误合同。
 - scripts/harness.py：分发与生命周期命令入口。
+- scripts/cloud-setup.py：Git 云端接收者的仓库 venv 准备与只读检查。
+- .agents/skills/：Git 技能发现入口，符号链接引用 skills/ 四个真源。
 - tests/portable/：独立公共行为测试。
 
 字段与安全约束唯一见 ../../contract/README.md；实施状态见 ../../../../tasks/20261014-portable-harness/execution.md。

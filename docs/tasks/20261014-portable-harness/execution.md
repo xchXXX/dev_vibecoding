@@ -1,5 +1,7 @@
 # Portable Harness 执行记录
 
+2026-10-14用户再次要求不得停在部分完成，明确授权提交推送到Git供dots云端拉取验收。此前未推进Git云端接入不是代码技术阻塞；本次继续现有javirs工作区，原根脏checkout不改。增加四个`.agents/skills`符号链接到canonical真源和`scripts/cloud-setup.py`，入口仅安装repo venv，保留真实source_commit与session_verified=false；独立tester先缺入口Red，Reviewer发现目录链接与pip目标配置逃逸后再补3个Red，7项Green72.703秒、最终pip无缓存专项17.212秒通过。失败夹具ensurepip超时和被自动审批拒绝清理的scratch保留；不写全局个人记忆。Git检查器因缺可选git-policy返回CONFIG_INVALID，按现有分支/远端/提交范围事实核验，不伪造配置。云新会话实际发现须由dots证据单独判定。
+
 ## 授权与范围
 2026-10-14 用户批准按方案实施，要求文档/测试先行、TDD、真实子代理 review 和验收循环，根代理持续自检。只在 javirs 指定隔离工作区推进；父会话必要核验及最终复查。本工程不使用 GTO 编排。
 ## 当前阶段
@@ -105,4 +107,18 @@ Docker独立诊断定位4.90后端处理遗留AF_UNIX socket时Error1920。根�
 官方4.95首次启动自行保留两个原socket目录并重建监听器，Ingest/Secrets Engine通过、Engine29.8.2就绪；没有手工轮换。后续两轮官方stop/start全退出0，32容器、77镜像ID、23卷标识相同；这是恢复后两轮之间的资源一致性，不能冒称升级前数据库业务内容已验收。Ubuntu集成返回29.8.2。独立Reviewer审核后，根代理退役旧safe-start自动启动值、专用脚本/receipt/快捷方式，所有资产有验hash备份与事前/逐项审计；原生Docker启动值保留，未做Windows重新登录验收。证据为docker-*.json/log及recovery-review.md。Docker Hub TLS失败独立记录；AWS ECR Docker官方Python镜像可拉取，固定digest的只读无网络容器输出Python3.11.17。
 
 真实GTO旧tester两次平台容量失败后，用户允许改用gpt-6.1-sol。会话随后中断，实际旧协调/tester不可用；新协调/root/gto_resume证实bb17没有合法身份移交入口。用户明确批准“仅对尚无交付结果的中断任务进行可审计身份移交，保留旧包/原任务/全部失败记录，再用修复包续验”。按同task保留场景amendment，独立/root/gto_recovery_tests最小Red命中缺action；/root/gto_resume实现保守recover-interrupted-dispatch，独立4项Green、symlink2项、正常恢复bind/validate/preflight1项通过；这些覆盖重叠不合计。独立/root/recovery_reviewer静态无P1/P2，相关回归/新固定包和真实场景续验继续推进。旧bb17包不改写。
+
+新增恢复相关原coordinator回归7项49.877秒通过，standalone23文件由生成器刷新并check通过。新固定source为5a0606ac6b11102076adec53fac7be0dfc6169d0，manifest SHA256为59b2ab772a1b6e42d2f2e464a3b80095976cc2bece0d3907b01180acd9cc699a，javirs HEAD/index仍未改。
+
+首次新包容器验收过程中，协调者的recovery-setup.py未带-B导入固定包runtime_evidence，在08:21:32 UTC生成未列清单的pyc；根验收same-package update因此正确失败。协调者确认实际命令与时间。Reviewer此前只遍历manifest，漏检extra文件，已撤回那次完整包通过结论。根保留坏zip、缓存原件/hash与失败报告于package-inspection-contamination，仅移出这份可证明归属的缓存并删除空目录，生产文件与manifest无变动。再次独立核验expected=actual=88、missing/extra为空、87文件hash全符；runtime tree按既有合同忽略pyc，原生身份恢复历史hash没有变更，不重写历史。后续检查统一-B，Linux完整生命周期改用新的干净consumer复验，保留首败。
+
+清洁Linux容器复验已完成：linux-container-5a0606-clean/recipient.json记录6条实际产品命令全部exit0、16检查通过。Python3.11.17，镜像固定digest，包和根文件系统只读、网络none；用户资产字节不变、包无新增文件、安装态无缓存。内核为WSL2，不冒称独立Linux主机，也不把缺Git/jsonschema的诊断成功当作GTO执行成功。Windows独立Tester补验恢复成功链1项9.669秒通过，首次PATH缺Git的准备失败独立保留，复跑仅对子进程添加已存在Git路径。
+
+清洁ZIP已完成精确文件集合及归档字节核对，共88文件；portable-harness-0.3.0-candidate-5a0606ac6b11.zip的SHA256为3d0c25cc19c3779a312d29f5cb4ff442f7b19ecd35c5d690a26f3936a97e0e63，仅内部交付。真实GTO原任务已成功恢复并由新实际tester交付3测试方法/44输入观察的预期Red，尚在正常实现/Review/验收链中。
+
+### 原GTO场景最终收口
+
+原task 20261014-144021-713937-portable-add-one最终完成；三个真实业务身份均为gpt-6.1-sol独立上下文，tester先Red、implementer实现与集成分别Green、reviewer独立54次CLI无finding、原tester冻结后fresh44次CLI验收通过。WORK/CLOSE各一处回执格式问题由本人修正且保留原失败，不重跑有效测试，共8派发turn。candidate-28f79302f9921323绑定5a runtime975903df...；唯一ordinary attempt-1完成pass、验收manifest401c2149...。这些CLI观察跨阶段有重叠，不合成独立场景数。
+
+本人close仅同步事实文档，原生accept-artifact-update→record CLOSE→finalize-task→最终validate均exit0。最终status=completed、next_action.kind=none，根实际读取state核实；原ACCEPT模板ready保留，实际attempt子任务completed。后续包/ZIP独立核验已保存在independent-final-bundle-container-supplement.json，产品与冻结source一致，冻结后仅三份任务状态文档更新。GTO全流程缺口关闭；独立Linux主机、新顶层会话、云端和未识别父会话最终复查仍明确未取得，不代签。
 

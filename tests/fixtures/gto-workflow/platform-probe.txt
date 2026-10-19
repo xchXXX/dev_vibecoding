@@ -1,0 +1,1 @@
+这是独立的运行平台探针，不是业务或 GTO 验收。请只做以下最小动作：用 shell 输出当前工作目录，确认 /mnt、/harness/tests、/harness/docs/tasks 不存在，并计算已安装 global-task-orchestrator/SKILL.md 的 SHA-256。不得读取认证文件。然后实际调用平台子代理工具创建一个无历史子代理，让它也用 shell 核对相同目录不可见并报告工作目录；等待它结束。最后报告实际工具执行结果。不要运行 GTO 业务任务，不要修改任何业务文件。

@@ -1,0 +1,246 @@
+{
+  "six_points": {
+    "do": "交付 example 业务入口及其可验证的整合、审查、验收闭环。",
+    "do_not": [
+      "不修改已批准范围之外的文件。"
+    ],
+    "change_areas": [
+      "modules/example",
+      "docs/modules/example",
+      "tests/fixtures/example"
+    ],
+    "implementation": "先明确业务入口与错误输入规则并编写失败测试；实施者修改入口处理并整合；审查通过后由原测试代理验收真实入口，验收沿用已保存结果和同一候选证据。",
+    "acceptance": [
+      "example 业务入口及异常输入行为符合已冻结契约。"
+    ],
+    "risks": [
+      "已有脏工作区必须先冻结并裁决重叠路径。",
+      "必需外部能力或 CFM 不可达时停止相关重试并报告 blocked，保留证据等待恢复。"
+    ]
+  },
+  "approval": {
+    "status": "approved",
+    "approved_by": "user"
+  },
+  "decisions": [
+    "REQ-01｜example 业务入口及异常输入符合已冻结契约。｜落实：WORK-001、INTEGRATE-001｜验收：BUSINESS-001"
+  ],
+  "verification_contract": {
+    "minimal_repro": "运行最小目标测试，稳定复现模板与当前合同不一致。",
+    "hit_proof": "失败断言直接指出模板字段或命令漂移。",
+    "diagnostic_checks": [
+      "校验两份状态模板是否满足当前 schema。"
+    ],
+    "acceptance_checks": [
+      "运行聚焦 unittest 并确认模板校验通过。"
+    ],
+    "non_goals": [
+      "不把全量回归结果当作最小命中证明。"
+    ],
+    "review_evidence": [
+      "repro_before_fix",
+      "pass_after_fix",
+      "hit_proof_observed"
+    ]
+  },
+  "subtasks": [
+    {
+      "subtask_id": "TEST-001",
+      "title": "Independent initial tests",
+      "role": "tester",
+      "stage": "work",
+      "status": "ready",
+      "dependencies": [],
+      "read_paths": [
+        "modules/example",
+        "docs/modules/example"
+      ],
+      "write_paths": [
+        "tests/fixtures/example"
+      ],
+      "assignment": {
+        "goal": "独立编写初始失败测试并记录实际Red；不实施产品Green。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "planned_agent_key": "tester"
+    },
+    {
+      "subtask_id": "WORK-001",
+      "title": "work",
+      "role": "backend-implementer",
+      "stage": "work",
+      "status": "ready",
+      "dependencies": [
+        "TEST-001"
+      ],
+      "read_paths": [
+        "modules/example",
+        "docs/modules/example"
+      ],
+      "write_paths": [
+        "modules/example"
+      ],
+      "assignment": {
+        "goal": "组织初始测试并按真实 Red/Green 实现。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "planned_agent_key": "backend-implementer"
+    },
+    {
+      "subtask_id": "INTEGRATE-001",
+      "title": "integration",
+      "role": "backend-implementer",
+      "stage": "integration",
+      "status": "ready",
+      "dependencies": [
+        "WORK-001"
+      ],
+      "read_paths": [
+        "modules/example",
+        "docs/modules/example"
+      ],
+      "write_paths": [
+        "modules/example",
+        "docs/modules/example",
+        "tests/fixtures/example"
+      ],
+      "assignment": {
+        "goal": "联通入口、接口、配置、数据流及异常路径，同步全部正式文档并范围验证。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "planned_agent_key": "backend-implementer"
+    },
+    {
+      "subtask_id": "REVIEW-001",
+      "title": "pre_acceptance_review",
+      "role": "reviewer",
+      "stage": "pre_acceptance_review",
+      "status": "ready",
+      "dependencies": [
+        "INTEGRATE-001"
+      ],
+      "read_paths": [
+        "modules/example",
+        "docs/modules/example"
+      ],
+      "write_paths": [
+        "tests/fixtures/example"
+      ],
+      "assignment": {
+        "goal": "独立完整审查整合结果、需求、测试质量、边界和全部正式文档，批量报告并补证明。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "planned_agent_key": "reviewer"
+    },
+    {
+      "subtask_id": "ACCEPT-001",
+      "title": "expensive_acceptance",
+      "role": "tester",
+      "stage": "expensive_acceptance",
+      "status": "ready",
+      "dependencies": [
+        "REVIEW-001"
+      ],
+      "read_paths": [
+        "modules/example",
+        "docs/modules/example"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "以真实业务流程验收，失败由发现者复现归因和证明。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "planned_agent_key": "tester"
+    },
+    {
+      "subtask_id": "CLOSE-001",
+      "title": "final_documentation",
+      "role": "doc-curator",
+      "stage": "final_documentation",
+      "status": "ready",
+      "dependencies": [
+        "ACCEPT-001"
+      ],
+      "read_paths": [
+        "modules/example",
+        "docs/modules/example"
+      ],
+      "write_paths": [
+        "docs/tasks/20300102-030405-example-task",
+        "docs/modules/example"
+      ],
+      "assignment": {
+        "goal": "单文档责任者检查并直接同步遗漏正式文档与纯文字，真正契约变化返回验收。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "planned_agent_key": "doc-curator"
+    }
+  ],
+  "workflow_revision": 3,
+  "acceptance_gate": {
+    "candidate_inputs": {
+      "code_paths": [
+        "modules/example",
+        "tests/fixtures/example"
+      ],
+      "config_paths": [],
+      "runtime_input_paths": [],
+      "runtime_inputs": {},
+      "document_paths": [
+        "docs/modules/example"
+      ]
+    },
+    "current_candidate": null,
+    "acceptance_items": [
+      {
+        "acceptance_id": "BUSINESS-001",
+        "evidence_refs": [],
+        "paths": [
+          "modules/example",
+          "tests/fixtures/example",
+          "docs/modules/example"
+        ]
+      }
+    ],
+    "attempt_policy": {
+      "max_expensive_attempts": 4,
+      "max_full_attempts_per_candidate": 1,
+      "max_environment_retries_per_candidate": 1,
+      "approval_required_from_attempt": 3
+    },
+    "attempts": []
+  },
+  "initial_test_owners": [
+    "TEST-001"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "project_id": "wsl-environment-fixture",
+  "python": {
+    "requirements_file": "requirements.txt",
+    "venv": ".venv"
+  },
+  "node": {
+    "package_json": "package.json",
+    "node_modules": "node_modules"
+  },
+  "capabilities": [
+    {
+      "id": "playwright",
+      "required": true
+    },
+    {
+      "id": "docker",
+      "required": true
+    }
+  ]
+}

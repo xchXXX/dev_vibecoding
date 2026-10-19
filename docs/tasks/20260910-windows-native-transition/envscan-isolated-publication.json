@@ -1,0 +1,21 @@
+{
+  "scope": "isolated environment-only bootstrap and CFM-only sync",
+  "timestamp": "2026-09-10T09:47:56.228614+00:00",
+  "steps": [
+    {
+      "round": 1,
+      "environment_changed": true,
+      "cfm_changed": true
+    },
+    {
+      "round": 2,
+      "environment_changed": false,
+      "cfm_changed": false
+    }
+  ],
+  "ok": true,
+  "config_and_agents_unchanged": true,
+  "unrelated_receipt_rows_unchanged": true,
+  "real_receipt_hashes_verified": true,
+  "isolated_restore_files": 17
+}

@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "legacy_paths_absent": [
+    "/mnt/d/prj/harnesss/dev_vibecoding/modules/wsl-environment/tooling/node-repl-wsl-compat.py",
+    "/mnt/d/prj/harnesss/dev_vibecoding/skills/windows-computer-use-wsl",
+    "/mnt/d/prj/harnesss/dev_vibecoding/tests/harness/test_windows_external_bridge.py",
+    "/mnt/d/prj/harnesss/dev_vibecoding/tests/harness/__pycache__/test_windows_external_bridge.cpython-312.pyc",
+    "/mnt/d/prj/harnesss/dev_vibecoding/.tmp/windows-native-transition",
+    "/mnt/c/Users/Laptop/.codex/skills/windows-computer-use-wsl",
+    "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/node-repl-wsl-compat.py",
+    "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/windows-external-bridge.py"
+  ],
+  "source_snapshot_count": 29,
+  "source_snapshots_intact": true,
+  "maintenance_hold_present": false,
+  "docker_ids_and_started_at_unchanged": true,
+  "test_results": {
+    "native_environment": 28,
+    "cfm": 12,
+    "hold": 4,
+    "pure_contract_fixtures": 2,
+    "rules_validated": 26
+  },
+  "gui_acceptance": "pending coordinator evidence; user reports plugins working",
+  "migration_accepted": false
+}

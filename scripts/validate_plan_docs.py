@@ -74,7 +74,9 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     try:
-        root = resolve_repo_root(args.repo_root, Path(__file__))
+        root = Path(args.repo_root).resolve() if args.repo_root else resolve_repo_root(None, Path(__file__))
+        if not root.is_dir():
+            raise ValueError(f"consumer_repo_root_invalid: expected an existing directory: {root}")
         payload = validate(root)
     except (OSError, ValueError) as error:
         payload = {"ok": False, "errors": [str(error)]}

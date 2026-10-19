@@ -1,0 +1,711 @@
+{
+  "timestamp": "2026-09-10T09:48:56.877329+00:00",
+  "checks": [
+    {
+      "check": "environment_doctor",
+      "command": [
+        "/usr/bin/python3",
+        "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/doctor-core.py",
+        "--environment-only",
+        "--root",
+        "/mnt/d/prj/harnesss/dev_vibecoding",
+        "--codex-home",
+        "/mnt/c/Users/Laptop/.codex",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "scope": "environment-only",
+        "issues": [],
+        "runtime_verified": false,
+        "windows_external_capabilities": {
+          "ok": true,
+          "runtime_verified": false,
+          "declaration_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/windows-external-capabilities.json",
+          "capabilities": [
+            {
+              "id": "codex-browser",
+              "kind": "windows_native",
+              "provider": "codex_builtin_browser",
+              "plugin_states": {
+                "browser@openai-bundled": "enabled",
+                "unified-computer-use@openai-bundled": "enabled"
+              },
+              "status": "configured_on_disk",
+              "action": "use_native_plugin",
+              "runtime_verified": false
+            },
+            {
+              "id": "computer-use",
+              "kind": "windows_native",
+              "provider": "official_computer_use",
+              "plugin_states": {
+                "computer-use@openai-bundled": "enabled"
+              },
+              "status": "configured_on_disk",
+              "action": "use_native_plugin",
+              "runtime_verified": false
+            }
+          ],
+          "issues": []
+        },
+        "wsl_tool_audit": {
+          "ok": true,
+          "tools": [
+            {
+              "id": "bwrap",
+              "available": true,
+              "path": "/usr/bin/bwrap",
+              "linux_native": true
+            },
+            {
+              "id": "node",
+              "available": true,
+              "path": "/usr/local/bin/node",
+              "linux_native": true
+            },
+            {
+              "id": "npm",
+              "available": true,
+              "path": "/usr/local/bin/npm",
+              "linux_native": true
+            },
+            {
+              "id": "jq",
+              "available": true,
+              "path": "/usr/bin/jq",
+              "linux_native": true
+            },
+            {
+              "id": "unzip",
+              "available": true,
+              "path": "/usr/bin/unzip",
+              "linux_native": true
+            },
+            {
+              "id": "zip",
+              "available": true,
+              "path": "/usr/bin/zip",
+              "linux_native": true
+            },
+            {
+              "id": "tree",
+              "available": true,
+              "path": "/usr/bin/tree",
+              "linux_native": true
+            },
+            {
+              "id": "strace",
+              "available": true,
+              "path": "/usr/bin/strace",
+              "linux_native": true
+            },
+            {
+              "id": "shellcheck",
+              "available": true,
+              "path": "/usr/bin/shellcheck",
+              "linux_native": true
+            },
+            {
+              "id": "shfmt",
+              "available": true,
+              "path": "/usr/bin/shfmt",
+              "linux_native": true
+            },
+            {
+              "id": "fzf",
+              "available": true,
+              "path": "/usr/bin/fzf",
+              "linux_native": true
+            },
+            {
+              "id": "fdfind",
+              "available": true,
+              "path": "/usr/bin/fdfind",
+              "linux_native": true
+            },
+            {
+              "id": "sqlite3",
+              "available": true,
+              "path": "/usr/bin/sqlite3",
+              "linux_native": true
+            },
+            {
+              "id": "dos2unix",
+              "available": true,
+              "path": "/usr/bin/dos2unix",
+              "linux_native": true
+            },
+            {
+              "id": "gcc",
+              "available": true,
+              "path": "/usr/bin/gcc",
+              "linux_native": true
+            },
+            {
+              "id": "g++",
+              "available": true,
+              "path": "/usr/bin/g++",
+              "linux_native": true
+            },
+            {
+              "id": "make",
+              "available": true,
+              "path": "/usr/bin/make",
+              "linux_native": true
+            },
+            {
+              "id": "pkg-config",
+              "available": true,
+              "path": "/usr/bin/pkg-config",
+              "linux_native": true
+            },
+            {
+              "id": "cmake",
+              "available": true,
+              "path": "/usr/bin/cmake",
+              "linux_native": true
+            },
+            {
+              "id": "ninja",
+              "available": true,
+              "path": "/usr/bin/ninja",
+              "linux_native": true
+            },
+            {
+              "id": "pip3",
+              "available": true,
+              "path": "/usr/bin/pip3",
+              "linux_native": true
+            },
+            {
+              "id": "pnpm",
+              "available": true,
+              "path": "/usr/local/bin/pnpm",
+              "linux_native": true
+            }
+          ],
+          "package_audit": [
+            {
+              "id": "git",
+              "command": "git",
+              "available": true,
+              "path": "/usr/bin/git",
+              "linux_native": true
+            },
+            {
+              "id": "ripgrep",
+              "command": "rg",
+              "available": true,
+              "path": "/usr/bin/rg",
+              "linux_native": true
+            },
+            {
+              "id": "curl",
+              "command": "curl",
+              "available": true,
+              "path": "/usr/bin/curl",
+              "linux_native": true
+            },
+            {
+              "id": "wget",
+              "command": "wget",
+              "available": true,
+              "path": "/usr/bin/wget",
+              "linux_native": true
+            },
+            {
+              "id": "rsync",
+              "command": "rsync",
+              "available": true,
+              "path": "/usr/bin/rsync",
+              "linux_native": true
+            },
+            {
+              "id": "file",
+              "command": "file",
+              "available": true,
+              "path": "/usr/bin/file",
+              "linux_native": true
+            },
+            {
+              "id": "lsof",
+              "command": "lsof",
+              "available": true,
+              "path": "/usr/bin/lsof",
+              "linux_native": true
+            },
+            {
+              "id": "python3",
+              "command": "python3",
+              "available": true,
+              "path": "/usr/bin/python3",
+              "linux_native": true
+            },
+            {
+              "id": "python3-venv",
+              "command": "python3",
+              "available": true,
+              "path": "/usr/bin/python3",
+              "linux_native": true
+            },
+            {
+              "id": "bubblewrap",
+              "command": "bwrap",
+              "available": true,
+              "path": "/usr/bin/bwrap",
+              "linux_native": true
+            },
+            {
+              "id": "nodejs",
+              "command": "node",
+              "available": true,
+              "path": "/usr/local/bin/node",
+              "linux_native": true
+            },
+            {
+              "id": "npm",
+              "command": "npm",
+              "available": true,
+              "path": "/usr/local/bin/npm",
+              "linux_native": true
+            },
+            {
+              "id": "jq",
+              "command": "jq",
+              "available": true,
+              "path": "/usr/bin/jq",
+              "linux_native": true
+            },
+            {
+              "id": "unzip",
+              "command": "unzip",
+              "available": true,
+              "path": "/usr/bin/unzip",
+              "linux_native": true
+            },
+            {
+              "id": "zip",
+              "command": "zip",
+              "available": true,
+              "path": "/usr/bin/zip",
+              "linux_native": true
+            },
+            {
+              "id": "tree",
+              "command": "tree",
+              "available": true,
+              "path": "/usr/bin/tree",
+              "linux_native": true
+            },
+            {
+              "id": "strace",
+              "command": "strace",
+              "available": true,
+              "path": "/usr/bin/strace",
+              "linux_native": true
+            },
+            {
+              "id": "shellcheck",
+              "command": "shellcheck",
+              "available": true,
+              "path": "/usr/bin/shellcheck",
+              "linux_native": true
+            },
+            {
+              "id": "shfmt",
+              "command": "shfmt",
+              "available": true,
+              "path": "/usr/bin/shfmt",
+              "linux_native": true
+            },
+            {
+              "id": "fzf",
+              "command": "fzf",
+              "available": true,
+              "path": "/usr/bin/fzf",
+              "linux_native": true
+            },
+            {
+              "id": "fd-find",
+              "command": "fdfind",
+              "available": true,
+              "path": "/usr/bin/fdfind",
+              "linux_native": true
+            },
+            {
+              "id": "sqlite3",
+              "command": "sqlite3",
+              "available": true,
+              "path": "/usr/bin/sqlite3",
+              "linux_native": true
+            },
+            {
+              "id": "dos2unix",
+              "command": "dos2unix",
+              "available": true,
+              "path": "/usr/bin/dos2unix",
+              "linux_native": true
+            },
+            {
+              "id": "build-essential",
+              "command": "make",
+              "available": true,
+              "path": "/usr/bin/make",
+              "linux_native": true
+            },
+            {
+              "id": "pkg-config",
+              "command": "pkg-config",
+              "available": true,
+              "path": "/usr/bin/pkg-config",
+              "linux_native": true
+            },
+            {
+              "id": "cmake",
+              "command": "cmake",
+              "available": true,
+              "path": "/usr/bin/cmake",
+              "linux_native": true
+            },
+            {
+              "id": "ninja-build",
+              "command": "ninja",
+              "available": true,
+              "path": "/usr/bin/ninja",
+              "linux_native": true
+            },
+            {
+              "id": "python3-pip",
+              "command": "pip3",
+              "available": true,
+              "path": "/usr/bin/pip3",
+              "linux_native": true
+            },
+            {
+              "id": "node-pnpm",
+              "command": "pnpm",
+              "available": true,
+              "path": "/usr/local/bin/pnpm",
+              "linux_native": true
+            }
+          ],
+          "missing_tools": [],
+          "windows_path_tools": [],
+          "fd_compatibility": {
+            "available": true,
+            "command": "fdfind",
+            "path": "/usr/bin/fdfind",
+            "ubuntu_package": "fd-find",
+            "note": "Ubuntu fd-find exposes fdfind; fd is accepted when present."
+          }
+        },
+        "findings": [],
+        "errors": []
+      }
+    },
+    {
+      "check": "project_doctor:dev_vibecoding",
+      "command": [
+        "/usr/bin/python3",
+        "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/project-env-doctor.py",
+        "--project-root",
+        "/mnt/d/prj/harnesss/dev_vibecoding",
+        "--environment",
+        "/mnt/d/prj/harnesss/dev_vibecoding/config/ai/environment.json",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "project_root": "/mnt/d/prj/harnesss/dev_vibecoding",
+        "findings": [],
+        "errors": []
+      }
+    },
+    {
+      "check": "project_doctor:drugsale_practice_system",
+      "command": [
+        "/usr/bin/python3",
+        "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/project-env-doctor.py",
+        "--project-root",
+        "/mnt/d/prj/drugsale_practice_system",
+        "--environment",
+        "/mnt/d/prj/drugsale_practice_system/config/ai/environment.json",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "project_root": "/mnt/d/prj/drugsale_practice_system",
+        "findings": [],
+        "errors": []
+      }
+    }
+  ],
+  "docker": [
+    {
+      "id": "72a22f7b9905",
+      "state": {
+        "Status": "running",
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 52749,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-10T06:44:35.374390227Z",
+        "FinishedAt": "0001-01-01T00:00:00Z",
+        "Health": {
+          "Status": "healthy",
+          "FailingStreak": 0,
+          "Log": [
+            {
+              "Start": "2026-09-10T09:47:49.862221633Z",
+              "End": "2026-09-10T09:47:51.236290932Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:48:06.226555768Z",
+              "End": "2026-09-10T09:48:07.699280711Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:48:22.700528514Z",
+              "End": "2026-09-10T09:48:23.941624412Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:48:38.92000824Z",
+              "End": "2026-09-10T09:48:40.252382406Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:48:55.254172434Z",
+              "End": "2026-09-10T09:48:56.886731344Z",
+              "ExitCode": 0,
+              "Output": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "29bca7421b41",
+      "state": {
+        "Status": "running",
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 52824,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-10T06:44:35.942166005Z",
+        "FinishedAt": "0001-01-01T00:00:00Z",
+        "Health": {
+          "Status": "healthy",
+          "FailingStreak": 0,
+          "Log": [
+            {
+              "Start": "2026-09-10T09:48:29.367257424Z",
+              "End": "2026-09-10T09:48:29.693678675Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:48:39.695074459Z",
+              "End": "2026-09-10T09:48:40.066260024Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:48:50.067573118Z",
+              "End": "2026-09-10T09:48:50.474375633Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:49:00.448043005Z",
+              "End": "2026-09-10T09:49:00.81997758Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:49:10.821334744Z",
+              "End": "2026-09-10T09:49:11.245965821Z",
+              "ExitCode": 0,
+              "Output": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "d36f57799fea",
+      "state": {
+        "Status": "running",
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 35852,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-10T02:15:21.963412529Z",
+        "FinishedAt": "0001-01-01T00:00:00Z",
+        "Health": {
+          "Status": "healthy",
+          "FailingStreak": 0,
+          "Log": [
+            {
+              "Start": "2026-09-10T09:48:31.250190715Z",
+              "End": "2026-09-10T09:48:31.302183311Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:48:41.303160474Z",
+              "End": "2026-09-10T09:48:41.356543715Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:48:51.358392368Z",
+              "End": "2026-09-10T09:48:51.413976049Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:49:01.387461587Z",
+              "End": "2026-09-10T09:49:01.432793927Z",
+              "ExitCode": 0,
+              "Output": ""
+            },
+            {
+              "Start": "2026-09-10T09:49:11.43339339Z",
+              "End": "2026-09-10T09:49:11.486719092Z",
+              "ExitCode": 0,
+              "Output": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "863919c56230",
+      "state": {
+        "Status": "running",
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 1157,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-08T06:50:28.511530039Z",
+        "FinishedAt": "2026-09-08T02:40:04.331578884Z",
+        "Health": {
+          "Status": "healthy",
+          "FailingStreak": 0,
+          "Log": [
+            {
+              "Start": "2026-09-10T09:48:47.768014235Z",
+              "End": "2026-09-10T09:48:47.824712786Z",
+              "ExitCode": 0,
+              "Output": "/var/run/postgresql:5432 - accepting connections\n"
+            },
+            {
+              "Start": "2026-09-10T09:48:52.825725107Z",
+              "End": "2026-09-10T09:48:52.880074597Z",
+              "ExitCode": 0,
+              "Output": "/var/run/postgresql:5432 - accepting connections\n"
+            },
+            {
+              "Start": "2026-09-10T09:48:57.880964504Z",
+              "End": "2026-09-10T09:48:57.944980024Z",
+              "ExitCode": 0,
+              "Output": "/var/run/postgresql:5432 - accepting connections\n"
+            },
+            {
+              "Start": "2026-09-10T09:49:02.918191089Z",
+              "End": "2026-09-10T09:49:02.973912715Z",
+              "ExitCode": 0,
+              "Output": "/var/run/postgresql:5432 - accepting connections\n"
+            },
+            {
+              "Start": "2026-09-10T09:49:07.974871629Z",
+              "End": "2026-09-10T09:49:08.034139119Z",
+              "ExitCode": 0,
+              "Output": "/var/run/postgresql:5432 - accepting connections\n"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "aa66ea23c3af",
+      "state": {
+        "Status": "running",
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 1092,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-08T06:50:27.930019722Z",
+        "FinishedAt": "2026-09-08T02:40:04.326449121Z",
+        "Health": {
+          "Status": "healthy",
+          "FailingStreak": 0,
+          "Log": [
+            {
+              "Start": "2026-09-10T09:48:48.440183044Z",
+              "End": "2026-09-10T09:48:48.489200521Z",
+              "ExitCode": 0,
+              "Output": "PONG\n"
+            },
+            {
+              "Start": "2026-09-10T09:48:53.490142428Z",
+              "End": "2026-09-10T09:48:53.548109685Z",
+              "ExitCode": 0,
+              "Output": "PONG\n"
+            },
+            {
+              "Start": "2026-09-10T09:48:58.549544416Z",
+              "End": "2026-09-10T09:48:58.599091101Z",
+              "ExitCode": 0,
+              "Output": "PONG\n"
+            },
+            {
+              "Start": "2026-09-10T09:49:03.572507445Z",
+              "End": "2026-09-10T09:49:03.620995857Z",
+              "ExitCode": 0,
+              "Output": "PONG\n"
+            },
+            {
+              "Start": "2026-09-10T09:49:08.621779595Z",
+              "End": "2026-09-10T09:49:08.669493367Z",
+              "ExitCode": 0,
+              "Output": "PONG\n"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "ok": true,
+  "docker_ids_and_started_at_unchanged": true
+}

@@ -1,0 +1,277 @@
+{
+  "six_points": {
+    "do": "Implement the WSL Python control plane.",
+    "do_not": [
+      "Do not classify natural language in Python."
+    ],
+    "change_areas": [
+      "skills/global-task-orchestrator",
+      "tests/harness"
+    ],
+    "implementation": "Codex supplies semantics; Python performs mechanical gates.",
+    "acceptance": [
+      "The deterministic review loop reaches final/pass."
+    ],
+    "risks": [
+      "Existing dirty work must be preserved."
+    ]
+  },
+  "objective": "Implement the WSL Python control plane.",
+  "scope_in": [
+    "skills/global-task-orchestrator",
+    "tests/harness"
+  ],
+  "scope_out": [
+    "Do not classify natural language in Python."
+  ],
+  "acceptance": [
+    "The deterministic review loop reaches final/pass."
+  ],
+  "stop_conditions": [
+    "Existing dirty work must be preserved."
+  ],
+  "decisions": [
+    "Codex supplies semantics; Python performs mechanical gates."
+  ],
+  "approval": {
+    "status": "approved",
+    "approved_by": "user",
+    "contract_sha256": "c16253c11e4aeab65d2888cada9c7a1f1145cd0d189ffdcdbdf0e7d94414200e",
+    "approved_at": "2026-09-11T08:26:26.392335Z"
+  },
+  "verification_contract": {
+    "minimal_repro": "The focused fixture fails before implementation.",
+    "hit_proof": "The focused fixture directly exercises the gate.",
+    "diagnostic_checks": [
+      "Run focused diagnostics."
+    ],
+    "acceptance_checks": [
+      "Run focused acceptance."
+    ],
+    "non_goals": [
+      "Do not infer semantics in Python."
+    ],
+    "review_evidence": [
+      "pass_after_fix"
+    ]
+  },
+  "subtasks": [
+    {
+      "subtask_id": "WORK-001",
+      "title": "work",
+      "role": "backend-implementer",
+      "stage": "work",
+      "status": "ready",
+      "dependencies": [
+        "TEST-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator"
+      ],
+      "write_paths": [
+        "candidate-source.py"
+      ],
+      "assignment": {
+        "goal": "Complete work.",
+        "must_include": [
+          "minimal deterministic behavior"
+        ],
+        "verification": [
+          "Run the focused Python unittest."
+        ]
+      }
+    },
+    {
+      "subtask_id": "INTEGRATE-001",
+      "title": "cheap check",
+      "role": "backend-implementer",
+      "stage": "integration",
+      "status": "ready",
+      "dependencies": [
+        "WORK-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator"
+      ],
+      "write_paths": [
+        "candidate-source.py",
+        "docs/contract.md"
+      ],
+      "assignment": {
+        "goal": "Complete cheap_check.",
+        "must_include": [
+          "minimal deterministic behavior"
+        ],
+        "verification": [
+          "Run the focused Python unittest."
+        ]
+      }
+    },
+    {
+      "subtask_id": "REVIEW-SEC-001",
+      "title": "pre acceptance review",
+      "role": "reviewer",
+      "stage": "pre_acceptance_review",
+      "status": "ready",
+      "dependencies": [
+        "INTEGRATE-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Complete pre_acceptance_review.",
+        "must_include": [
+          "minimal deterministic behavior"
+        ],
+        "verification": [
+          "Run the focused Python unittest."
+        ]
+      }
+    },
+    {
+      "subtask_id": "EXPENSIVE-001",
+      "title": "expensive acceptance",
+      "role": "tester",
+      "stage": "expensive_acceptance",
+      "status": "ready",
+      "dependencies": [
+        "REVIEW-SEC-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Complete expensive_acceptance.",
+        "must_include": [
+          "minimal deterministic behavior"
+        ],
+        "verification": [
+          "Run the focused Python unittest."
+        ]
+      }
+    },
+    {
+      "subtask_id": "TEST-001",
+      "title": "work",
+      "role": "tester",
+      "stage": "work",
+      "status": "ready",
+      "dependencies": [],
+      "read_paths": [
+        "skills/global-task-orchestrator"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Complete work.",
+        "must_include": [
+          "minimal deterministic behavior"
+        ],
+        "verification": [
+          "Run the focused Python unittest."
+        ]
+      }
+    },
+    {
+      "subtask_id": "DOC-FINAL-001",
+      "title": "final documentation",
+      "role": "doc-curator",
+      "stage": "final_documentation",
+      "status": "ready",
+      "dependencies": [
+        "EXPENSIVE-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator"
+      ],
+      "write_paths": [
+        "docs/tasks/20300102-030405-control-plane-contract"
+      ],
+      "assignment": {
+        "goal": "Complete final_documentation.",
+        "must_include": [
+          "minimal deterministic behavior"
+        ],
+        "verification": [
+          "Run the focused Python unittest."
+        ]
+      }
+    }
+  ],
+  "workflow_revision": 3,
+  "acceptance_gate": {
+    "candidate_inputs": {
+      "code_paths": [
+        "candidate-source.py"
+      ],
+      "config_paths": [
+        "candidate-config.json"
+      ],
+      "runtime_inputs": {
+        "provider": "fixture-v1"
+      },
+      "document_paths": [
+        "docs/contract.md"
+      ]
+    },
+    "current_candidate": null,
+    "acceptance_items": [
+      {
+        "acceptance_id": "REAL-PATH-001",
+        "evidence_refs": [],
+        "paths": [
+          "candidate-source.py",
+          "candidate-config.json",
+          "docs/contract.md"
+        ]
+      }
+    ],
+    "attempt_policy": {
+      "max_expensive_attempts": 4,
+      "max_full_attempts_per_candidate": 1,
+      "max_environment_retries_per_candidate": 1,
+      "approval_required_from_attempt": 3
+    },
+    "attempts": []
+  },
+  "initial_test_owners": [
+    "TEST-001"
+  ],
+  "task_id": "20300102-030405-control-plane-contract",
+  "title": "Control plane contract",
+  "owner": "main-coordinator",
+  "status": "active",
+  "current_phase": "doc_sync",
+  "version": 3,
+  "workspace": {
+    "repo_root": "<repo-root>",
+    "checkout_kind": "primary",
+    "branch": "unresolved",
+    "head": "0000000000000000000000000000000000000000",
+    "dirty_paths": [],
+    "write_overlap": [],
+    "overlap_decision": {
+      "status": "pending",
+      "summary": "Workspace evidence must be captured before implementation dispatch.",
+      "baseline_hashes": {}
+    }
+  },
+  "review_policy": {
+    "max_fix_rounds": 3,
+    "require_independent_final_review": false,
+    "scope_expansion_requires_escalation": true
+  },
+  "findings": {},
+  "next_action": {
+    "kind": "dispatch_ready_subtask"
+  },
+  "artifact_sha256": {
+    "task.md": "b9065c1ca5678c93a06c79ad2d968305a5577a2f1a817bc50bb48a19a24e9eea",
+    "plan.md": "e80700a7cb2815cacbc9d47eea1267dc7f1bedc16bf9f55fa20f58716f2e2e74",
+    "execution.md": "365f342e6cd7f0df7dd2bb56e22c436333b7834599750124ad9587261bd4bc80",
+    "acceptance.md": "11067f9aa7f73f51d3a51c7358bfaf644a6f68e02f4c611e69a54bd044861932"
+  },
+  "updated_at": "2026-09-11T08:26:27.482395Z"
+}

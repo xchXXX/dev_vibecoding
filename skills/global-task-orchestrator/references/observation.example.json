@@ -1,0 +1,12 @@
+{
+  "outcome": "pass",
+  "real_call_count": 1,
+  "execution_kind": "cli",
+  "point_results": [
+    {
+      "acceptance_id": "ACTUAL_ACCEPTANCE_ID",
+      "status": "pass",
+      "evidence_refs": [".artifacts/ACTUAL_RUN/observation.json"]
+    }
+  ]
+}

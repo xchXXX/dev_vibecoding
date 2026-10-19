@@ -1,7 +1,0 @@
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "RetiredTaskStateSchema",
-  "description": "仅作为历史文件名占位，不是可执行 schema，不允许验证任何状态。当前 GTO 只使用 schemas/orchestrator-task-state.schema.json。",
-  "$comment": "Retired historical marker. No current controller, template, or validation path may load this file.",
-  "not": {}
-}

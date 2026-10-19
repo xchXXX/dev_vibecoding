@@ -17,7 +17,6 @@ HISTORICAL_CONTRACT_PREFIXES = (
 ACTIVE_TRUTH_FILES = (
     "AGENTS.md",
     "README.md",
-    "docs/AGENTS.md",
     "docs/ARCHITECTURE.md",
     "docs/CODEX_COMPAT.md",
     "docs/HOOKS.md",
@@ -29,11 +28,11 @@ ACTIVE_TRUTH_FILES = (
     "schemas/README.md",
     "templates/README.md",
 )
-ACTIVE_TRUTH_TREES = ("agents", "contexts", "rules", "schemas", "skills", "templates")
+ACTIVE_TRUTH_TREES = ("rules", "schemas", "skills", "templates")
 ACTIVE_TRUTH_SUFFIXES = {".md", ".json", ".jsonl", ".yaml", ".yml", ".toml"}
 RETIRED_CONTRACT_TERMS = {
     "claude": re.compile(r"(?i)(?:\bclaude\b|\.claude(?:/|\\))"),
-    "windows-shell": re.compile(r"(?i)(?:\bpowershell\b|\.ps1\b|\.cmd\b)"),
+    "windows-gui-bridge": re.compile(r"(?i)(?:\bcomputer_use_wsl\b|\bbrowser_use_wsl\b|node-repl-wsl-compat|windows-computer-use-wsl)"),
     "hook": re.compile(
         r"(?i)(?:\bhooks?\b|\bhooks?/|(?:claude|codex|runtime|command|pretooluse|posttooluse)\s+hooks?\b|"
         r"\bhooks?\s+(?:runtime|settings|handlers|manifest|真源))"
@@ -93,14 +92,17 @@ def active_truth_paths(repo_root: Path = REPO_ROOT) -> list[Path]:
 
 
 def affirmative_contract_names(line: str) -> list[str]:
-    line_matches = [name for name, pattern in RETIRED_CONTRACT_TERMS.items() if pattern.search(line)]
+    antecedent_matches: set[str] = set()
     matched: set[str] = set()
     current_antecedent = False
     for clause in CLAUSE_SEPARATOR.split(line):
         clause_matches = [name for name, pattern in RETIRED_CONTRACT_TERMS.items() if pattern.search(clause)]
         prohibited = bool(PROHIBITIVE_ACTION.search(clause))
         historical = bool(EXPLICIT_HISTORICAL_SCOPE.search(clause) and not CURRENT_SCOPE.search(clause))
-        if prohibited or historical:
+        if prohibited:
+            continue
+        antecedent_matches.update(clause_matches)
+        if historical:
             continue
         if clause_matches:
             if "hook" in clause_matches and not ACTIVE_ACTION.search(clause):
@@ -116,7 +118,7 @@ def affirmative_contract_names(line: str) -> list[str]:
         if CURRENT_SCOPE.search(clause) and ACTIVE_ACTION.search(clause):
             current_antecedent = True
     if not matched and current_antecedent:
-        matched.update(line_matches)
+        matched.update(antecedent_matches)
     return sorted(matched)
 
 
@@ -247,8 +249,8 @@ class PureCodexRepositoryCleanupTests(unittest.TestCase):
                 "docs/tasks/TASK-OLD/plan.md",
                 ".artifacts/report.md",
             ):
-                (fixture / relative).write_text("Use PowerShell as the active runtime.\n", encoding="utf-8")
-            (fixture / "README.md").write_text("Use PowerShell as the active runtime.\n", encoding="utf-8")
+                (fixture / relative).write_text("Use computer_use_wsl as the active runtime.\n", encoding="utf-8")
+            (fixture / "README.md").write_text("Use computer_use_wsl as the active runtime.\n", encoding="utf-8")
 
             hits = affirmative_retired_contract_hits(fixture)
 
@@ -262,17 +264,17 @@ class PureCodexRepositoryCleanupTests(unittest.TestCase):
             fixture = Path(raw)
             (fixture / "README.md").write_text(
                 "## 历史记录\n"
-                "Use PowerShell as the active runtime.\n"
+                "Use computer_use_wsl as the active runtime.\n"
                 "## 当前规则\n"
-                "不要恢复旧 PowerShell。\n"
-                "不要恢复旧 hook；但当前仍启用 PowerShell 作为正常运行时。\n",
+                "不要恢复旧 computer_use_wsl。\n"
+                "不要恢复旧 hook；但当前仍启用 computer_use_wsl 作为正常运行时。\n",
                 encoding="utf-8",
             )
 
             hits = affirmative_retired_contract_hits(fixture)
 
         self.assertEqual(1, len(hits), hits)
-        self.assertTrue(hits[0].startswith("README.md:5 [windows-shell]"), hits)
+        self.assertTrue(hits[0].startswith("README.md:5 [windows-gui-bridge]"), hits)
 
         partial_retirement = (
             "`bootstrap-local.py` 会从用户级 `hooks.json` 中只移除稳定 id "

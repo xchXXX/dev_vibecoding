@@ -1,0 +1,2261 @@
+{
+  "six_points": {
+    "do": "Deliver the repository-side WSL environment unification system approved by the user so recurring cross-platform failures are prevented or stopped at task start.",
+    "do_not": [
+      "/etc/wsl.conf",
+      "Docker Desktop UI settings",
+      "<CODEX_HOME>/config.toml live mutation",
+      "system package installation",
+      "mass project migration",
+      "automatic deletion of .venv or node_modules",
+      "hooks, daemons, per-command wrappers, platform fallbacks, and automatic retries"
+    ],
+    "change_areas": [
+      "config/ai",
+      "schemas/wsl-tool-baseline.schema.json",
+      "schemas/project-environment.schema.json",
+      "scripts/provision-wsl.py",
+      "scripts/doctor-core.py",
+      "scripts/project-env-doctor.py",
+      "scripts/resolve-wsl-path.py",
+      "scripts/bootstrap-local.py",
+      "templates/project",
+      "templates/codex/AGENTS.global.md",
+      "rules/items",
+      "rules/registry/RULES_INDEX.json",
+      "docs/modules/wsl-environment",
+      "docs/CODEX_COMPAT.md",
+      "docs/INSTALL.md",
+      "scripts/README.md",
+      "tests/harness",
+      "tests/fixtures/wsl-environment"
+    ],
+    "implementation": "Use layered WSL-native tooling rather than globally installing project packages.",
+    "acceptance": [
+      "A clean fixture can load and validate the baseline and project declarations.",
+      "Wrong-platform command paths, TEMP values, Python environments, Node artifacts, and Docker fallbacks are diagnosed before project tests run.",
+      "Provisioning and doctor commands are idempotent, JSON-capable, and safe in read-only mode.",
+      "Managed runtime sync is hash-verified and existing unrelated Codex files are preserved.",
+      "The Windows path resolver handles drive paths, spaces, Unicode, malformed input, and missing files deterministically.",
+      "Focused suites and one final full harness pass; independent review covers the latest scoped diff."
+    ],
+    "risks": [
+      "Stop before any system-level mutation not already represented as repository code or documentation.",
+      "Stop if a scoped write path overlaps unrelated dirty content and cannot be isolated without user direction.",
+      "Stop if implementation would require guessing an undocumented Codex Local Environment file format.",
+      "Stop if the same blocking condition recurs three goal turns without a safe in-scope alternative."
+    ]
+  },
+  "objective": "Deliver the repository-side WSL environment unification system approved by the user so recurring cross-platform failures are prevented or stopped at task start.",
+  "scope_in": [
+    "config/ai",
+    "schemas/wsl-tool-baseline.schema.json",
+    "schemas/project-environment.schema.json",
+    "scripts/provision-wsl.py",
+    "scripts/doctor-core.py",
+    "scripts/project-env-doctor.py",
+    "scripts/resolve-wsl-path.py",
+    "scripts/bootstrap-local.py",
+    "templates/project",
+    "templates/codex/AGENTS.global.md",
+    "rules/items",
+    "rules/registry/RULES_INDEX.json",
+    "docs/modules/wsl-environment",
+    "docs/CODEX_COMPAT.md",
+    "docs/INSTALL.md",
+    "scripts/README.md",
+    "tests/harness",
+    "tests/fixtures/wsl-environment"
+  ],
+  "scope_out": [
+    "/etc/wsl.conf",
+    "Docker Desktop UI settings",
+    "<CODEX_HOME>/config.toml live mutation",
+    "system package installation",
+    "mass project migration",
+    "automatic deletion of .venv or node_modules",
+    "hooks, daemons, per-command wrappers, platform fallbacks, and automatic retries"
+  ],
+  "acceptance": [
+    "A clean fixture can load and validate the baseline and project declarations.",
+    "Wrong-platform command paths, TEMP values, Python environments, Node artifacts, and Docker fallbacks are diagnosed before project tests run.",
+    "Provisioning and doctor commands are idempotent, JSON-capable, and safe in read-only mode.",
+    "Managed runtime sync is hash-verified and existing unrelated Codex files are preserved.",
+    "The Windows path resolver handles drive paths, spaces, Unicode, malformed input, and missing files deterministically.",
+    "Focused suites and one final full harness pass; independent review covers the latest scoped diff."
+  ],
+  "stop_conditions": [
+    "Stop before any system-level mutation not already represented as repository code or documentation.",
+    "Stop if a scoped write path overlaps unrelated dirty content and cannot be isolated without user direction.",
+    "Stop if implementation would require guessing an undocumented Codex Local Environment file format.",
+    "Stop if the same blocking condition recurs three goal turns without a safe in-scope alternative."
+  ],
+  "decisions": [
+    "Use layered WSL-native tooling rather than globally installing project packages.",
+    "Use project lock files and isolated Linux environments while sharing package and browser caches.",
+    "Keep doctor checks read-only and task-scoped; do not add a background service or universal runner.",
+    "Treat Docker Desktop WSL Integration and Windows applications as explicit external capabilities.",
+    "Pilot system configuration only after repository-side acceptance."
+  ],
+  "approval": {
+    "status": "approved",
+    "approved_by": "user",
+    "contract_sha256": "346bc4e53b5a526005c94e12f09b5a88b499ae0597d526f409faf16343e14c39",
+    "approved_at": "2026-09-04T19:03:01.911603Z"
+  },
+  "verification_contract": {
+    "minimal_repro": "Fixtures reproduce Windows TEMP leakage, Windows-backed command resolution, Windows .venv and node_modules artifacts, missing optional capabilities, and Windows attachment path input before implementation.",
+    "hit_proof": "Each focused test invokes the real CLI or parser and asserts the classified JSON result or exit code for its named failure mode.",
+    "diagnostic_checks": [
+      "Run schema validation against valid and invalid machine and project fixtures.",
+      "Run doctor CLIs against isolated fixture roots and controlled PATH or TEMP environments.",
+      "Run bootstrap against an isolated CODEX_HOME and compare managed runtime hashes."
+    ],
+    "acceptance_checks": [
+      "Run focused WSL environment tests.",
+      "Regenerate and validate the rules index.",
+      "Run document validation and strict doctor in an isolated safe configuration.",
+      "Run git diff --check on scoped paths.",
+      "Run the full harness suite once after focused checks are green.",
+      "Obtain independent final review of the latest scoped change manifest."
+    ],
+    "non_goals": [
+      "No live system configuration mutation in the repository implementation batch.",
+      "No replacement of project dependency manifests or lock files.",
+      "No guarantee that the upstream Codex app suppresses its initial attachment error banner."
+    ],
+    "review_evidence": [
+      "repro_before_fix",
+      "pass_after_fix",
+      "hit_proof_observed",
+      "relevant_regression_ok",
+      "rules_and_docs_valid",
+      "managed_runtime_hashes_match",
+      "independent_final_review"
+    ]
+  },
+  "subtasks": [
+    {
+      "subtask_id": "DOC-001",
+      "title": "Freeze WSL environment contracts and documentation",
+      "role": "doc-curator",
+      "status": "completed",
+      "dependencies": [],
+      "read_paths": [
+        "AGENTS.md",
+        "rules/registry/RULES_INDEX.json",
+        "rules/items/policy/缺失工具分层与依赖处理.md",
+        "rules/items/policy/脚本运行基线.md",
+        "docs/CODEX_COMPAT.md",
+        "docs/INSTALL.md",
+        "scripts/README.md"
+      ],
+      "write_paths": [
+        "docs/modules/wsl-environment",
+        "docs/CODEX_COMPAT.md",
+        "docs/INSTALL.md",
+        "scripts/README.md",
+        "rules/items/policy/缺失工具分层与依赖处理.md",
+        "rules/items/policy/脚本运行基线.md",
+        "rules/items/policy/Windows附件路径桥接.md",
+        "templates/codex/AGENTS.global.md"
+      ],
+      "assignment": {
+        "goal": "Document the approved layered WSL environment contract, file map, runtime boundaries, system-configuration handoff, and attachment path behavior before tests or code.",
+        "must_include": [
+          "Machine versus project versus optional capability ownership",
+          "No hooks, daemons, broad upgrades, automatic retries, or destructive environment repair",
+          "Codex worktree setup and task-start doctor boundaries",
+          "Explicit upstream limitation for the attachment banner"
+        ],
+        "verification": [
+          "Run the repository document validator on changed documents.",
+          "Check the scoped documentation diff for accidental unrelated edits."
+        ]
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_docs",
+        "platform_agent_id": "wsl_env_docs",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "3a611d8bfffe55022b2497d3351a7d6bb60c4931037706df9981daa128cca97a"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Frozen the four-layer WSL environment contract, doctor/startup boundaries, attachment path bridge, code map, engineering handoff, and synchronized the relevant global rules, compatibility/install docs, script index, and managed AGENTS template.",
+        "changed_files": [
+          "docs/modules/wsl-environment/contract/layered-environment-contract.md",
+          "docs/modules/wsl-environment/design/doctor-and-startup-boundaries.md",
+          "docs/modules/wsl-environment/design/windows-attachment-path-bridge.md",
+          "docs/modules/wsl-environment/delivery/code-map/wsl-environment-code-map.md",
+          "docs/modules/wsl-environment/delivery/engineering/wsl-environment-delivery.md",
+          "docs/CODEX_COMPAT.md",
+          "docs/INSTALL.md",
+          "scripts/README.md",
+          "rules/items/policy/缺失工具分层与依赖处理.md",
+          "rules/items/policy/脚本运行基线.md",
+          "rules/items/policy/Windows附件路径桥接.md",
+          "templates/codex/AGENTS.global.md"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 scripts/validate_doc_routing.py --repo-root /mnt/d/prj/harnesss/dev_vibecoding --json",
+            "python3 scripts/validate_plan_docs.py --repo-root /mnt/d/prj/harnesss/dev_vibecoding --json",
+            "git diff --check -- docs/CODEX_COMPAT.md docs/INSTALL.md scripts/README.md rules/items/policy/缺失工具分层与依赖处理.md rules/items/policy/脚本运行基线.md templates/codex/AGENTS.global.md",
+            "git diff --no-index --check /dev/null <new-file>"
+          ],
+          "result": "Main-agent verification passed: both document validators returned ok=true, tracked scoped diff check returned 0, and the untracked-file no-index checks produced no whitespace diagnostics with the expected difference exit status."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "The generated rules index remains stale until the later authorized generation step.",
+          "The script README intentionally marks the three new CLIs as pending delivery until implementation lands."
+        ],
+        "follow_up": [
+          "Use the code map as the behavior contract for TEST-001.",
+          "Regenerate and validate the rules index after rule changes stabilize."
+        ],
+        "written_by": "wsl_env_docs",
+        "written_role": "wsl_env_docs"
+      }
+    },
+    {
+      "subtask_id": "TEST-001",
+      "title": "Add failing WSL environment contract tests",
+      "role": "tester",
+      "status": "completed",
+      "dependencies": [
+        "DOC-001"
+      ],
+      "read_paths": [
+        "docs/modules/wsl-environment",
+        "scripts/doctor-core.py",
+        "scripts/bootstrap-local.py",
+        "tests/harness"
+      ],
+      "write_paths": [
+        "tests/harness/test_wsl_environment.py",
+        "tests/fixtures/wsl-environment"
+      ],
+      "assignment": {
+        "goal": "Write behavior-first tests that fail because the approved WSL environment tooling does not yet exist or does not yet implement the contract.",
+        "must_include": [
+          "Machine manifest validation and profile selection",
+          "Windows-backed PATH and TEMP detection",
+          "Wrong-platform Python and Node artifact classification",
+          "Optional Playwright and Docker capability checks",
+          "Windows path normalization and missing-file behavior",
+          "Isolated bootstrap runtime sync"
+        ],
+        "verification": [
+          "Run only the new focused suite and capture the expected Red failures.",
+          "Confirm failures name missing behavior rather than syntax, import, or fixture errors."
+        ]
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_tests",
+        "platform_agent_id": "wsl_env_tests",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "befe4c6ce3f9e66edcd17e879e4f1cb8c28c956345a982cfc779bd11ccf719fb"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Added behavior-first CLI contract coverage for WSL machine provisioning, machine and project doctors, Windows attachment path conversion, and isolated managed-runtime bootstrap delivery. The independent Red run produced ten expected production-behavior failures and no syntax, import, or fixture failures.",
+        "changed_files": [
+          "tests/harness/test_wsl_environment.py",
+          "tests/fixtures/wsl-environment/README.md",
+          "tests/fixtures/wsl-environment/baseline.valid.json",
+          "tests/fixtures/wsl-environment/baseline.invalid.json",
+          "tests/fixtures/wsl-environment/project-valid/requirements.txt",
+          "tests/fixtures/wsl-environment/project-valid/package.json",
+          "tests/fixtures/wsl-environment/project-valid/config/ai/environment.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m py_compile tests/harness/test_wsl_environment.py",
+            "python3 -m unittest tests.harness.test_wsl_environment -v"
+          ],
+          "result": "py_compile passed. Independent focused suite ran 10 tests and reported 10 expected Red failures: missing managed WSL runtime bootstrap files; missing stable machine-doctor findings categories; and missing provision, project-doctor, and path-resolver entrypoints. No syntax, import, or fixture failures occurred."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [
+          "Implement only the production behavior required to turn this focused suite Green.",
+          "Keep real package installation and host/system mutation outside test execution."
+        ],
+        "written_by": "wsl_env_tests",
+        "written_role": "wsl_env_tests"
+      }
+    },
+    {
+      "subtask_id": "IMPL-001",
+      "title": "Implement WSL environment tooling",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "TEST-001"
+      ],
+      "read_paths": [
+        "docs/modules/wsl-environment",
+        "tests/harness/test_wsl_environment.py",
+        "scripts/doctor-core.py",
+        "scripts/bootstrap-local.py",
+        "scripts/sync-codex.py"
+      ],
+      "write_paths": [
+        "config/ai/wsl-tool-baseline.json",
+        "schemas/wsl-tool-baseline.schema.json",
+        "schemas/project-environment.schema.json",
+        "scripts/provision-wsl.py",
+        "scripts/project-env-doctor.py",
+        "scripts/resolve-wsl-path.py",
+        "scripts/doctor-core.py",
+        "scripts/bootstrap-local.py",
+        "templates/project/config/ai/environment.example.json"
+      ],
+      "assignment": {
+        "goal": "Implement the minimum repository-side behavior required to make the approved focused tests pass without expanding into system mutation.",
+        "must_include": [
+          "One machine-readable baseline consumed by provisioning and machine doctor",
+          "Plan-first provisioning with explicit apply and no broad upgrade",
+          "Read-only project classification with stable JSON output",
+          "Strict path-value-only Windows conversion",
+          "Managed runtime sync with hashes and no whole-directory copy"
+        ],
+        "verification": [
+          "Run the focused WSL environment suite to Green.",
+          "Run affected existing WSL runtime and bootstrap suites."
+        ]
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_impl",
+        "platform_agent_id": "wsl_env_impl",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "f7160c955c90d2b48e047894c3e9e38e4b14cd103acece26302be82b83e89f3a"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Implemented the first Green version of the WSL machine baseline, declarative schemas, plan-first provisioner, project doctor, path resolver, machine-doctor classifications, and bootstrap-managed runtime copy with receipt hashes.",
+        "changed_files": [
+          "config/ai/wsl-tool-baseline.json",
+          "schemas/wsl-tool-baseline.schema.json",
+          "schemas/project-environment.schema.json",
+          "scripts/provision-wsl.py",
+          "scripts/project-env-doctor.py",
+          "scripts/resolve-wsl-path.py",
+          "scripts/doctor-core.py",
+          "scripts/bootstrap-local.py",
+          "templates/project/config/ai/environment.example.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m py_compile scripts/provision-wsl.py scripts/project-env-doctor.py scripts/resolve-wsl-path.py scripts/doctor-core.py scripts/bootstrap-local.py",
+            "python3 -m unittest tests.harness.test_wsl_environment tests.harness.test_wsl_runtime tests.harness.test_wsl_tools -v"
+          ],
+          "result": "Independent main-agent regression run passed: 23 tests in 69.778 seconds. Production scripts compiled successfully in the implementation-agent run."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "A post-implementation runtime execution probe found that the copied bin scripts cannot yet import runtime_common from the isolated managed runtime; this must be closed by review/rework before final acceptance.",
+          "The explicit apply branch was not executed against the host package manager, as required by the no-system-mutation boundary."
+        ],
+        "follow_up": [
+          "Review whether doctor actually consumes the machine baseline as its single source instead of retaining a second hard-coded list.",
+          "Review and prove execution of the installed managed runtime, not only copied-file hashes.",
+          "Review path traversal, schema enforcement, and optional capability classification boundaries."
+        ],
+        "written_by": "wsl_env_impl",
+        "written_role": "wsl_env_impl"
+      }
+    },
+    {
+      "subtask_id": "REVIEW-001",
+      "title": "Review WSL environment implementation",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "IMPL-001"
+      ],
+      "read_paths": [
+        "config/ai",
+        "schemas",
+        "scripts",
+        "templates",
+        "rules/items",
+        "docs/modules/wsl-environment",
+        "tests/harness/test_wsl_environment.py"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Independently review behavior, safety boundaries, platform isolation, and focused verification evidence.",
+        "must_include": [
+          "No destructive repair or hidden installation",
+          "No duplicated machine tool list",
+          "No Windows fallback in the normal WSL path",
+          "No undocumented Local Environment format invented"
+        ],
+        "verification": [
+          "Run targeted tests or inspect their fresh output.",
+          "Report stable findings with precise paths and evidence."
+        ]
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_review",
+        "platform_agent_id": "wsl_env_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "b3511c4dd8f6b0a1db127f1478048122fd591c546bb3913020ff4253ec68bee4"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "task review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "wsl_env_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "task",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "wsl_env_review",
+          "findings": [
+            {
+              "finding_id": "WSL-RUNTIME-001",
+              "severity": "critical",
+              "paths": [
+                "scripts/bootstrap-local.py",
+                "scripts/doctor-core.py",
+                "scripts/runtime_common.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Bootstrap copies hash-correct but non-executable WSL CLIs and doctor does not audit their managed runtime hashes.",
+              "evidence": "All four installed bin scripts raise ModuleNotFoundError for runtime_common; tampering an installed runtime file is absent from doctor findings, and --skip-sync still writes the runtime.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              }
+            },
+            {
+              "finding_id": "WSL-PATH-002",
+              "severity": "critical",
+              "paths": [
+                "scripts/resolve-wsl-path.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Windows path conversion accepts traversal that escapes the selected drive mount.",
+              "evidence": "C:\\..\\..\\etc\\passwd returns ok=true and maps to /mnt/c/../../etc/passwd, violating the path-value-only bridge boundary.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              }
+            },
+            {
+              "finding_id": "WSL-BASELINE-003",
+              "severity": "high",
+              "paths": [
+                "config/ai/wsl-tool-baseline.json",
+                "schemas/wsl-tool-baseline.schema.json",
+                "scripts/provision-wsl.py",
+                "scripts/doctor-core.py",
+                "tests/harness/test_wsl_environment.py",
+                "tests/harness/test_wsl_tools.py"
+              ],
+              "summary": "The machine baseline is not the single doctor/provision truth and unsafe or failed apply inputs can bypass the stable JSON contract.",
+              "evidence": "Doctor retains divergent hard-coded command tuples, misses D/E drive tools, manual validation accepts apt options as package names, apply exceptions escape as traceback, package probes can falsely satisfy python3-venv/build-essential, and apt has no pnpm candidate on this machine.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              }
+            },
+            {
+              "finding_id": "WSL-PROJECT-004",
+              "severity": "high",
+              "paths": [
+                "schemas/project-environment.schema.json",
+                "scripts/project-env-doctor.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Project doctor can report ready for invalid declarations, escaped paths, empty dependency directories, wrong-platform artifacts, and unusable optional capabilities.",
+              "evidence": "Unknown fields and external paths pass; empty .venv/node_modules and @esbuild/win32 artifacts pass; command names alone make failed Playwright and Docker shims appear healthy.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              }
+            },
+            {
+              "finding_id": "WSL-SEMANTICS-005",
+              "severity": "high",
+              "paths": [
+                "scripts/doctor-core.py",
+                "scripts/bootstrap-local.py",
+                "scripts/README.md",
+                "tests/harness/test_wsl_environment.py",
+                "tests/harness/test_wsl_runtime.py"
+              ],
+              "summary": "Machine doctor and bootstrap command semantics do not reliably enforce the documented startup boundary.",
+              "evidence": "Unhealthy non-strict doctor exits zero, --skip-sync still mutates managed runtime, and the script index still labels implemented CLIs as pending delivery.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "WSL-RUNTIME-001",
+              "WSL-PATH-002",
+              "WSL-BASELINE-003",
+              "WSL-PROJECT-004",
+              "WSL-SEMANTICS-005"
+            ],
+            "fix_delta_sha256": "9318536c7a8f9758f3329da9580904b7e529bae5172d5307049f3bb2fb782486",
+            "paths": [
+              "config/ai/wsl-tool-baseline.json",
+              "schemas/project-environment.schema.json",
+              "schemas/wsl-tool-baseline.schema.json",
+              "scripts/README.md",
+              "scripts/bootstrap-local.py",
+              "scripts/doctor-core.py",
+              "scripts/project-env-doctor.py",
+              "scripts/provision-wsl.py",
+              "scripts/resolve-wsl-path.py",
+              "scripts/runtime_common.py",
+              "tests/harness/test_wsl_environment.py",
+              "tests/harness/test_wsl_runtime.py",
+              "tests/harness/test_wsl_tools.py"
+            ],
+            "evidence_refs": [
+              "structured-review-result"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "EVIDENCE-001",
+      "title": "Recover and verify pre-final evidence",
+      "role": "tester",
+      "status": "completed",
+      "dependencies": [
+        "REVIEW-001-rereview-3"
+      ],
+      "read_paths": [
+        "config/ai/wsl-tool-baseline.json",
+        "rules/items/policy/缺失工具分层与依赖处理.md",
+        "rules/registry/RULES_INDEX.json",
+        "scripts",
+        "tests/harness"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "补录旧版控制器缺少正式追加接口时遗漏的 pre-final review evidence，并独立复核证据仍然成立。",
+        "must_include": [
+          "Repro and hit-proof evidence from the frozen behavior tests",
+          "Post-fix focused and full regression evidence",
+          "Rules, docs, and managed runtime hash evidence"
+        ],
+        "verification": [
+          "Run the final focused hit-proof tests without changing files.",
+          "Inspect the generated rule indexes and report the already completed full-harness evidence."
+        ]
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_tests",
+        "platform_agent_id": "wsl_env_tests",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "41fcc09e9bf8e4ce640824b03e9118ceae41380ed598c701b1e84534132deb8e"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Recovered the omitted pre-final evidence through an append-only supplemental tester subtask while preserving the original terminal TEST and IMPL results.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m unittest -v <five final hit-proof tests>",
+            "python3 scripts/validate_rules.py --repo-root /mnt/d/prj/harnesss/dev_vibecoding --json",
+            "test -f rules/registry/RULES_INDEX.json && test -f rules/registry/RULES_INDEX.md"
+          ],
+          "result": "Five final hit-proof tests passed in 9.868 seconds; rules validation passed with 25 local rules and no errors or warnings; both generated indexes exist."
+        },
+        "deviations": [
+          "The legacy controller exposes no action to append omitted evidence to terminal results, so EVIDENCE-001 was appended as a new supplemental subtask; original terminal results were not altered."
+        ],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [
+          "Use the recovered evidence only for the current phase and finalization gates."
+        ],
+        "written_by": "wsl_env_tests",
+        "written_role": "wsl_env_tests",
+        "review_evidence": {
+          "repro_before_fix": "Fix-round TDD reproduced duplicate and non-object receipts, rejected drive roots, incomplete baseline aggregation, and invalid venv Python before the final fixes.",
+          "pass_after_fix": "The five final targeted hit-proof tests passed in 9.868 seconds with exit 0.",
+          "hit_proof_observed": "The final tests exercised each repaired branch through the public doctor, resolver, project doctor, and rule generation behavior.",
+          "relevant_regression_ok": "The main coordinator completed the full harness regression: 154 tests passed in 395.326 seconds.",
+          "rules_and_docs_valid": "Both generated rule indexes exist; validate_rules returned ok=true with 25 local rules and no errors or warnings; document validators also passed.",
+          "managed_runtime_hashes_match": "The isolated managed-runtime receipt tests passed integrity checks and ordinary doctor rejects malformed receipt sets."
+        }
+      }
+    },
+    {
+      "subtask_id": "FINAL-001",
+      "title": "Independent final review",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "REVIEW-001"
+      ],
+      "read_paths": [
+        "config/ai",
+        "schemas",
+        "scripts",
+        "templates",
+        "rules/items",
+        "rules/registry/RULES_INDEX.json",
+        "docs/modules/wsl-environment",
+        "tests/harness"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Review the latest scoped diff and final verification evidence after all findings are closed.",
+        "must_include": [
+          "Latest scoped change hash",
+          "Acceptance checklist coverage",
+          "Remaining system-level handoff and upstream limitations"
+        ],
+        "verification": [
+          "Confirm focused and full-suite evidence is fresh.",
+          "Return final pass only if no open finding remains."
+        ]
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_final_review",
+        "platform_agent_id": "wsl_env_final_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "41fcc09e9bf8e4ce640824b03e9118ceae41380ed598c701b1e84534132deb8e"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "final review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "wsl_env_final_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "final",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "wsl_env_final_review",
+          "reviewed_change_sha256": "41fcc09e9bf8e4ce640824b03e9118ceae41380ed598c701b1e84534132deb8e",
+          "findings": [
+            {
+              "finding_id": "WSL-PROJECT-006",
+              "severity": "high",
+              "paths": [
+                "scripts/project-env-doctor.py",
+                "schemas/project-environment.schema.json",
+                "templates/project/config/ai/environment.example.json",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Project doctor can report ready when declared dependencies were not restored and node_modules contains ordinary Windows artifacts.",
+              "evidence": "A black-box fixture with nonexistent Python and Node dependencies, a system-Python symlink at .venv/bin/python, and node_modules/.bin/tool.cmd returned rc=0, ok=true. The doctor did not prove the interpreter belonged to a venv, verify declared dependency restoration, or reject generic Windows Node shims; the schema also forced both stacks.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              }
+            },
+            {
+              "finding_id": "WSL-BASELINE-007",
+              "severity": "high",
+              "paths": [
+                "config/ai/wsl-tool-baseline.json",
+                "schemas/wsl-tool-baseline.schema.json",
+                "scripts/provision-wsl.py",
+                "docs/INSTALL.md",
+                "tests/harness/test_wsl_tools.py"
+              ],
+              "summary": "The documented standalone pnpm installation path does not reliably satisfy the mandatory Corepack baseline.",
+              "evidence": "The baseline required both corepack and pnpm while INSTALL only guaranteed node/npm and standalone pnpm. Node.js 25 no longer distributes Corepack, so a correctly installed Linux-native pnpm could remain permanently unhealthy under the doctor contract.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-001-rereview-1",
+      "title": "Review WSL environment implementation re-review 1",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "IMPL-001",
+        "REVIEW-001"
+      ],
+      "read_paths": [
+        "config/ai",
+        "schemas",
+        "scripts",
+        "templates",
+        "rules/items",
+        "docs/modules/wsl-environment",
+        "tests/harness/test_wsl_environment.py"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Re-review fixed findings: WSL-RUNTIME-001, WSL-PATH-002, WSL-BASELINE-003, WSL-PROJECT-004, WSL-SEMANTICS-005",
+        "must_include": [
+          "Re-review finding WSL-RUNTIME-001.",
+          "Re-review finding WSL-PATH-002.",
+          "Re-review finding WSL-BASELINE-003.",
+          "Re-review finding WSL-PROJECT-004.",
+          "Re-review finding WSL-SEMANTICS-005."
+        ],
+        "verification": [
+          "Run targeted tests or inspect their fresh output.",
+          "Report stable findings with precise paths and evidence."
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_review",
+          "platform_agent_id": "wsl_env_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_review",
+        "platform_agent_id": "wsl_env_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "30dd9e0483601f875d459a77dd04125fe14dadfd8b41ae2324162986a8790c04"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "wsl_env_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "wsl_env_review",
+          "reviewed_change_sha256": "e2e93b72cfb99bbc55a9a71d4ab4a051bef75148c425e4128682895ec355d62f",
+          "findings": [
+            {
+              "finding_id": "WSL-RUNTIME-001",
+              "severity": "critical",
+              "paths": [
+                "scripts/bootstrap-local.py",
+                "scripts/doctor-core.py",
+                "scripts/runtime_common.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Bootstrap copies hash-correct but non-executable WSL CLIs and doctor does not audit their managed runtime hashes.",
+              "evidence": "All four installed bin scripts raise ModuleNotFoundError for runtime_common; tampering an installed runtime file is absent from doctor findings, and --skip-sync still writes the runtime.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Installed runtime now includes its shared module, all managed CLI copies execute in isolation, bootstrap respects skip-sync, and machine doctor audits managed runtime presence and hashes.",
+                "changed_files": [
+                  "scripts/runtime_common.py",
+                  "scripts/bootstrap-local.py",
+                  "scripts/doctor-core.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "08e6cbad2f7752749d474dd21d5a776f50fc25762348b1e07cc064a6d176aaa7",
+                "verification": "Independent 39-test WSL environment/runtime/tool suite passed; installed-runtime execution, tamper, deletion, and skip-sync cases are included."
+              }
+            },
+            {
+              "finding_id": "WSL-PATH-002",
+              "severity": "critical",
+              "paths": [
+                "scripts/resolve-wsl-path.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Windows path conversion accepts traversal that escapes the selected drive mount.",
+              "evidence": "C:\\..\\..\\etc\\passwd returns ok=true and maps to /mnt/c/../../etc/passwd, violating the path-value-only bridge boundary.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "The Windows attachment resolver now rejects traversal, UNC, and device paths before constructing a WSL candidate.",
+                "changed_files": [
+                  "scripts/resolve-wsl-path.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "08e6cbad2f7752749d474dd21d5a776f50fc25762348b1e07cc064a6d176aaa7",
+                "verification": "Independent 39-test WSL environment/runtime/tool suite passed, including traversal, UNC, device, missing, Unicode, and spaced-path cases."
+              }
+            },
+            {
+              "finding_id": "WSL-BASELINE-003",
+              "severity": "high",
+              "paths": [
+                "config/ai/wsl-tool-baseline.json",
+                "schemas/wsl-tool-baseline.schema.json",
+                "scripts/provision-wsl.py",
+                "scripts/doctor-core.py",
+                "tests/harness/test_wsl_environment.py",
+                "tests/harness/test_wsl_tools.py"
+              ],
+              "summary": "The machine baseline is not the single doctor/provision truth and unsafe or failed apply inputs can bypass the stable JSON contract.",
+              "evidence": "Doctor retains divergent hard-coded command tuples, misses D/E drive tools, manual validation accepts apt options as package names, apply exceptions escape as traceback, package probes can falsely satisfy python3-venv/build-essential, and apt has no pnpm candidate on this machine.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Doctor and provision now share strict baseline loading and profile selection; package inputs, probes, DrvFS paths, corepack ownership, apply failures, and exit semantics are explicitly handled.",
+                "changed_files": [
+                  "config/ai/wsl-tool-baseline.json",
+                  "schemas/wsl-tool-baseline.schema.json",
+                  "scripts/runtime_common.py",
+                  "scripts/provision-wsl.py",
+                  "scripts/doctor-core.py",
+                  "tests/harness/test_wsl_environment.py",
+                  "tests/harness/test_wsl_tools.py"
+                ],
+                "sha256": "08e6cbad2f7752749d474dd21d5a776f50fc25762348b1e07cc064a6d176aaa7",
+                "verification": "Independent 39-test WSL environment/runtime/tool suite passed, including explicit baseline consumption, invalid apt inputs, probe failures, apply error JSON, and all-drive Windows-path detection."
+              }
+            },
+            {
+              "finding_id": "WSL-PROJECT-004",
+              "severity": "high",
+              "paths": [
+                "schemas/project-environment.schema.json",
+                "scripts/project-env-doctor.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Project doctor can report ready for invalid declarations, escaped paths, empty dependency directories, wrong-platform artifacts, and unusable optional capabilities.",
+              "evidence": "Unknown fields and external paths pass; empty .venv/node_modules and @esbuild/win32 artifacts pass; command names alone make failed Playwright and Docker shims appear healthy.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Project doctor now validates the declaration and project-relative paths, rejects empty or Windows-backed artifacts, and performs read-only local Playwright and Docker client/daemon checks.",
+                "changed_files": [
+                  "schemas/project-environment.schema.json",
+                  "scripts/project-env-doctor.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "08e6cbad2f7752749d474dd21d5a776f50fc25762348b1e07cc064a6d176aaa7",
+                "verification": "Independent 39-test WSL environment/runtime/tool suite passed, including invalid declarations, path escape, empty runtimes, win32 esbuild, local Playwright, and Docker failure classification."
+              }
+            },
+            {
+              "finding_id": "WSL-SEMANTICS-005",
+              "severity": "high",
+              "paths": [
+                "scripts/doctor-core.py",
+                "scripts/bootstrap-local.py",
+                "scripts/README.md",
+                "tests/harness/test_wsl_environment.py",
+                "tests/harness/test_wsl_runtime.py"
+              ],
+              "summary": "Machine doctor and bootstrap command semantics do not reliably enforce the documented startup boundary.",
+              "evidence": "Unhealthy non-strict doctor exits zero, --skip-sync still mutates managed runtime, and the script index still labels implemented CLIs as pending delivery.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Unhealthy ordinary machine doctor now exits nonzero, bootstrap skip-sync avoids runtime mutation, and the script index reflects the delivered CLIs.",
+                "changed_files": [
+                  "scripts/doctor-core.py",
+                  "scripts/bootstrap-local.py",
+                  "scripts/README.md",
+                  "tests/harness/test_wsl_environment.py",
+                  "tests/harness/test_wsl_runtime.py"
+                ],
+                "sha256": "08e6cbad2f7752749d474dd21d5a776f50fc25762348b1e07cc064a6d176aaa7",
+                "verification": "Independent 39-test WSL environment/runtime/tool suite passed; rules index, rules validation, document routing, and task document validation also passed after the rule filename correction."
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "WSL-RUNTIME-001",
+              "WSL-PATH-002",
+              "WSL-BASELINE-003",
+              "WSL-PROJECT-004",
+              "WSL-SEMANTICS-005"
+            ],
+            "fix_delta_sha256": "e931a8b70a7a616df818806e5a0f39faae6dd6a43a6679931f85bdd9bc015eba",
+            "paths": [
+              "config/ai/wsl-tool-baseline.json",
+              "schemas/project-environment.schema.json",
+              "schemas/wsl-tool-baseline.schema.json",
+              "scripts/README.md",
+              "scripts/bootstrap-local.py",
+              "scripts/doctor-core.py",
+              "scripts/project-env-doctor.py",
+              "scripts/provision-wsl.py",
+              "scripts/resolve-wsl-path.py",
+              "scripts/runtime_common.py",
+              "tests/harness/test_wsl_environment.py",
+              "tests/harness/test_wsl_runtime.py",
+              "tests/harness/test_wsl_tools.py"
+            ],
+            "evidence_refs": [
+              "structured-review-result"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-001-rereview-2",
+      "title": "Review WSL environment implementation re-review 1 re-review 2",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "IMPL-001",
+        "REVIEW-001",
+        "REVIEW-001-rereview-1"
+      ],
+      "read_paths": [
+        "config/ai",
+        "schemas",
+        "scripts",
+        "templates",
+        "rules/items",
+        "docs/modules/wsl-environment",
+        "tests/harness/test_wsl_environment.py"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Re-review fixed findings: WSL-RUNTIME-001, WSL-PATH-002, WSL-BASELINE-003, WSL-PROJECT-004, WSL-SEMANTICS-005",
+        "must_include": [
+          "Re-review finding WSL-RUNTIME-001.",
+          "Re-review finding WSL-PATH-002.",
+          "Re-review finding WSL-BASELINE-003.",
+          "Re-review finding WSL-PROJECT-004.",
+          "Re-review finding WSL-SEMANTICS-005."
+        ],
+        "verification": [
+          "Run targeted tests or inspect their fresh output.",
+          "Report stable findings with precise paths and evidence."
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_review",
+          "platform_agent_id": "wsl_env_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_review",
+        "platform_agent_id": "wsl_env_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "3635d167671e8c4fd491f7bc3f4f378c9f94cbeb7c69e7701612bcc3edd2e05e"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "wsl_env_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "wsl_env_review",
+          "reviewed_change_sha256": "3635d167671e8c4fd491f7bc3f4f378c9f94cbeb7c69e7701612bcc3edd2e05e",
+          "findings": [
+            {
+              "finding_id": "WSL-RUNTIME-001",
+              "severity": "critical",
+              "paths": [
+                "scripts/bootstrap-local.py",
+                "scripts/doctor-core.py",
+                "scripts/runtime_common.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Bootstrap copies hash-correct but non-executable WSL CLIs and doctor does not audit their managed runtime hashes.",
+              "evidence": "All four installed bin scripts raise ModuleNotFoundError for runtime_common; tampering an installed runtime file is absent from doctor findings, and --skip-sync still writes the runtime.",
+              "status": "open",
+              "fix_round": 2,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Runtime 实体集合、receipt source/target 路径、双 hash 与 skip-sync 保留语义均已闭环。",
+                "changed_files": [
+                  "scripts/runtime_common.py",
+                  "scripts/doctor-core.py",
+                  "scripts/bootstrap-local.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "8d07480ff701c77d3f99faee0e358eba2f702033dbfb7bb332e7f8b21884df2a",
+                "verification": "Runtime drift、receipt path drift 与 skip-sync 单例通过；相关 50 项套件通过。"
+              }
+            },
+            {
+              "finding_id": "WSL-PATH-002",
+              "severity": "critical",
+              "paths": [
+                "scripts/resolve-wsl-path.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Windows path conversion accepts traversal that escapes the selected drive mount.",
+              "evidence": "C:\\..\\..\\etc\\passwd returns ok=true and maps to /mnt/c/../../etc/passwd, violating the path-value-only bridge boundary.",
+              "status": "open",
+              "fix_round": 2,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Windows drive path 在转换前做严格拒绝检查，转换统一调用 wslpath -u 并稳定分类失败。",
+                "changed_files": [
+                  "scripts/resolve-wsl-path.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "5072987f12aff168636358373fa68c69e9b5cee42fb8f73573d62c7809ea2877",
+                "verification": "非 /mnt automount、wslpath 缺失、非零和无效输出用例通过；相关 50 项套件通过。"
+              }
+            },
+            {
+              "finding_id": "WSL-BASELINE-003",
+              "severity": "high",
+              "paths": [
+                "config/ai/wsl-tool-baseline.json",
+                "schemas/wsl-tool-baseline.schema.json",
+                "scripts/provision-wsl.py",
+                "scripts/doctor-core.py",
+                "tests/harness/test_wsl_environment.py",
+                "tests/harness/test_wsl_tools.py"
+              ],
+              "summary": "The machine baseline is not the single doctor/provision truth and unsafe or failed apply inputs can bypass the stable JSON contract.",
+              "evidence": "Doctor retains divergent hard-coded command tuples, misses D/E drive tools, manual validation accepts apt options as package names, apply exceptions escape as traceback, package probes can falsely satisfy python3-venv/build-essential, and apt has no pnpm candidate on this machine.",
+              "status": "open",
+              "fix_round": 2,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "公共工具全部进入 machine doctor，doctor 与 provision 共用 probe 语义，Corepack/pnpm 缺口返回可执行 handoff。",
+                "changed_files": [
+                  "config/ai/wsl-tool-baseline.json",
+                  "schemas/wsl-tool-baseline.schema.json",
+                  "scripts/runtime_common.py",
+                  "scripts/provision-wsl.py",
+                  "scripts/doctor-core.py",
+                  "tests/harness/test_wsl_tools.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "f4c91b54c4becaf8ff7c780a1ef0720d16557c3a46463957703f1bfcd4be3b2c",
+                "verification": "公共基线、probe 失败和 Corepack/pnpm handoff 用例通过；相关 50 项套件通过。"
+              }
+            },
+            {
+              "finding_id": "WSL-PROJECT-004",
+              "severity": "high",
+              "paths": [
+                "schemas/project-environment.schema.json",
+                "scripts/project-env-doctor.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Project doctor can report ready for invalid declarations, escaped paths, empty dependency directories, wrong-platform artifacts, and unusable optional capabilities.",
+              "evidence": "Unknown fields and external paths pass; empty .venv/node_modules and @esbuild/win32 artifacts pass; command names alone make failed Playwright and Docker shims appear healthy.",
+              "status": "open",
+              "fix_round": 2,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Project doctor 严格处理 Windows TEMP、声明 manifest、capability、Playwright 可执行浏览器和 DrvFS Docker。",
+                "changed_files": [
+                  "schemas/project-environment.schema.json",
+                  "scripts/project-env-doctor.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "341daf9d23b0c4828b56598074bdbc343214f865a893850ab1cf2d97bc217348",
+                "verification": "12 个 project-doctor 定向用例通过；相关 50 项套件通过。"
+              }
+            },
+            {
+              "finding_id": "WSL-SEMANTICS-005",
+              "severity": "high",
+              "paths": [
+                "scripts/doctor-core.py",
+                "scripts/bootstrap-local.py",
+                "scripts/README.md",
+                "tests/harness/test_wsl_environment.py",
+                "tests/harness/test_wsl_runtime.py"
+              ],
+              "summary": "Machine doctor and bootstrap command semantics do not reliably enforce the documented startup boundary.",
+              "evidence": "Unhealthy non-strict doctor exits zero, --skip-sync still mutates managed runtime, and the script index still labels implemented CLIs as pending delivery.",
+              "status": "closed",
+              "fix_round": 2,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "普通 doctor 退出码、skip-sync 保留语义和真实规则/索引审查覆盖已闭环。历史 DOC 回执中的旧文件名作为不可改写的 tombstone 保留，但真实规则及两个生成索引已加入本轮 review manifest。",
+                "changed_files": [
+                  "scripts/doctor-core.py",
+                  "scripts/bootstrap-local.py",
+                  "scripts/README.md",
+                  "tests/harness/test_wsl_environment.py",
+                  "tests/harness/test_wsl_runtime.py",
+                  "rules/items/policy/窗口系统附件路径桥接.md",
+                  "rules/registry/RULES_INDEX.json",
+                  "rules/registry/RULES_INDEX.md"
+                ],
+                "sha256": "3f88917d844408a23367e56d0d902113ec72dae236f0d0eda5123af0eb753610",
+                "verification": "相关 50 项套件、规则生成/校验、文档路由/方案校验及 scoped diff-check 均通过；review target 必须核对真实规则和两个索引。"
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "WSL-RUNTIME-001",
+              "WSL-PATH-002",
+              "WSL-BASELINE-003",
+              "WSL-PROJECT-004",
+              "WSL-SEMANTICS-005"
+            ],
+            "fix_delta_sha256": "3c66389d7524908f1c28e24a65e36d63d3907d0e9e326bacb0e90bd2410fb5e5",
+            "paths": [
+              "config/ai/wsl-tool-baseline.json",
+              "schemas/project-environment.schema.json",
+              "schemas/wsl-tool-baseline.schema.json",
+              "scripts/README.md",
+              "scripts/bootstrap-local.py",
+              "scripts/doctor-core.py",
+              "scripts/project-env-doctor.py",
+              "scripts/provision-wsl.py",
+              "scripts/resolve-wsl-path.py",
+              "scripts/runtime_common.py",
+              "tests/harness/test_wsl_environment.py",
+              "tests/harness/test_wsl_runtime.py",
+              "tests/harness/test_wsl_tools.py"
+            ],
+            "evidence_refs": [
+              "structured-review-result"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-001-rereview-3",
+      "title": "Review WSL environment implementation re-review 1 re-review 2 re-review 3",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "IMPL-001",
+        "REVIEW-001",
+        "REVIEW-001-rereview-1",
+        "REVIEW-001-rereview-2"
+      ],
+      "read_paths": [
+        "config/ai",
+        "schemas",
+        "scripts",
+        "templates",
+        "rules/items",
+        "docs/modules/wsl-environment",
+        "tests/harness/test_wsl_environment.py"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Re-review fixed findings: WSL-RUNTIME-001, WSL-PATH-002, WSL-BASELINE-003, WSL-PROJECT-004",
+        "must_include": [
+          "Re-review finding WSL-RUNTIME-001.",
+          "Re-review finding WSL-PATH-002.",
+          "Re-review finding WSL-BASELINE-003.",
+          "Re-review finding WSL-PROJECT-004."
+        ],
+        "verification": [
+          "Run targeted tests or inspect their fresh output.",
+          "Report stable findings with precise paths and evidence."
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_review",
+          "platform_agent_id": "wsl_env_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_review",
+        "platform_agent_id": "wsl_env_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "41fcc09e9bf8e4ce640824b03e9118ceae41380ed598c701b1e84534132deb8e"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict pass.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "wsl_env_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "pass",
+          "reviewer_platform_agent_id": "wsl_env_review",
+          "reviewed_change_sha256": "41fcc09e9bf8e4ce640824b03e9118ceae41380ed598c701b1e84534132deb8e",
+          "findings": [
+            {
+              "finding_id": "WSL-RUNTIME-001",
+              "severity": "critical",
+              "paths": [
+                "scripts/bootstrap-local.py",
+                "scripts/doctor-core.py",
+                "scripts/runtime_common.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Bootstrap copies hash-correct but non-executable WSL CLIs and doctor does not audit their managed runtime hashes.",
+              "evidence": "All four installed bin scripts raise ModuleNotFoundError for runtime_common; tampering an installed runtime file is absent from doctor findings, and --skip-sync still writes the runtime.",
+              "status": "closed",
+              "fix_round": 3,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Runtime receipt 现在要求全量、唯一、对象化且字段精确的 managed file 集合，拒绝重复、非对象及冲突条目。",
+                "changed_files": [
+                  "scripts/doctor-core.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "67f193eba7630046b99d67084ec96bec7234d259a998e82e7802b6379ac76a74",
+                "verification": "Ambiguous receipt 黑盒用例、4 个旧健康夹具及完整 154 项 harness 全部通过。"
+              }
+            },
+            {
+              "finding_id": "WSL-PATH-002",
+              "severity": "critical",
+              "paths": [
+                "scripts/resolve-wsl-path.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Windows path conversion accepts traversal that escapes the selected drive mount.",
+              "evidence": "C:\\..\\..\\etc\\passwd returns ok=true and maps to /mnt/c/../../etc/passwd, violating the path-value-only bridge boundary.",
+              "status": "closed",
+              "fix_round": 3,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Windows drive-root C:\\ 与 C:/ 现在作为合法绝对输入交给 wslpath，原有 traversal/UNC/device 拒绝保持不变。",
+                "changed_files": [
+                  "scripts/resolve-wsl-path.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "e3560b2ebb3187dfadf16f0f0f2cdc66a13276f573506b6245aa51a47e8e6bcd",
+                "verification": "Drive-root 与既有 resolver 反例通过；完整 154 项 harness 全部通过。"
+              }
+            },
+            {
+              "finding_id": "WSL-BASELINE-003",
+              "severity": "high",
+              "paths": [
+                "config/ai/wsl-tool-baseline.json",
+                "schemas/wsl-tool-baseline.schema.json",
+                "scripts/provision-wsl.py",
+                "scripts/doctor-core.py",
+                "tests/harness/test_wsl_environment.py",
+                "tests/harness/test_wsl_tools.py"
+              ],
+              "summary": "The machine baseline is not the single doctor/provision truth and unsafe or failed apply inputs can bypass the stable JSON contract.",
+              "evidence": "Doctor retains divergent hard-coded command tuples, misses D/E drive tools, manual validation accepts apt options as package names, apply exceptions escape as traceback, package probes can falsely satisfy python3-venv/build-essential, and apt has no pnpm candidate on this machine.",
+              "status": "closed",
+              "fix_round": 3,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Machine doctor 从每个 package 合并主 command 与 doctor_commands，任一缺失或 Windows-backed 都会使审计失败；同时恢复分层工具规则原有授权边界。",
+                "changed_files": [
+                  "scripts/doctor-core.py",
+                  "rules/items/policy/缺失工具分层与依赖处理.md",
+                  "rules/registry/RULES_INDEX.json",
+                  "rules/registry/RULES_INDEX.md",
+                  "tests/harness/test_wsl_tools.py",
+                  "tests/harness/test_wsl_runtime.py"
+                ],
+                "sha256": "d650d3609e0e4f096df01ffae6b83edb4b749f103f8fdf0a595e69c3fb912b40",
+                "verification": "Windows git、缺 gcc/g++、规则合同、健康 machine fixture 与完整 154 项 harness 全部通过。"
+              }
+            },
+            {
+              "finding_id": "WSL-PROJECT-004",
+              "severity": "high",
+              "paths": [
+                "schemas/project-environment.schema.json",
+                "scripts/project-env-doctor.py",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Project doctor can report ready for invalid declarations, escaped paths, empty dependency directories, wrong-platform artifacts, and unusable optional capabilities.",
+              "evidence": "Unknown fields and external paths pass; empty .venv/node_modules and @esbuild/win32 artifacts pass; command names alone make failed Playwright and Docker shims appear healthy.",
+              "status": "closed",
+              "fix_round": 3,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Project doctor 要求 .venv/bin/python 可执行，并解析 symlink 后拒绝 Windows-backed 解释器。",
+                "changed_files": [
+                  "scripts/project-env-doctor.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "59ef59900299db9ce44c9707ff9501f0879d1b4319ef043725e5bf0552027b1d",
+                "verification": "0644 解释器、Windows symlink 与健康 Playwright project 用例通过；完整 154 项 harness 全部通过。"
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "WSL-RUNTIME-001",
+              "WSL-PATH-002",
+              "WSL-BASELINE-003",
+              "WSL-PROJECT-004"
+            ],
+            "fix_delta_sha256": "89414f1813c3421b30457e0db972840cdc75b4929d300615e5869fb1e4c000fe",
+            "paths": [
+              "config/ai/wsl-tool-baseline.json",
+              "schemas/project-environment.schema.json",
+              "schemas/wsl-tool-baseline.schema.json",
+              "scripts/bootstrap-local.py",
+              "scripts/doctor-core.py",
+              "scripts/project-env-doctor.py",
+              "scripts/provision-wsl.py",
+              "scripts/resolve-wsl-path.py",
+              "scripts/runtime_common.py",
+              "tests/harness/test_wsl_environment.py",
+              "tests/harness/test_wsl_tools.py"
+            ],
+            "evidence_refs": [
+              "structured-review-result"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "FINAL-001-rereview-1",
+      "title": "Independent final review re-review 1",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "REVIEW-001",
+        "FINAL-001"
+      ],
+      "read_paths": [
+        "config/ai",
+        "schemas",
+        "scripts",
+        "templates",
+        "rules/items",
+        "rules/registry/RULES_INDEX.json",
+        "docs/modules/wsl-environment",
+        "tests/harness"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Re-review fixed findings: WSL-PROJECT-006, WSL-BASELINE-007",
+        "must_include": [
+          "Re-review finding WSL-PROJECT-006.",
+          "Re-review finding WSL-BASELINE-007."
+        ],
+        "verification": [
+          "Confirm focused and full-suite evidence is fresh.",
+          "Return final pass only if no open finding remains."
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_final_review",
+          "platform_agent_id": "wsl_env_final_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_final_review",
+        "platform_agent_id": "wsl_env_final_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "c67b0eed879d8a6f2cb51194adee146a21ae96611715874fa30fdfea31bf5284"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "wsl_env_final_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "wsl_env_final_review",
+          "reviewed_change_sha256": "c67b0eed879d8a6f2cb51194adee146a21ae96611715874fa30fdfea31bf5284",
+          "findings": [
+            {
+              "finding_id": "WSL-PROJECT-006",
+              "severity": "high",
+              "paths": [
+                "scripts/project-env-doctor.py",
+                "schemas/project-environment.schema.json",
+                "templates/project/config/ai/environment.example.json",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Project doctor can report ready when declared dependencies were not restored and node_modules contains ordinary Windows artifacts.",
+              "evidence": "A black-box fixture with nonexistent Python and Node dependencies, a system-Python symlink at .venv/bin/python, and node_modules/.bin/tool.cmd returned rc=0, ok=true. The doctor did not prove the interpreter belonged to a venv, verify declared dependency restoration, or reject generic Windows Node shims; the schema also forced both stacks.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Project declarations now support Python-only or Node-only projects while requiring at least one stack; the doctor proves an isolated Linux venv, checks declared Python requirements offline, verifies declared Node dependencies, rejects generic Windows shims, and handles Playwright without a Node section deterministically.",
+                "changed_files": [
+                  "schemas/project-environment.schema.json",
+                  "scripts/project-env-doctor.py",
+                  "templates/project/config/ai/environment.example.json",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "c67b0eed879d8a6f2cb51194adee146a21ae96611715874fa30fdfea31bf5284",
+                "verification": "The added Red reproduced six false-green cases. Eight focused contract tests and the complete 59-test WSL suite passed after the fix, including a real Linux venv symlink regression. The requirements check is offline and dry-run only."
+              }
+            },
+            {
+              "finding_id": "WSL-BASELINE-007",
+              "severity": "high",
+              "paths": [
+                "config/ai/wsl-tool-baseline.json",
+                "schemas/wsl-tool-baseline.schema.json",
+                "scripts/provision-wsl.py",
+                "docs/INSTALL.md",
+                "tests/harness/test_wsl_tools.py"
+              ],
+              "summary": "The documented standalone pnpm installation path does not reliably satisfy the mandatory Corepack baseline.",
+              "evidence": "The baseline required both corepack and pnpm while INSTALL only guaranteed node/npm and standalone pnpm. Node.js 25 no longer distributes Corepack, so a correctly installed Linux-native pnpm could remain permanently unhealthy under the doctor contract.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Corepack is no longer a mandatory machine tool or supported baseline source. Linux-native pnpm remains mandatory as an external machine capability with an explicit, non-mutating provision handoff and synchronized documentation.",
+                "changed_files": [
+                  "config/ai/wsl-tool-baseline.json",
+                  "schemas/wsl-tool-baseline.schema.json",
+                  "scripts/runtime_common.py",
+                  "scripts/provision-wsl.py",
+                  "docs/INSTALL.md",
+                  "scripts/README.md",
+                  "templates/codex/AGENTS.global.md",
+                  "tests/harness/test_wsl_tools.py"
+                ],
+                "sha256": "c67b0eed879d8a6f2cb51194adee146a21ae96611715874fa30fdfea31bf5284",
+                "verification": "A Node 25-style fixture with no Corepack and a Linux-native pnpm now passes the exact machine audit. Eight focused contract tests and the complete 59-test WSL suite passed; no package installation or network mutation occurred."
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "WSL-PROJECT-006",
+              "WSL-BASELINE-007"
+            ],
+            "fix_delta_sha256": "3748b72f0f4e0800bd4f7e301338f3d39a452b128df73953f14d0051178de3e8",
+            "paths": [
+              "config/ai/wsl-tool-baseline.json",
+              "docs/INSTALL.md",
+              "schemas/project-environment.schema.json",
+              "schemas/wsl-tool-baseline.schema.json",
+              "scripts/project-env-doctor.py",
+              "scripts/provision-wsl.py",
+              "templates/project/config/ai/environment.example.json",
+              "tests/harness/test_wsl_environment.py",
+              "tests/harness/test_wsl_tools.py"
+            ],
+            "evidence_refs": [
+              "structured-review-result"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "FINAL-001-rereview-2",
+      "title": "Independent final review re-review 1 re-review 2",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "REVIEW-001",
+        "FINAL-001",
+        "FINAL-001-rereview-1"
+      ],
+      "read_paths": [
+        "config/ai",
+        "schemas",
+        "scripts",
+        "templates",
+        "rules/items",
+        "rules/registry/RULES_INDEX.json",
+        "docs/modules/wsl-environment",
+        "tests/harness"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Re-review fixed findings: WSL-PROJECT-006",
+        "must_include": [
+          "Re-review finding WSL-PROJECT-006."
+        ],
+        "verification": [
+          "Confirm focused and full-suite evidence is fresh.",
+          "Return final pass only if no open finding remains."
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_final_review",
+          "platform_agent_id": "wsl_env_final_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_final_review",
+        "platform_agent_id": "wsl_env_final_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "9fb847bbe189e37760fe1f2192f9f3c41f9b76af32f47f8fc59fabb043147dab"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "wsl_env_final_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "wsl_env_final_review",
+          "reviewed_change_sha256": "9fb847bbe189e37760fe1f2192f9f3c41f9b76af32f47f8fc59fabb043147dab",
+          "findings": [
+            {
+              "finding_id": "WSL-PROJECT-006",
+              "severity": "high",
+              "paths": [
+                "scripts/project-env-doctor.py",
+                "schemas/project-environment.schema.json",
+                "templates/project/config/ai/environment.example.json",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Project doctor can report ready when declared dependencies were not restored and node_modules contains ordinary Windows artifacts.",
+              "evidence": "A black-box fixture with nonexistent Python and Node dependencies, a system-Python symlink at .venv/bin/python, and node_modules/.bin/tool.cmd returned rc=0, ok=true. The doctor did not prove the interpreter belonged to a venv, verify declared dependency restoration, or reject generic Windows Node shims; the schema also forced both stacks.",
+              "status": "open",
+              "fix_round": 2,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "Node dependency readiness now requires valid installed package metadata and an actual Linux-native npm offline integrity/version check; empty package shells and wrong versions fail closed.",
+                "changed_files": [
+                  "scripts/project-env-doctor.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "9fb847bbe189e37760fe1f2192f9f3c41f9b76af32f47f8fc59fabb043147dab",
+                "verification": "The round-two Red proved empty and wrong-version packages were previously accepted and that npm was not invoked. The corrected focused test passed, and the complete 60-test WSL suite passed in 124.396 seconds. npm is invoked only as `ls --depth=0 --offline --json --ignore-scripts --include=prod --include=dev`; no install, network access, or lockfile mutation occurs."
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "WSL-PROJECT-006"
+            ],
+            "fix_delta_sha256": "4afc650462ccdeb7cb97fedfeaf17054286b0e72719bacc8b0db13dfe3722dcd",
+            "paths": [
+              "schemas/project-environment.schema.json",
+              "scripts/project-env-doctor.py",
+              "templates/project/config/ai/environment.example.json",
+              "tests/harness/test_wsl_environment.py"
+            ],
+            "evidence_refs": [
+              "structured-review-result"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "FINAL-001-rereview-3",
+      "title": "Independent final review re-review 1 re-review 2 re-review 3",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "REVIEW-001",
+        "FINAL-001",
+        "FINAL-001-rereview-1",
+        "FINAL-001-rereview-2"
+      ],
+      "read_paths": [
+        "config/ai",
+        "schemas",
+        "scripts",
+        "templates",
+        "rules/items",
+        "rules/registry/RULES_INDEX.json",
+        "docs/modules/wsl-environment",
+        "tests/harness"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Re-review fixed findings: WSL-PROJECT-006",
+        "must_include": [
+          "Re-review finding WSL-PROJECT-006."
+        ],
+        "verification": [
+          "Confirm focused and full-suite evidence is fresh.",
+          "Return final pass only if no open finding remains."
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_final_review",
+          "platform_agent_id": "wsl_env_final_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "wsl_env_final_review",
+        "platform_agent_id": "wsl_env_final_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "9b1f0adbfa117c07181ed65cd39a6e6fb3b7da9e384d7a4881230bf44658f488"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict pass.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "wsl_env_final_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "pass",
+          "reviewer_platform_agent_id": "wsl_env_final_review",
+          "reviewed_change_sha256": "9b1f0adbfa117c07181ed65cd39a6e6fb3b7da9e384d7a4881230bf44658f488",
+          "findings": [
+            {
+              "finding_id": "WSL-PROJECT-006",
+              "severity": "high",
+              "paths": [
+                "scripts/project-env-doctor.py",
+                "schemas/project-environment.schema.json",
+                "templates/project/config/ai/environment.example.json",
+                "tests/harness/test_wsl_environment.py"
+              ],
+              "summary": "Project doctor can report ready when declared dependencies were not restored and node_modules contains ordinary Windows artifacts.",
+              "evidence": "A black-box fixture with nonexistent Python and Node dependencies, a system-Python symlink at .venv/bin/python, and node_modules/.bin/tool.cmd returned rc=0, ok=true. The doctor did not prove the interpreter belonged to a venv, verify declared dependency restoration, or reject generic Windows Node shims; the schema also forced both stacks.",
+              "status": "closed",
+              "fix_round": 3,
+              "routed_to": {
+                "agent_key": "wsl_env_impl",
+                "platform_agent_id": "wsl_env_impl"
+              },
+              "fix_delta": {
+                "summary": "The npm integrity gate now resolves the selected executable strictly before classification and execution, rejects broken or Windows-backed targets behind Linux-path symlinks, and still permits Linux-to-Linux symlinks.",
+                "changed_files": [
+                  "scripts/project-env-doctor.py",
+                  "tests/harness/test_wsl_environment.py"
+                ],
+                "sha256": "9b1f0adbfa117c07181ed65cd39a6e6fb3b7da9e384d7a4881230bf44658f488",
+                "verification": "The round-three Red reproduced a /tmp npm symlink resolving to /mnt/c and proved the Linux-to-Linux control was healthy. Both focused symlink/integrity tests passed after the fix, followed by all 61 WSL environment tests in 126.010 seconds."
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "WSL-PROJECT-006"
+            ],
+            "fix_delta_sha256": "68f69efce44ccc1a82ae35434c7bcc68c2debdcfa93e5a1fda9007ad682dc83f",
+            "paths": [
+              "schemas/project-environment.schema.json",
+              "scripts/project-env-doctor.py",
+              "templates/project/config/ai/environment.example.json",
+              "tests/harness/test_wsl_environment.py"
+            ],
+            "evidence_refs": [
+              "structured-review-result"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "FINAL-001-final-review-1",
+      "title": "Independent final review follow-up 1",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "REVIEW-001",
+        "FINAL-001",
+        "FINAL-001-rereview-1",
+        "FINAL-001-rereview-2",
+        "FINAL-001-rereview-3"
+      ],
+      "read_paths": [
+        "config/ai",
+        "schemas",
+        "scripts",
+        "templates",
+        "rules/items",
+        "rules/registry/RULES_INDEX.json",
+        "docs/modules/wsl-environment",
+        "tests/harness"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Review the latest scoped diff and final verification evidence after all findings are closed.",
+        "must_include": [
+          "Latest scoped change hash",
+          "Acceptance checklist coverage",
+          "Remaining system-level handoff and upstream limitations"
+        ],
+        "verification": [
+          "Confirm focused and full-suite evidence is fresh.",
+          "Return final pass only if no open finding remains."
+        ]
+      },
+      "stage": "final_review",
+      "dispatch": {
+        "agent_key": "wsl_env_final_review",
+        "platform_agent_id": "wsl_env_final_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "9b1f0adbfa117c07181ed65cd39a6e6fb3b7da9e384d7a4881230bf44658f488"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "final review recorded with verdict pass.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "wsl_env_final_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "final",
+          "verdict": "pass",
+          "reviewer_platform_agent_id": "wsl_env_final_review",
+          "reviewed_change_sha256": "9b1f0adbfa117c07181ed65cd39a6e6fb3b7da9e384d7a4881230bf44658f488",
+          "findings": []
+        }
+      }
+    }
+  ],
+  "task_id": "20260905-030055-424575-wsl-environment-unification",
+  "title": "WSL 环境统一治理",
+  "owner": "codex",
+  "status": "completed",
+  "current_phase": "review",
+  "version": 3,
+  "workspace": {
+    "repo_root": "<repo-root>",
+    "checkout_kind": "primary",
+    "branch": "main",
+    "head": "c79d58cb0345a0cb879b2be06073a1ef04962c36",
+    "dirty_paths": [
+      "docs/ARCHITECTURE.md",
+      "docs/SUBAGENT_GOVERNANCE.md",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/events.jsonl",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/task.md",
+      "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/execution.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/plan.md",
+      "rules/items/workflow/复杂任务全局编排.md",
+      "rules/items/workflow/长任务实施顺序.md",
+      "schemas/orchestrator-task-state.schema.json",
+      "schemas/task-event.schema.json",
+      "skills/global-task-orchestrator/SKILL.md",
+      "skills/global-task-orchestrator/references/governance-essentials.md",
+      "skills/global-task-orchestrator/references/state-schema.md",
+      "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+      "tests/harness/test_control_plane.py"
+    ],
+    "write_overlap": [],
+    "overlap_decision": {
+      "status": "not_required",
+      "summary": "No dirty path overlaps an unfinished execution subtask write path.",
+      "baseline_hashes": {}
+    }
+  },
+  "review_policy": {
+    "max_fix_rounds": 3,
+    "require_independent_final_review": true,
+    "scope_expansion_requires_escalation": true
+  },
+  "findings": {
+    "WSL-RUNTIME-001": {
+      "finding_id": "WSL-RUNTIME-001",
+      "severity": "critical",
+      "paths": [
+        "scripts/bootstrap-local.py",
+        "scripts/doctor-core.py",
+        "scripts/runtime_common.py",
+        "tests/harness/test_wsl_environment.py"
+      ],
+      "summary": "Bootstrap copies hash-correct but non-executable WSL CLIs and doctor does not audit their managed runtime hashes.",
+      "evidence": "All four installed bin scripts raise ModuleNotFoundError for runtime_common; tampering an installed runtime file is absent from doctor findings, and --skip-sync still writes the runtime.",
+      "status": "closed",
+      "fix_round": 3,
+      "routed_to": {
+        "agent_key": "wsl_env_impl",
+        "platform_agent_id": "wsl_env_impl"
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_review",
+          "platform_agent_id": "wsl_env_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Runtime receipt 现在要求全量、唯一、对象化且字段精确的 managed file 集合，拒绝重复、非对象及冲突条目。",
+        "changed_files": [
+          "scripts/doctor-core.py",
+          "tests/harness/test_wsl_environment.py"
+        ],
+        "sha256": "67f193eba7630046b99d67084ec96bec7234d259a998e82e7802b6379ac76a74",
+        "verification": "Ambiguous receipt 黑盒用例、4 个旧健康夹具及完整 154 项 harness 全部通过。"
+      },
+      "closed_at": "2026-09-04T21:06:01.440698Z"
+    },
+    "WSL-PATH-002": {
+      "finding_id": "WSL-PATH-002",
+      "severity": "critical",
+      "paths": [
+        "scripts/resolve-wsl-path.py",
+        "tests/harness/test_wsl_environment.py"
+      ],
+      "summary": "Windows path conversion accepts traversal that escapes the selected drive mount.",
+      "evidence": "C:\\..\\..\\etc\\passwd returns ok=true and maps to /mnt/c/../../etc/passwd, violating the path-value-only bridge boundary.",
+      "status": "closed",
+      "fix_round": 3,
+      "routed_to": {
+        "agent_key": "wsl_env_impl",
+        "platform_agent_id": "wsl_env_impl"
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_review",
+          "platform_agent_id": "wsl_env_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Windows drive-root C:\\ 与 C:/ 现在作为合法绝对输入交给 wslpath，原有 traversal/UNC/device 拒绝保持不变。",
+        "changed_files": [
+          "scripts/resolve-wsl-path.py",
+          "tests/harness/test_wsl_environment.py"
+        ],
+        "sha256": "e3560b2ebb3187dfadf16f0f0f2cdc66a13276f573506b6245aa51a47e8e6bcd",
+        "verification": "Drive-root 与既有 resolver 反例通过；完整 154 项 harness 全部通过。"
+      },
+      "closed_at": "2026-09-04T21:06:01.440724Z"
+    },
+    "WSL-BASELINE-003": {
+      "finding_id": "WSL-BASELINE-003",
+      "severity": "high",
+      "paths": [
+        "config/ai/wsl-tool-baseline.json",
+        "schemas/wsl-tool-baseline.schema.json",
+        "scripts/provision-wsl.py",
+        "scripts/doctor-core.py",
+        "tests/harness/test_wsl_environment.py",
+        "tests/harness/test_wsl_tools.py"
+      ],
+      "summary": "The machine baseline is not the single doctor/provision truth and unsafe or failed apply inputs can bypass the stable JSON contract.",
+      "evidence": "Doctor retains divergent hard-coded command tuples, misses D/E drive tools, manual validation accepts apt options as package names, apply exceptions escape as traceback, package probes can falsely satisfy python3-venv/build-essential, and apt has no pnpm candidate on this machine.",
+      "status": "closed",
+      "fix_round": 3,
+      "routed_to": {
+        "agent_key": "wsl_env_impl",
+        "platform_agent_id": "wsl_env_impl"
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_review",
+          "platform_agent_id": "wsl_env_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Machine doctor 从每个 package 合并主 command 与 doctor_commands，任一缺失或 Windows-backed 都会使审计失败；同时恢复分层工具规则原有授权边界。",
+        "changed_files": [
+          "scripts/doctor-core.py",
+          "rules/items/policy/缺失工具分层与依赖处理.md",
+          "rules/registry/RULES_INDEX.json",
+          "rules/registry/RULES_INDEX.md",
+          "tests/harness/test_wsl_tools.py",
+          "tests/harness/test_wsl_runtime.py"
+        ],
+        "sha256": "d650d3609e0e4f096df01ffae6b83edb4b749f103f8fdf0a595e69c3fb912b40",
+        "verification": "Windows git、缺 gcc/g++、规则合同、健康 machine fixture 与完整 154 项 harness 全部通过。"
+      },
+      "closed_at": "2026-09-04T21:06:01.440729Z"
+    },
+    "WSL-PROJECT-004": {
+      "finding_id": "WSL-PROJECT-004",
+      "severity": "high",
+      "paths": [
+        "schemas/project-environment.schema.json",
+        "scripts/project-env-doctor.py",
+        "tests/harness/test_wsl_environment.py"
+      ],
+      "summary": "Project doctor can report ready for invalid declarations, escaped paths, empty dependency directories, wrong-platform artifacts, and unusable optional capabilities.",
+      "evidence": "Unknown fields and external paths pass; empty .venv/node_modules and @esbuild/win32 artifacts pass; command names alone make failed Playwright and Docker shims appear healthy.",
+      "status": "closed",
+      "fix_round": 3,
+      "routed_to": {
+        "agent_key": "wsl_env_impl",
+        "platform_agent_id": "wsl_env_impl"
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_review",
+          "platform_agent_id": "wsl_env_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Project doctor 要求 .venv/bin/python 可执行，并解析 symlink 后拒绝 Windows-backed 解释器。",
+        "changed_files": [
+          "scripts/project-env-doctor.py",
+          "tests/harness/test_wsl_environment.py"
+        ],
+        "sha256": "59ef59900299db9ce44c9707ff9501f0879d1b4319ef043725e5bf0552027b1d",
+        "verification": "0644 解释器、Windows symlink 与健康 Playwright project 用例通过；完整 154 项 harness 全部通过。"
+      },
+      "closed_at": "2026-09-04T21:06:01.440732Z"
+    },
+    "WSL-SEMANTICS-005": {
+      "finding_id": "WSL-SEMANTICS-005",
+      "severity": "high",
+      "paths": [
+        "scripts/doctor-core.py",
+        "scripts/bootstrap-local.py",
+        "scripts/README.md",
+        "tests/harness/test_wsl_environment.py",
+        "tests/harness/test_wsl_runtime.py"
+      ],
+      "summary": "Machine doctor and bootstrap command semantics do not reliably enforce the documented startup boundary.",
+      "evidence": "Unhealthy non-strict doctor exits zero, --skip-sync still mutates managed runtime, and the script index still labels implemented CLIs as pending delivery.",
+      "status": "closed",
+      "fix_round": 2,
+      "routed_to": {
+        "agent_key": "wsl_env_impl",
+        "platform_agent_id": "wsl_env_impl"
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_review",
+          "platform_agent_id": "wsl_env_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "普通 doctor 退出码、skip-sync 保留语义和真实规则/索引审查覆盖已闭环。历史 DOC 回执中的旧文件名作为不可改写的 tombstone 保留，但真实规则及两个生成索引已加入本轮 review manifest。",
+        "changed_files": [
+          "scripts/doctor-core.py",
+          "scripts/bootstrap-local.py",
+          "scripts/README.md",
+          "tests/harness/test_wsl_environment.py",
+          "tests/harness/test_wsl_runtime.py",
+          "rules/items/policy/窗口系统附件路径桥接.md",
+          "rules/registry/RULES_INDEX.json",
+          "rules/registry/RULES_INDEX.md"
+        ],
+        "sha256": "3f88917d844408a23367e56d0d902113ec72dae236f0d0eda5123af0eb753610",
+        "verification": "相关 50 项套件、规则生成/校验、文档路由/方案校验及 scoped diff-check 均通过；review target 必须核对真实规则和两个索引。"
+      },
+      "closed_at": "2026-09-04T20:36:31.489862Z"
+    },
+    "WSL-PROJECT-006": {
+      "finding_id": "WSL-PROJECT-006",
+      "severity": "high",
+      "paths": [
+        "scripts/project-env-doctor.py",
+        "schemas/project-environment.schema.json",
+        "templates/project/config/ai/environment.example.json",
+        "tests/harness/test_wsl_environment.py"
+      ],
+      "summary": "Project doctor can report ready when declared dependencies were not restored and node_modules contains ordinary Windows artifacts.",
+      "evidence": "A black-box fixture with nonexistent Python and Node dependencies, a system-Python symlink at .venv/bin/python, and node_modules/.bin/tool.cmd returned rc=0, ok=true. The doctor did not prove the interpreter belonged to a venv, verify declared dependency restoration, or reject generic Windows Node shims; the schema also forced both stacks.",
+      "status": "closed",
+      "fix_round": 3,
+      "routed_to": {
+        "agent_key": "wsl_env_impl",
+        "platform_agent_id": "wsl_env_impl"
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_final_review",
+          "platform_agent_id": "wsl_env_final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "The npm integrity gate now resolves the selected executable strictly before classification and execution, rejects broken or Windows-backed targets behind Linux-path symlinks, and still permits Linux-to-Linux symlinks.",
+        "changed_files": [
+          "scripts/project-env-doctor.py",
+          "tests/harness/test_wsl_environment.py"
+        ],
+        "sha256": "9b1f0adbfa117c07181ed65cd39a6e6fb3b7da9e384d7a4881230bf44658f488",
+        "verification": "The round-three Red reproduced a /tmp npm symlink resolving to /mnt/c and proved the Linux-to-Linux control was healthy. Both focused symlink/integrity tests passed after the fix, followed by all 61 WSL environment tests in 126.010 seconds."
+      },
+      "closed_at": "2026-09-04T21:46:01.749699Z"
+    },
+    "WSL-BASELINE-007": {
+      "finding_id": "WSL-BASELINE-007",
+      "severity": "high",
+      "paths": [
+        "config/ai/wsl-tool-baseline.json",
+        "schemas/wsl-tool-baseline.schema.json",
+        "scripts/provision-wsl.py",
+        "docs/INSTALL.md",
+        "tests/harness/test_wsl_tools.py"
+      ],
+      "summary": "The documented standalone pnpm installation path does not reliably satisfy the mandatory Corepack baseline.",
+      "evidence": "The baseline required both corepack and pnpm while INSTALL only guaranteed node/npm and standalone pnpm. Node.js 25 no longer distributes Corepack, so a correctly installed Linux-native pnpm could remain permanently unhealthy under the doctor contract.",
+      "status": "closed",
+      "fix_round": 1,
+      "routed_to": {
+        "agent_key": "wsl_env_impl",
+        "platform_agent_id": "wsl_env_impl"
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "wsl_env_impl",
+          "platform_agent_id": "wsl_env_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "wsl_env_final_review",
+          "platform_agent_id": "wsl_env_final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Corepack is no longer a mandatory machine tool or supported baseline source. Linux-native pnpm remains mandatory as an external machine capability with an explicit, non-mutating provision handoff and synchronized documentation.",
+        "changed_files": [
+          "config/ai/wsl-tool-baseline.json",
+          "schemas/wsl-tool-baseline.schema.json",
+          "scripts/runtime_common.py",
+          "scripts/provision-wsl.py",
+          "docs/INSTALL.md",
+          "scripts/README.md",
+          "templates/codex/AGENTS.global.md",
+          "tests/harness/test_wsl_tools.py"
+        ],
+        "sha256": "c67b0eed879d8a6f2cb51194adee146a21ae96611715874fa30fdfea31bf5284",
+        "verification": "A Node 25-style fixture with no Corepack and a Linux-native pnpm now passes the exact machine audit. Eight focused contract tests and the complete 59-test WSL suite passed; no package installation or network mutation occurred."
+      },
+      "closed_at": "2026-09-04T21:31:06.216440Z"
+    }
+  },
+  "next_action": {
+    "kind": "none"
+  },
+  "artifact_sha256": {
+    "task.md": "e846784b1e86dab97676ca566ce298ed806230196634a47a9890db5705d98bbf",
+    "plan.md": "9d9bd27042c2f98a25256ec8ec120671efa88119e0414eeb098855a398f163a1",
+    "execution.md": "e47f9a053189707f5f042f23951043397e7467b11b0d6bde5db14a7724f0059c",
+    "acceptance.md": "84e02174eba4ee8491c5ce69686bfb4c6eac87e8a6d2d99a675b8427b63bfe0e"
+  },
+  "updated_at": "2026-09-04T21:54:05.219743Z",
+  "final_review": {
+    "verdict": "pass",
+    "reviewer": {
+      "agent_key": "wsl_env_final_review",
+      "platform_agent_id": "wsl_env_final_review"
+    },
+    "reviewed_change_sha256": "9b1f0adbfa117c07181ed65cd39a6e6fb3b7da9e384d7a4881230bf44658f488"
+  }
+}

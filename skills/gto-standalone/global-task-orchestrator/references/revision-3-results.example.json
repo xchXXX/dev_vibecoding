@@ -1,0 +1,924 @@
+{
+  "_batch_contract_note": "分批字段唯一正文见 state-schema.md#分批验收证据合同；以下为待替换的完整通用示例，不是已有验收事实。所有 COPY_SHA256 均替换为真实小写64位哈希。",
+  "acceptance_batch_contract_file": {
+    "kind": "blackbox",
+    "fixture": {
+      "path": "tests/fixtures/example/cases.json",
+      "sha256": "COPY_SHA256",
+      "collection_pointer": "/cases",
+      "id_pointer": "/id"
+    },
+    "required_units": [
+      {
+        "unit_id": "CASE-01",
+        "acceptance_id": "BUSINESS-001",
+        "current_input": {
+          "pointers": {
+            "prompt": "/input",
+            "initial_state": "/state"
+          }
+        },
+        "raw_selectors": null
+      },
+      {
+        "unit_id": "CASE-02",
+        "acceptance_id": "BUSINESS-001",
+        "current_input": {
+          "pointers": {
+            "prompt": "/input",
+            "initial_state": "/state"
+          }
+        },
+        "raw_selectors": null
+      }
+    ]
+  },
+  "acceptance_normalized_score_record": {
+    "unit_id": "CASE-01",
+    "outcome": "pass",
+    "raw_sha256": "COPY_RAW_FILE_SHA256",
+    "input_sha256": "COPY_CANONICAL_INPUT_PROJECTION_SHA256",
+    "written_by": "ACTUAL_ORIGINAL_ACCEPTOR_ID",
+    "source_score": {
+      "path": ".artifacts/example/original-score.json",
+      "sha256": "COPY_SHA256",
+      "pointer": "/results/0"
+    },
+    "source_score_selectors": {
+      "unit_id": "/results/0/id",
+      "outcome": "/results/0/result",
+      "written_by": "/written_by"
+    }
+  },
+  "acceptance_evidence_batch_receipt": {
+    "batch_id": "batch-history-01",
+    "source_attempt_id": "attempt-1",
+    "written_by": "ACTUAL_ORIGINAL_ACCEPTOR_ID",
+    "written_role": "tester",
+    "contract": {
+      "path": ".artifacts/example/batch-contract.json",
+      "sha256": "COPY_SHA256"
+    },
+    "units": [
+      {
+        "unit_id": "CASE-01",
+        "acceptance_id": "BUSINESS-001",
+        "raw": {
+          "path": ".artifacts/example/historical-run.log",
+          "sha256": "COPY_SHA256"
+        },
+        "input": {
+          "path": ".artifacts/example/historical-input.json",
+          "sha256": "COPY_SHA256",
+          "pointers": {
+            "prompt": "/request/input",
+            "initial_state": "/request/state"
+          }
+        },
+        "score": {
+          "path": ".artifacts/example/normalized-score.json",
+          "sha256": "COPY_SHA256",
+          "pointer": "/records/0"
+        }
+      }
+    ]
+  },
+  "acceptance_coverage_receipt": {
+    "coverage_id": "coverage-current-01",
+    "kind": "blackbox",
+    "candidate_id": "COPY_CURRENT_CANDIDATE_ID",
+    "contract_sha256": "COPY_SHA256",
+    "batch_ids": [
+      "batch-history-01",
+      "batch-current-02"
+    ],
+    "written_by": "ACTUAL_ORIGINAL_ACCEPTOR_ID",
+    "written_role": "tester"
+  },
+  "acceptance_partial": {
+    "status": "completed",
+    "summary": "仅当前定向单元实际通过；完整覆盖由独立聚合回执证明。",
+    "changed_files": [],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "COPY_ACTUAL_TARGETED_COMMAND"
+      ],
+      "result": "实际执行范围与原始证据见所引用批次。"
+    },
+    "deviations": [],
+    "blocked_by": [],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_ORIGINAL_ACCEPTOR_ID",
+    "written_role": "tester",
+    "expensive_acceptance": {
+      "outcome": "partial_pass",
+      "mode": "partial",
+      "real_call_count": 1,
+      "duration_seconds": 1.0,
+      "failed_stage": "none",
+      "executed_unit_ids": [
+        "CASE-02"
+      ],
+      "evidence_batch_ids": [
+        "batch-current-02"
+      ],
+      "scope_acceptance_ids": [
+        "BUSINESS-001"
+      ],
+      "evidence_refs": [
+        ".artifacts/example/current-raw.json"
+      ],
+      "evidence_by_acceptance_id": {
+        "BUSINESS-001": [
+          ".artifacts/example/current-raw.json"
+        ]
+      },
+      "usage_evidence": [
+        {
+          "written_by": "ACTUAL_ORIGINAL_ACCEPTOR_ID",
+          "environment": "wsl",
+          "tool": "CLI",
+          "entry": "COPY_ACTUAL_TARGETED_COMMAND",
+          "scope": [
+            "modules/example"
+          ],
+          "result": "仅CASE-02真实执行通过。",
+          "evidence_refs": [
+            ".artifacts/example/current-run.log"
+          ],
+          "ui_applicability": "not_applicable",
+          "ui_not_applicable_reason": "仅CLI夹具；有页面时换成真实Browser证据。"
+        }
+      ],
+      "blackbox": {
+        "session_ids": [
+          "ACTUAL_SESSION_ID"
+        ],
+        "input_refs": [
+          "tests/fixtures/example/cases.json"
+        ],
+        "trace_refs": [
+          ".artifacts/example/current-trace.json"
+        ]
+      },
+      "run_evidence": {
+        "path": ".artifacts/REPLACE_WITH_ACTUAL_RUN/manifest.json",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  },
+  "_verification_evidence_contract": "按当前模板必需 evidence key 和显式 template_subtask_id 登记原始证据；无旧模板 ID 前缀推断或旧字段兼容。",
+  "verification_evidence_receipt": {
+    "written_by": "ACTUAL_ORIGINAL_WRITER_ID",
+    "written_role": "tester",
+    "source_subtask_id": "ACCEPT-001-attempt-1",
+    "source_result_sha256": "COPY_CANONICAL_SOURCE_RESULT_SHA256",
+    "candidate_id": "COPY_CURRENT_CANDIDATE_ID",
+    "candidate_fingerprint": "COPY_CURRENT_CANDIDATE_FINGERPRINT",
+    "evidence_key": "COPY_DECLARED_GENERIC_EVIDENCE_KEY",
+    "evidence_refs": [
+      ".artifacts/example/existing-evidence-index.json"
+    ]
+  },
+  "finding_fix": {
+    "summary": "替换为实际修复的根因、行为变化与证据结论。",
+    "changed_files": [
+      "modules/example/entry.py"
+    ],
+    "sha256": "COPY_ACTUAL_CHANGE_SHA256",
+    "verification": "替换为实际 Red、Green 与回归的命中说明；该字段是字符串。",
+    "written_by": "ACTUAL_IMPLEMENTER_ID",
+    "written_role": "backend-implementer",
+    "checks": [
+      {
+        "purpose": "red",
+        "command": "python3 -m unittest discover -s tests/fixtures/example",
+        "scope": [
+          "modules/example/entry.py"
+        ],
+        "exit_code": 1,
+        "expected_exit_code": 1,
+        "evidence_refs": [
+          ".artifacts/example/red.log"
+        ]
+      },
+      {
+        "purpose": "green",
+        "command": "python3 -m unittest discover -s tests/fixtures/example",
+        "scope": [
+          "modules/example/entry.py"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "evidence_refs": [
+          ".artifacts/example/green.log"
+        ]
+      },
+      {
+        "purpose": "regression",
+        "command": "python3 -m unittest discover -s tests/fixtures/example",
+        "scope": [
+          "modules/example/entry.py"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "evidence_refs": [
+          ".artifacts/example/regression.log"
+        ]
+      }
+    ]
+  },
+  "work": {
+    "status": "completed",
+    "summary": "已完成本职责并记录真实范围检查。",
+    "changed_files": [
+      "modules/example/entry.py"
+    ],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "python3 -m unittest discover -s tests/fixtures/example"
+      ],
+      "result": "实际检查通过，原始输出见 .artifacts/example/check.log。"
+    },
+    "deviations": [],
+    "blocked_by": [],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_IMPLEMENTER_ID",
+    "written_role": "backend-implementer",
+    "checks": [
+      {
+        "purpose": "red",
+        "command": "python3 -m unittest discover -s tests/fixtures/example",
+        "scope": [
+          "modules/example",
+          "tests/fixtures/example"
+        ],
+        "exit_code": 1,
+        "expected_exit_code": 1,
+        "evidence_refs": [
+          ".artifacts/example/red.log"
+        ]
+      },
+      {
+        "purpose": "green",
+        "command": "python3 -m unittest discover -s tests/fixtures/example",
+        "scope": [
+          "modules/example",
+          "tests/fixtures/example"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "evidence_refs": [
+          ".artifacts/example/green.log"
+        ]
+      },
+      {
+        "purpose": "regression",
+        "command": "python3 -m unittest discover -s tests/fixtures/example",
+        "scope": [
+          "modules/example",
+          "tests/fixtures/example"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "evidence_refs": [
+          ".artifacts/example/regression.log"
+        ]
+      }
+    ],
+    "review_evidence": {
+      "repro_before_fix": ".artifacts/example/red.log",
+      "pass_after_fix": ".artifacts/example/green.log",
+      "hit_proof_observed": "red断言命中已批准业务缺陷。"
+    }
+  },
+  "integration": {
+    "status": "completed",
+    "summary": "已完成本职责并记录真实范围检查。",
+    "changed_files": [
+      "docs/modules/example/contract/entry.md"
+    ],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "python3 -m unittest discover -s tests/fixtures/example"
+      ],
+      "result": "实际检查通过，原始输出见 .artifacts/example/check.log。"
+    },
+    "deviations": [],
+    "blocked_by": [],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_IMPLEMENTER_ID",
+    "written_role": "backend-implementer",
+    "checks": [
+      {
+        "purpose": "regression",
+        "command": "python3 -m unittest discover -s tests/fixtures/example",
+        "scope": [
+          "modules/example",
+          "tests/fixtures/example"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "evidence_refs": [
+          ".artifacts/example/regression.log"
+        ]
+      }
+    ],
+    "integration": {
+      "summary": "已检查入口、接口、配置、异常路径及受影响正式文档。",
+      "document_paths": [
+        "docs/modules/example"
+      ]
+    }
+  },
+  "review": {
+    "review": {
+      "kind": "task",
+      "verdict": "pass",
+      "reviewer_platform_agent_id": "ACTUAL_REVIEWER_ID",
+      "reviewed_candidate_fingerprint": "COPY_CURRENT_BRIEF_CANDIDATE_FINGERPRINT",
+      "covered_paths": [
+        "modules/example",
+        "tests/fixtures/example",
+        "docs/modules/example"
+      ],
+      "findings": [],
+      "evidence_refs": [
+        ".artifacts/example/review.log"
+      ],
+      "checks_completed": [
+        "需求、实现、测试质量、异常边界和受影响正式文档"
+      ],
+      "checks_not_run": [],
+      "usage_evidence": [
+        {
+          "written_by": "ACTUAL_REVIEWER_ID",
+          "environment": "wsl",
+          "tool": "CLI",
+          "entry": "python3 modules/example/entry.py --check-boundary",
+          "scope": [
+            "modules/example"
+          ],
+          "result": "实际执行入口并检查边界，填入真实结果。",
+          "evidence_refs": [
+            ".artifacts/example/review-use.log"
+          ],
+          "ui_applicability": "not_applicable",
+          "ui_not_applicable_reason": "本示例仅暴露CLI入口；有网页时必须改为实际Browser证据。"
+        }
+      ]
+    }
+  },
+  "acceptance_pass": {
+    "status": "completed",
+    "summary": "已完成本职责并记录真实范围检查。",
+    "changed_files": [],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "python3 -m unittest discover -s tests/fixtures/example"
+      ],
+      "result": "实际检查通过，原始输出见 .artifacts/example/check.log。"
+    },
+    "deviations": [],
+    "blocked_by": [],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_ACCEPTANCE_ID",
+    "written_role": "tester",
+    "review_evidence": {
+      "COPY_DECLARED_GENERIC_EVIDENCE_KEY": ".artifacts/example/acceptance.log"
+    },
+    "expensive_acceptance": {
+      "outcome": "pass",
+      "real_call_count": 1,
+      "duration_seconds": 1.0,
+      "failed_stage": "none",
+      "evidence_refs": [
+        ".artifacts/example/acceptance.log"
+      ],
+      "evidence_by_acceptance_id": {
+        "BUSINESS-001": [
+          ".artifacts/example/acceptance.log"
+        ]
+      },
+      "mode": "full",
+      "scope_acceptance_ids": [
+        "BUSINESS-001"
+      ],
+      "usage_evidence": [
+        {
+          "written_by": "ACTUAL_ACCEPTANCE_ID",
+          "environment": "wsl",
+          "tool": "CLI",
+          "entry": "python3 modules/example/entry.py --check-boundary",
+          "scope": [
+            "modules/example"
+          ],
+          "result": "实际执行入口并检查边界，填入真实结果。",
+          "evidence_refs": [
+            ".artifacts/example/acceptance-use.log"
+          ],
+          "ui_applicability": "not_applicable",
+          "ui_not_applicable_reason": "本示例仅暴露CLI入口；有网页时必须改为实际Browser证据。"
+        }
+      ],
+      "run_evidence": {
+        "path": ".artifacts/REPLACE_WITH_ACTUAL_RUN/manifest.json",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  },
+  "final_documentation": {
+    "status": "completed",
+    "summary": "已完成本职责并记录真实范围检查。",
+    "changed_files": [],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "人工核对六工件事实及控制器受管结论"
+      ],
+      "result": "仅同步事实；保留当前受管标记。"
+    },
+    "deviations": [],
+    "blocked_by": [],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_CLOSEOUT_ID",
+    "written_role": "doc-curator",
+    "documentation_sync": {
+      "checked_paths": [
+        "docs/modules/example"
+      ],
+      "changed_paths": [],
+      "behavior_changed": false,
+      "contract_changed": false,
+      "configuration_changed": false,
+      "reason": "已核对正式文档；本回执未改变行为、契约或配置。"
+    }
+  },
+  "coordinator_blocked": {
+    "status": "blocked",
+    "summary": "必需 CFM 实际不可达，相关失败链已停止。",
+    "changed_files": [],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "test -d <verified-existing-cfm-store>"
+      ],
+      "result": "CFM 目录不可达，实际退出码 1，原始失败见 .artifacts/example/cfm-blocked.log。"
+    },
+    "deviations": [],
+    "blocked_by": [
+      "必需 CFM 无法访问，强制 query-before-retry 尚未成功。"
+    ],
+    "risks": [],
+    "follow_up": [
+      "恢复已授权的原能力并成功查询后，由同一协调者提交恢复回执。"
+    ],
+    "written_by": "ACTUAL_COORDINATOR_ID",
+    "written_role": "coordinator"
+  },
+  "coordinator_resumed": {
+    "status": "completed",
+    "summary": "原能力已恢复且强制查询成功；证据已核对，尚未重试业务命令。",
+    "changed_files": [],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "test -d <verified-existing-cfm-store>",
+        "python3 <loaded-cfm-controller> --action query-before-retry <actual-failure-arguments>"
+      ],
+      "result": "恢复诊断与原失败对应的强制查询均成功，见 .artifacts/example/cfm-recovered.log。"
+    },
+    "deviations": [],
+    "blocked_by": [],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_COORDINATOR_ID",
+    "written_role": "coordinator",
+    "checks": [
+      {
+        "purpose": "regression",
+        "command": "test -d <verified-existing-cfm-store>",
+        "scope": [
+          "docs/tasks/20300102-030405-example-task"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "evidence_refs": [
+          ".artifacts/example/cfm-recovered.log"
+        ]
+      },
+      {
+        "purpose": "regression",
+        "command": "python3 <loaded-cfm-controller> --action query-before-retry <actual-failure-arguments>",
+        "scope": [
+          "docs/tasks/20300102-030405-example-task"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "evidence_refs": [
+          ".artifacts/example/cfm-recovered.log"
+        ]
+      }
+    ]
+  },
+  "initial_test": {
+    "status": "completed",
+    "summary": "已完成本职责并记录真实范围检查。",
+    "changed_files": [
+      "tests/fixtures/example/test_boundary.py"
+    ],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "python3 -m unittest discover -s tests/fixtures/example"
+      ],
+      "result": "实际检查通过，原始输出见 .artifacts/example/check.log。"
+    },
+    "deviations": [],
+    "blocked_by": [],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_INITIAL_TEST_ID",
+    "written_role": "tester",
+    "checks": [
+      {
+        "purpose": "red",
+        "command": "python3 -m unittest discover -s tests/fixtures/example",
+        "scope": [
+          "modules/example",
+          "tests/fixtures/example"
+        ],
+        "exit_code": 1,
+        "expected_exit_code": 1,
+        "evidence_refs": [
+          ".artifacts/example/red.log"
+        ]
+      }
+    ]
+  },
+  "acceptance_findings": {
+    "written_by": "ACTUAL_ACCEPTANCE_ID",
+    "findings": [
+      {
+        "finding_id": "ACCEPT-BOUNDARY-001",
+        "severity": "high",
+        "paths": [
+          "modules/example/entry.py"
+        ],
+        "summary": "实际验收发现入口缺少已约定的输入边界。",
+        "evidence": ".artifacts/example/discoverer-red.log",
+        "status": "open",
+        "routed_to": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "ACTUAL_IMPLEMENTER_ID"
+        },
+        "root_cause": "填写发现者实际定位的根因。",
+        "fix_plan": "按现有业务契约补边界，不放宽失败断言。",
+        "acceptance_ids": [
+          "BUSINESS-001"
+        ],
+        "documentation_update": {
+          "written_by": "ACTUAL_ACCEPTANCE_ID",
+          "status": "not_applicable",
+          "paths": [],
+          "reason": "已核对正式契约仍准确；本问题为实现违反既有契约。"
+        },
+        "regression_proof": {
+          "written_by": "ACTUAL_ACCEPTANCE_ID",
+          "command": "python3 -m unittest tests.test_boundary",
+          "scope": [
+            "modules/example/entry.py"
+          ],
+          "exit_code": 1,
+          "expected_exit_code": 1,
+          "evidence_refs": [
+            ".artifacts/example/discoverer-red.log"
+          ]
+        }
+      }
+    ]
+  },
+  "acceptance_failure": {
+    "status": "blocked",
+    "summary": "实际验收发现业务失败，待原整合者修复。",
+    "changed_files": [],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "python3 -m unittest discover -s tests/fixtures/example"
+      ],
+      "result": "实际检查通过，原始输出见 .artifacts/example/check.log。"
+    },
+    "deviations": [],
+    "blocked_by": [
+      "ACCEPT-BOUNDARY-001"
+    ],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_ACCEPTANCE_ID",
+    "written_role": "tester",
+    "expensive_acceptance": {
+      "outcome": "product_failure",
+      "real_call_count": 1,
+      "duration_seconds": 1.0,
+      "failed_stage": "input_boundary",
+      "evidence_refs": [
+        ".artifacts/example/acceptance.log"
+      ],
+      "evidence_by_acceptance_id": {},
+      "mode": "full",
+      "scope_acceptance_ids": [
+        "BUSINESS-001"
+      ],
+      "usage_evidence": [
+        {
+          "written_by": "ACTUAL_ACCEPTANCE_ID",
+          "environment": "wsl",
+          "tool": "CLI",
+          "entry": "python3 modules/example/entry.py --check-boundary",
+          "scope": [
+            "modules/example"
+          ],
+          "result": "实际执行入口并检查边界，填入真实结果。",
+          "evidence_refs": [
+            ".artifacts/example/acceptance-use.log"
+          ],
+          "ui_applicability": "not_applicable",
+          "ui_not_applicable_reason": "本示例仅暴露CLI入口；有网页时必须改为实际Browser证据。"
+        }
+      ],
+      "finding_id": "ACCEPT-BOUNDARY-001",
+      "run_evidence": {
+        "path": ".artifacts/REPLACE_WITH_ACTUAL_RUN/manifest.json",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  },
+  "acceptance_retest": {
+    "status": "completed",
+    "summary": "已完成本职责并记录真实范围检查。",
+    "changed_files": [],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "python3 -m unittest discover -s tests/fixtures/example"
+      ],
+      "result": "实际检查通过，原始输出见 .artifacts/example/check.log。"
+    },
+    "deviations": [],
+    "blocked_by": [],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_ACCEPTANCE_ID",
+    "written_role": "tester",
+    "expensive_acceptance": {
+      "outcome": "pass",
+      "real_call_count": 1,
+      "duration_seconds": 1.0,
+      "failed_stage": "none",
+      "evidence_refs": [
+        ".artifacts/example/acceptance.log"
+      ],
+      "evidence_by_acceptance_id": {
+        "BUSINESS-001": [
+          ".artifacts/example/acceptance.log"
+        ]
+      },
+      "mode": "scoped",
+      "scope_acceptance_ids": [
+        "BUSINESS-001"
+      ],
+      "usage_evidence": [
+        {
+          "written_by": "ACTUAL_ACCEPTANCE_ID",
+          "environment": "wsl",
+          "tool": "CLI",
+          "entry": "python3 modules/example/entry.py --check-boundary",
+          "scope": [
+            "modules/example"
+          ],
+          "result": "实际执行入口并检查边界，填入真实结果。",
+          "evidence_refs": [
+            ".artifacts/example/acceptance-use.log"
+          ],
+          "ui_applicability": "not_applicable",
+          "ui_not_applicable_reason": "本示例仅暴露CLI入口；有网页时必须改为实际Browser证据。"
+        }
+      ],
+      "closed_finding_ids": [
+        "ACCEPT-BOUNDARY-001"
+      ],
+      "impact": {
+        "changed_paths": [
+          "modules/example/entry.py"
+        ],
+        "affected_acceptance_ids": [
+          "BUSINESS-001"
+        ],
+        "reason": "以控制器两次实际候选manifest为准填写，已检查相关依赖。"
+      },
+      "retained_evidence_by_acceptance_id": {},
+      "run_evidence": {
+        "path": ".artifacts/REPLACE_WITH_ACTUAL_RUN/manifest.json",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  },
+  "blackbox_preparation": {
+    "status": "completed",
+    "summary": "已完成当前候选的五项准备复查，未将准备记作业务验收通过。",
+    "changed_files": [],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "python3 -m unittest discover -s tests/fixtures/example"
+      ],
+      "result": "实际检查通过，原始输出见 .artifacts/example/check.log。"
+    },
+    "deviations": [],
+    "blocked_by": [],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_ACCEPTANCE_ID",
+    "written_role": "tester",
+    "expensive_acceptance": {
+      "outcome": "pass",
+      "real_call_count": 1,
+      "duration_seconds": 1.0,
+      "failed_stage": "none",
+      "evidence_refs": [
+        ".artifacts/example/acceptance.log"
+      ],
+      "evidence_by_acceptance_id": {},
+      "mode": "full",
+      "scope_acceptance_ids": [],
+      "usage_evidence": [
+        {
+          "written_by": "ACTUAL_ACCEPTANCE_ID",
+          "environment": "wsl",
+          "tool": "CLI",
+          "entry": "python3 modules/example/entry.py --check-boundary",
+          "scope": [
+            "modules/example"
+          ],
+          "result": "实际执行入口并检查边界，填入真实结果。",
+          "evidence_refs": [
+            ".artifacts/example/acceptance-use.log"
+          ],
+          "ui_applicability": "not_applicable",
+          "ui_not_applicable_reason": "本示例仅暴露CLI入口；有网页时必须改为实际Browser证据。"
+        }
+      ],
+      "passed_acceptance_ids": [],
+      "preparation": {
+        "checks": {
+          "deployment": [
+            ".artifacts/example/deployment.log"
+          ],
+          "version": [
+            ".artifacts/example/version.log"
+          ],
+          "environment": [
+            ".artifacts/example/environment.log"
+          ],
+          "input_and_session": [
+            ".artifacts/example/input_and_session.log"
+          ],
+          "evidence_capture": [
+            ".artifacts/example/evidence_capture.log"
+          ]
+        },
+        "business_input_refs": [
+          "tests/fixtures/example/business-input.json"
+        ]
+      },
+      "run_evidence": {
+        "path": ".artifacts/REPLACE_WITH_ACTUAL_RUN/manifest.json",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  },
+  "blackbox_effect_failure": {
+    "status": "blocked",
+    "summary": "正式首轮效果未达预期，保留原观察并等待用户决定。",
+    "changed_files": [],
+    "planned_files_not_changed": [],
+    "verification": {
+      "commands": [
+        "python3 -m unittest discover -s tests/fixtures/example"
+      ],
+      "result": "实际检查通过，原始输出见 .artifacts/example/check.log。"
+    },
+    "deviations": [],
+    "blocked_by": [
+      "effect_failure：等待明确repair或next_round决定。"
+    ],
+    "risks": [],
+    "follow_up": [],
+    "written_by": "ACTUAL_ACCEPTANCE_ID",
+    "written_role": "tester",
+    "expensive_acceptance": {
+      "outcome": "effect_failure",
+      "real_call_count": 1,
+      "duration_seconds": 1.0,
+      "failed_stage": "effect",
+      "evidence_refs": [
+        ".artifacts/example/acceptance.log"
+      ],
+      "evidence_by_acceptance_id": {},
+      "mode": "full",
+      "scope_acceptance_ids": [
+        "BUSINESS-001"
+      ],
+      "usage_evidence": [
+        {
+          "written_by": "ACTUAL_ACCEPTANCE_ID",
+          "environment": "wsl",
+          "tool": "CLI",
+          "entry": "python3 modules/example/entry.py --check-boundary",
+          "scope": [
+            "modules/example"
+          ],
+          "result": "实际执行入口并检查边界，填入真实结果。",
+          "evidence_refs": [
+            ".artifacts/example/acceptance-use.log"
+          ],
+          "ui_applicability": "not_applicable",
+          "ui_not_applicable_reason": "本示例仅暴露CLI入口；有网页时必须改为实际Browser证据。"
+        }
+      ],
+      "passed_acceptance_ids": [],
+      "blackbox": {
+        "session_ids": [
+          "ACTUAL_NEW_TOP_LEVEL_SESSION_ID"
+        ],
+        "input_refs": [
+          "tests/fixtures/example/business-input.json"
+        ],
+        "trace_refs": [
+          ".artifacts/example/blackbox-trace.log"
+        ],
+        "report_ref": ".artifacts/example/blackbox-report.md"
+      },
+      "run_evidence": {
+        "path": ".artifacts/REPLACE_WITH_ACTUAL_RUN/manifest.json",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  },
+  "blackbox_user_decision": {
+    "attempt_id": "ACTUAL_FAILED_ATTEMPT_ID",
+    "approved_by": "user",
+    "reason": "替换为用户本次明确决定，不得把预算批准充当效果决定。",
+    "evidence_refs": [
+      ".artifacts/example/user-decision.log"
+    ],
+    "allow": [
+      "repair"
+    ]
+  },
+  "point_results_example": {
+    "status": "target_not_implemented",
+    "withdrawal": {
+      "written_by": "ACTUAL_COORDINATOR_ID",
+      "written_role": "coordinator",
+      "reason": "Arrangement has not been bound or executed."
+    },
+    "first_round": {
+      "evidence_by_acceptance_id": {
+        "CHECK-01": [
+          ".artifacts/checks/round-1/01.json"
+        ]
+      },
+      "point_results": [
+        {
+          "status": "pass",
+          "acceptance_id": "CHECK-01",
+          "evidence_refs": [
+            ".artifacts/checks/round-1/01.json"
+          ]
+        },
+        {
+          "status": "fail",
+          "acceptance_id": "CHECK-02",
+          "evidence_refs": [
+            ".artifacts/checks/round-1/02.json"
+          ]
+        }
+      ],
+      "scope_acceptance_ids": [
+        "CHECK-01",
+        "CHECK-02"
+      ]
+    }
+  }
+}

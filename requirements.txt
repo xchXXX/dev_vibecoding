@@ -1,0 +1,2 @@
+# GTO and environment validation use Draft 2020-12 schema validation.
+jsonschema>=4.10.3,<5

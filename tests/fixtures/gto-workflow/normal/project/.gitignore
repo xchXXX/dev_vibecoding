@@ -1,0 +1,6 @@
+.tmp/
+.artifacts/
+.worktrees/
+config/local/
+__pycache__/
+*.pyc

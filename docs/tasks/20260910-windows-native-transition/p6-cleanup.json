@@ -1,0 +1,11 @@
+{
+  "process_archive": "/mnt/c/Users/Laptop/.codex/.ai-harness/backups/windows-native-transition-20260910-p6-085320/process-materials",
+  "archived_file_count": 46,
+  "archive_hashes_verified": true,
+  "task_temp_directory_removed": true,
+  "retired_bytecode": [
+    "modules/wsl-environment/tooling/__pycache__/node-repl-wsl-compat.cpython-312.pyc",
+    "tests/harness/__pycache__/test_node_repl_wsl_compat.cpython-312.pyc",
+    "tests/harness/__pycache__/test_windows_external_capabilities.cpython-312.pyc"
+  ]
+}

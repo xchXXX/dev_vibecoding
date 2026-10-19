@@ -107,14 +107,14 @@
 
 - Codex 开发控制面固定使用通用 WSL 开发发行版中的 Linux 原生工具。
 - 文档校验、规则离线生成/校验、GTO、bootstrap、sync、doctor、CFM 与测试统一使用 `python3` 和 Linux 命令。
-- 正式入口、成功路径与验收链不调用 PowerShell、batch、`.ps1`、`.cmd` 或 hook。
-- 仓库保持单副本，不扫描其他 clone，不自动创建、切换、移动或删除 worktree。
-- 用户旧运行时 `/mnt/c/Users/Laptop/.claude` 按已批准边界永久删除，不保留 backup、session 或兼容目录。
-- Command Failure Memory 继续使用 `/mnt/c/Users/Laptop/.codex/memories/command-failure-memory`，不迁移、不复制。
+- Windows 原生 Agent 使用 PowerShell/文件工具及官方 Browser、Computer Use；项目 Git/Python/Node/测试构建通过已核实发行版的 wsl.exe --exec 在 Linux 执行，不替换为 Windows 项目依赖、旧 launcher、batch 或 hook。
+- 规则真源与全局安装发布入口唯一；独立任务可使用经核实的隔离 worktree，优先复用空闲工作区，原生工具创建和归档；不扫描、同步无关 clone 或干扰活动任务。
+- 机器迁移事实保留在对应历史任务记录，不作为其他机器的安装或删除指令。
+- Command Failure Memory 使用已核实的 `<CODEX_HOME>/memories/command-failure-memory`，不迁移、不复制。
 
 ## WSL 工具基线
 
-- 基础：`git`、`rg`、`curl`、`wget`、`rsync`、`file`、`lsof`、`python3`、`python3-venv`、Linux `node`/`npm`。
+- 基础：`git`、`rg`、`curl`、`wget`、`rsync`、`file`、`lsof`、`python3`、`python3-venv`、Codex 只读沙箱所需的 `bwrap`、Linux `node`/`npm`。
 - 通用工具：`jq`、`unzip`、`zip`、`tree`、`strace`、`shellcheck`、`shfmt`、`fzf`、`fd`、`sqlite3`、`dos2unix`。
 - 构建：`build-essential`、`pkg-config`、`cmake`、`ninja`、`python3-pip`。
 - 包管理：Linux 原生 `pnpm`，最终 PATH 不得命中非 Linux 可执行文件。
@@ -130,17 +130,34 @@
 
 ## GTO 单栈控制面
 
-- `global-task-orchestrator` 是长任务唯一编排控制面，正常链由 WSL Python 3 标准库实现。
-- 长任务始终保留六份工件：`docs/ai/tasks/<task_id>/state.json|task.md|events.jsonl` 和 `docs/tasks/<task_id>/plan.md|execution.md|acceptance.md`。
+- `global-task-orchestrator` 是显式选择 GTO 后的唯一编排控制面，正常链由 WSL Python 3 实现；普通任务不因规模启用 GTO。
+- GTO 任务保留六份工件：`docs/ai/tasks/<task_id>/state.json|task.md|events.jsonl` 和 `docs/tasks/<task_id>/plan.md|execution.md|acceptance.md`。
 - `state.json` 是唯一机器状态真源；其余五份分别承担人读摘要、关键事件、方案、施工和验收证据职责。
 - 当前 state 只接受 `version=3`；控制器 action 只以 `orchestrator_ctl.py --help` 公开且实际实现的 GNU 双横线接口为准。
-- 语义判断由 Codex 完成。普通委派先让目标代理读取 `task.md` 六要点，再由主协调器在平台真实派遣 prompt 中显式给出 `assignment`、`read_paths`、`write_paths` 与验收要求；控制器只机械维护 `state.json`、`events.jsonl`，并为审查场景实现 `build-review-brief`。
+- 语义判断由 Codex 完成。普通委派先让目标代理读取 `task.md` 指向的批准合同，再由主协调器在平台真实派遣 prompt 中显式给出 `assignment`、`read_paths`、`write_paths` 与验收要求；控制器只机械维护 `state.json`、`events.jsonl`，并为审查场景实现 `build-review-brief`。
 - 无历史派发由平台真实参数提供，并绑定真实 `platform_agent_id`、`brief_kind` 与 `brief_sha256`。
 - workspace 层只检查并记录 checkout、branch、`HEAD`、dirty paths 与 write overlap；不自动处理 worktree 或用户既有改动。
-- finding 使用稳定 `finding_id`，返修回原实现者并由原 reviewer 复审；第三轮实际修复后仍 open 则进入 `blocked` 或人工裁决。
-- 完成前必须由身份独立的 reviewer 对最新 `HEAD` 或最终变更哈希给出 `final/pass`。
+- finding 使用稳定 ID，revision 3 保存发现者复现、根因、修复方案、失败证明及文档同步结论；代码修复固定由原整合责任者承担，review finding 回原 reviewer 范围复审，验收 finding 回同一验收者范围复验；第三轮实际修复后仍 open 则 blocked。历史记录保留当时事实；当前包不兼容旧合同。
+- 当前通用流程和普通返工、skill 黑盒出口统一见 [GTO 流程真源](../skills/global-task-orchestrator/references/workflow.md)；字段和可用接口核对同候选 schema 与实际 CLI，在途任务使用其冻结运行版本和同一合同；当前包不兼容旧合同。
+- 旧 revision 2 活动任务沿用其冻结的候选、预算和终审合同，不批量迁移；当前字段与兼容边界见 GTO 包内 schema 和状态说明。派发容量与身份复用见 SUBAGENT_GOVERNANCE.md，不推定等待或已完成代理的线程占用。
 
 ## 历史证据边界
 
 - `docs/ai/runs/*`、已冻结旧任务文档与 sandbox 夹具属于历史证据，不代表当前合同。
 - 活跃入口、长期合同与新生成索引必须遵守本文；历史证据不做机械替换。
+
+## GTO revision 3
+
+- 当前通用流程和普通返工、skill 黑盒出口统一见 [GTO 流程真源](../skills/global-task-orchestrator/references/workflow.md)；字段和可用接口核对同候选 schema 与实际 CLI，在途任务使用其冻结运行版本和同一合同；当前包不兼容旧合同。
+
+## 并发任务、固定运行版本与能力证明
+
+当前操作合同见 [GTO 运行与证据](../skills/global-task-orchestrator/references/runtime-evidence.md)。普通流程职责维护于全局 AGENTS 模板；技能开关唯一声明在 `config/ai/skill-policy.json`，由 `scripts/configure-skill-policy.py` 更新实际 path 配置，插件升级后重新检查路径并用新会话验明。方法技能不能接管流程。磁盘配置、CLI 快照验证和真实新会话加载分别报告。
+
+## 范围复验变更入口
+
+现行行为与版本边界见[按验收点保留结果与范围复验](../skills/global-task-orchestrator/references/acceptance-points.md)。首次验收可分范围登记；保留任意历史轮次中仍有效的结果，最终检查完整覆盖，不要求额外整轮全绿。普通任务使用简洁清单，只有显式选择 GTO 才使用控制面。
+
+## 恢复与登记精简
+
+新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](../skills/global-task-orchestrator/references/streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。

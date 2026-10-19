@@ -4,8 +4,7 @@
 
 当前关键模板：
 
-- `task-state.example.json`
-- `orchestrator/state.template.json`
+- GTO 合同唯一示例：[revision-3-contract.example.json](../skills/global-task-orchestrator/references/revision-3-contract.example.json)，经同包 init 生成六工件
 - `verification-contract.example.json`
 - `task-summary.example.md`
 - `task-events.example.jsonl`
@@ -15,12 +14,12 @@
 
 其中：
 
-- `task-state.example.json` 对应唯一真源 `state.json`
+- GTO 的持久 state 由公开 init 从合同生成，不手工维护完整 state 模板
 - `verification-contract.example.json` 对应长任务或修复任务进入实现/复审前的最小 `verification_contract` 骨架
 - `task-summary.example.md` 对应人读摘要 `task.md`
 - `task-events.example.jsonl` 对应必备事件流 `events.jsonl`
 
-六工件必须按同一 `task_id` 配套维护：
+仅显式 GTO 任务的六工件必须按同一 `task_id` 配套维护；普通项目接入条件见 [项目模板](../docs/PROJECT_TEMPLATE.md)：
 
 - `docs/ai/tasks/<task-id>/state.json`
 - `docs/ai/tasks/<task-id>/task.md`
@@ -29,7 +28,7 @@
 - `docs/tasks/<task-id>/execution.md`
 - `docs/tasks/<task-id>/acceptance.md`
 
-状态模板固定使用 `version=3`，并包含六要点、`workspace`、`review_policy` 与 `verification_contract`。从仓库根校验任务时使用：
+新任务字段以 GTO 包内 schema 为准，six_points 为唯一可编辑合同输入，镜像由 init 派生。从仓库根校验任务时使用：
 
 ```bash
 python3 skills/global-task-orchestrator/scripts/orchestrator_ctl.py \

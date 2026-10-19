@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "fixtures": {
+    "README.md": "7e7e6dbd8a8428819fad294d3d57289a29ec13a6c4db6ece2ecc9536b1c56959",
+    "entry-precision/project/modules/order_cli/main.py": "4027961ec41ff8679f02bb6a33cd2626047de289e16b8e6422dc756c58162297",
+    "entry-precision/prompt.txt": "27a9b143c18ceda56438e1bf7ded65fd5d93023c7f1ae4e85442d7d7b05ca801",
+    "normal/project/.gitignore": "b541e4884ccac4e7e97fb3251adbf46e9ffe33e5fd24270fee424b50b02e83f5",
+    "normal/project/AGENTS.md": "2538e9c40b367fb040f2e776f19f96171bb41e6e436382671d875fcc9e048c43",
+    "normal/project/docs/modules/orders/contract/orders.md": "02170e81ba7f6c618979b0d33501711cc7ca16ed8e56caf14f569775e5f7f630",
+    "normal/project/docs/modules/orders/delivery/engineering/run.md": "bdc9d0e5adfe26ec529de7235c285bf036706588f81fce3b4f238310e380cc2b",
+    "normal/project/modules/order_cli/main.py": "aee5f9a0d6c00a289de101107ce040b041de2f5d5a0e79cebe471f46a8f12951",
+    "normal/project/modules/orders/domain.py": "37a6425eef31e8e71f40bf69a7e10a7fdc8931bdedf0b41be05a941054559448",
+    "normal/project/tests/test_orders.py": "ab8f3e631806eb2ca5c2a6e79f8d081fed1036eb7f6a15496ec71cb2747ccc2c",
+    "normal/prompt.txt": "f570081f7dc7164db2eed347ebb11d711f737c2fad8b289b3d4c01daa72aea19",
+    "platform-probe.txt": "029dfa1d69ec0ff0134dcab4f118bed92f860e96ea286eb10082e10a13a953b3",
+    "project-config/project/config/order-policy.example.json": "db820bb85fe63b2e3f606364155311e87f24ed58c012a90bf871ef200a01ad07",
+    "project-config/project/docs/modules/orders/delivery/engineering/run.md": "71a243dd4df08abc2bef5103a7ebdc1bd00b7651d073ee1fcdfc877515cd98c6",
+    "project-config/project/modules/order_cli/main.py": "fc1307310cfc8922d14b428879ca9ff53135aea0e08db86c843ba91f9206b61c",
+    "project-config/prompt.txt": "af5e29de79d83c4bb74c66f8672952bb69c2f6003e5462e76ad35de394698f23",
+    "review-boundaries/project/docs/modules/orders/contract/orders.md": "e15184f898eafe3105558108396e04e4effcfc89d41cb588b677b8b5e985a3f8",
+    "review-boundaries/project/modules/order_cli/main.py": "048bf4783aa33e39e4c4021c16748a8b0cd44b88b141dafd2db83c603808cdf8",
+    "review-boundaries/project/modules/orders/domain.py": "7415b7a347ac7ea2f23d08d87aa53fa419bbfa58e714bccab4b0a707343c7118",
+    "review-boundaries/prompt.txt": "41e7e2cc1df806dee652ad92dfe9571f67b08ea41b752cb984d8303f5299dd83"
+  }
+}

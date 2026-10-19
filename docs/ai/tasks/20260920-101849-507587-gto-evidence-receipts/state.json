@@ -1,0 +1,2295 @@
+{
+  "six_points": {
+    "do": "修复GTO验收证据登记与关闭脱节：受控追加终态证据引用、提前检查、单一证据真源，并发布后恢复原聊天任务。",
+    "do_not": [
+      "不改原任务已完成结果、候选、验收结论或失败历史，不降低关闭门槛。",
+      "不修改业务产品或受保护模块，不新跑AI场景，不提交推送Git。",
+      "不覆盖或清理当前harness既有未提交改动。"
+    ],
+    "change_areas": [
+      "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+      "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+      "tests/harness/test_gto_verification_evidence.py",
+      "tests/harness/test_gto_verification_evidence_acceptance.py",
+      "skills/global-task-orchestrator/SKILL.md",
+      "skills/global-task-orchestrator/references/state-schema.md",
+      "skills/global-task-orchestrator/references/usage-modes.md",
+      "skills/global-task-orchestrator/references/revision-3-results.example.json"
+    ],
+    "implementation": "独立文档和测试先行，原实现者最小修复及整合，独立完整审查后只发布GTO；真实CLI验证合法补录与拒绝边界，保留原任务同一state与真实身份。",
+    "acceptance": [
+      "EVIDENCE-01：原作者可追加合同要求的缺失证据引用，原终态结果和历史保持不变；来源、身份、哈希、候选、引用错误均拒绝且零修改。",
+      "GATE-01：验收登记时核对所属证据关联，CLOSE前汇总所有必需证据；引用已登记证据，无业务键硬编码或第二份事实。",
+      "RELEASE-01：独立测试和审查通过，受控同步GTO安装副本与receipt一致，安装版CLI验收与幂等同步通过。"
+    ],
+    "risks": [
+      "保护harness既有dirty基线；只修改获批GTO范围。",
+      "不能把补录当作重验或授权失败结果通过；非法请求不得改变六工件。"
+    ]
+  },
+  "approval": {
+    "status": "approved",
+    "approved_by": "user",
+    "contract_sha256": "7f421823e7ba05126e9d6e88aa090ea23c8a780d78018280c9f55e8b81ad0824",
+    "approved_at": "2026-09-20T02:20:11.126539Z"
+  },
+  "decisions": [
+    "独立文档和测试先行，原实现者最小修复及整合，独立完整审查后只发布GTO；真实CLI验证合法补录与拒绝边界，保留原任务同一state与真实身份。",
+    "REQ-01｜受控追加证据且保护历史、身份和候选。｜落实：DOC-001、TEST-001、WORK-001、INTEGRATE-001｜验收：EVIDENCE-01",
+    "REQ-02｜提前检查与单一证据引用。｜落实：DOC-001、TEST-001、WORK-001、INTEGRATE-001｜验收：GATE-01",
+    "REQ-03｜独立验证与受控发布。｜落实：INTEGRATE-001、REVIEW-001、ACCEPT-001、CLOSE-001｜验收：RELEASE-01"
+  ],
+  "verification_contract": {
+    "minimal_repro": "隔离真实CLI任务在验收完成后缺少证据索引，终态不能补录；独立目标测试精确Red。",
+    "hit_proof": "追加真实来源引用后原结果哈希保持不变且finalize成功；非法来源及提前门禁各自实际命中。",
+    "diagnostic_checks": [
+      "核对安装与源码基线哈希及原任务只读事实。"
+    ],
+    "acceptance_checks": [
+      "EVIDENCE-01：原作者可追加合同要求的缺失证据引用，原终态结果和历史保持不变；来源、身份、哈希、候选、引用错误均拒绝且零修改。",
+      "GATE-01：验收登记时核对所属证据关联，CLOSE前汇总所有必需证据；引用已登记证据，无业务键硬编码或第二份事实。",
+      "RELEASE-01：独立测试和审查通过，受控同步GTO安装副本与receipt一致，安装版CLI验收与幂等同步通过。"
+    ],
+    "non_goals": [
+      "不改原任务已完成结果、候选、验收结论或失败历史，不降低关闭门槛。",
+      "不修改业务产品或受保护模块，不新跑AI场景，不提交推送Git。",
+      "不覆盖或清理当前harness既有未提交改动。"
+    ],
+    "review_evidence": [
+      "repro_before_fix",
+      "pass_after_fix",
+      "hit_proof_observed"
+    ]
+  },
+  "subtasks": [
+    {
+      "subtask_id": "DOC-001",
+      "title": "证据补录与提前检查合同",
+      "role": "doc-curator",
+      "stage": "work",
+      "status": "completed",
+      "dependencies": [],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "write_paths": [
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "assignment": {
+        "goal": "先明确已批准行为和边界，不提前指定独立测试答案；最终接口与独立测试协调后同步。",
+        "must_include": [
+          "只改获批正式文档，绑定真实身份，保留历史。"
+        ],
+        "verification": [
+          "链接与合同范围核对。"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "doc-curator",
+        "platform_agent_id": "/root/doc_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "88f394ad0053f7a72c736bf8adf30c24e4cbf0144d6d1099275b3298b30f470c",
+        "brief_path": ".tmp/gto/20260920-101849-507587-gto-evidence-receipts/brief-DOC-001.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "在四个 GTO 正式入口增量冻结终态证据补登记与提前门禁的目标合同：原作者绑定源结果 canonical hash 和当前候选追加既有证据索引；昂贵验收模板按 ordinary/blackbox 声明唯一归属的通用 evidence key；验收登记与 CLOSE 前分别检查所属和完整性。文档明确 controller/schema 尚待独立测试驱动实现，未改写既有结果语义。",
+        "changed_files": [
+          "skills/global-task-orchestrator/SKILL.md",
+          "skills/global-task-orchestrator/references/state-schema.md",
+          "skills/global-task-orchestrator/references/usage-modes.md",
+          "skills/global-task-orchestrator/references/revision-3-results.example.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "PYTHONDONTWRITEBYTECODE=1 python3 -B：检查四个入口的行为合同关键词、JSON 示例可解析及 receipt 八字段集合",
+            "git diff --check -- skills/global-task-orchestrator/SKILL.md skills/global-task-orchestrator/references/state-schema.md skills/global-task-orchestrator/references/usage-modes.md skills/global-task-orchestrator/references/revision-3-results.example.json",
+            "安装版 Draft 2020-12 $defs/result schema 校验 result-DOC-001.json"
+          ],
+          "result": "行为合同检查 PASS，revision-3-results.example.json 解析 PASS，独立 receipt 八字段与 tester 冻结格式一致；git diff --check exit 0。原始输出见 .artifacts/20260920-101849-507587-gto-evidence-receipts/DOC-001/documentation-contract.log 与 git-diff-check.log。"
+        },
+        "deviations": [
+          "首次文档草稿只冻结行为和拒绝边界；独立 tester 随后给出最小字段格式后，同一 DOC-001 在提交结果前将四个入口收敛到该格式，未提前修改 controller、schema 或测试。",
+          "brief 提到 documentation_contract 检查；当前安装 controller 的 _required_checks 对非产品 work 机械要求 regression，且 schema purpose 枚举不含 documentation_contract，因此以 regression purpose 承载实际文档合同检查。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "本结果只定义待实现规范；record-verification-evidence、required_verification_evidence 和 result.review_evidence 尚不能视为当前 CLI/schema 能力。",
+          "独立测试、controller/schema 实现及安装版真实 CLI 验收仍由后续 TEST-001、WORK-001、INTEGRATE-001、REVIEW-001 和 ACCEPT-001 完成。"
+        ],
+        "follow_up": [
+          "TEST-001 按本合同冻结合法追加、幂等、冲突与零修改拒绝边界；实现后同步核对 controller、schema、四个文档入口和安装副本。"
+        ],
+        "written_by": "/root/doc_001",
+        "written_role": "doc-curator",
+        "checks": [
+          {
+            "purpose": "regression",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 -B <DOC-001 documentation contract checker>",
+            "scope": [
+              "skills/global-task-orchestrator/SKILL.md",
+              "skills/global-task-orchestrator/references/state-schema.md",
+              "skills/global-task-orchestrator/references/usage-modes.md",
+              "skills/global-task-orchestrator/references/revision-3-results.example.json"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/DOC-001/documentation-contract.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/DOC-001/git-diff-check.log"
+            ]
+          }
+        ],
+        "tested_candidate_fingerprint": "2ef2afc42bfdff66cd3721caf97fe657da05414af195798d749be2697af73f9e"
+      }
+    },
+    {
+      "subtask_id": "TEST-001",
+      "title": "Independent initial tests",
+      "role": "tester",
+      "stage": "work",
+      "status": "completed",
+      "dependencies": [
+        "DOC-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "write_paths": [
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py"
+      ],
+      "assignment": {
+        "goal": "独立冻结行为测试与真实CLI验收，先最小Red，不写实现。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "tester",
+        "platform_agent_id": "/root/test_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "372faebb172a401fda02efe2cc1bc3f9cdb56f488ed204287f04f73234d0ab86",
+        "brief_path": ".tmp/gto/20260920-101849-507587-gto-evidence-receipts/brief-TEST-001.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "独立冻结了GTO终态验收证据补索引、验收登记提前校验和CLOSE全量门禁的12个行为节点，并取得两个最小预期Red；未修改实现。",
+        "changed_files": [
+          "tests/harness/test_gto_verification_evidence.py",
+          "tests/harness/test_gto_verification_evidence_acceptance.py"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence.VerificationEvidenceReceiptTest.test_original_acceptor_appends_only_a_reference_and_exact_replay_is_idempotent",
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_assigned_key_missing_is_rejected_during_acceptance_without_any_write",
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -c <AST-and-unittest-collection-check>"
+          ],
+          "result": "两个最小节点均以预期exit=1命中缺失action/schema；两模块AST成功并收集12个测试。"
+        },
+        "deviations": [
+          "首次两条测试启动命令分别误用了wsl.exe shell参数和仓库包导入路径，均按CFM record/query/success闭环；它们未计入Red。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "安装副本尚未实现或同步，后续ACCEPT必须用GTO_CONTROLLER_UNDER_TEST显式指向安装版复跑同一CLI合同。"
+        ],
+        "follow_up": [
+          "原实现者仅实现公开action、schema、归属校验、receipt消费和CLOSE门禁，不修改或放宽独立测试。"
+        ],
+        "written_by": "/root/test_001",
+        "written_role": "tester",
+        "checks": [
+          {
+            "purpose": "red",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence.VerificationEvidenceReceiptTest.test_original_acceptor_appends_only_a_reference_and_exact_replay_is_idempotent",
+            "scope": [
+              "tests/harness/test_gto_verification_evidence.py"
+            ],
+            "exit_code": 1,
+            "expected_exit_code": 1,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/TEST-001/minimal-red.log"
+            ]
+          },
+          {
+            "purpose": "red",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_assigned_key_missing_is_rejected_during_acceptance_without_any_write",
+            "scope": [
+              "tests/harness/test_gto_verification_evidence.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 1,
+            "expected_exit_code": 1,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/TEST-001/assignment-red.log"
+            ]
+          }
+        ],
+        "review_evidence": {
+          "repro_before_fix": ".artifacts/20260920-101849-507587-gto-evidence-receipts/TEST-001/minimal-red.log",
+          "hit_proof_observed": ".artifacts/20260920-101849-507587-gto-evidence-receipts/TEST-001/assignment-red.log"
+        },
+        "tested_candidate_fingerprint": "580797887a47cf8e5c49b5996ee5c203593d6b675dec69098a77cddf93aa7d41"
+      }
+    },
+    {
+      "subtask_id": "WORK-001",
+      "title": "work",
+      "role": "backend-implementer",
+      "stage": "work",
+      "status": "completed",
+      "dependencies": [
+        "TEST-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "write_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
+      ],
+      "assignment": {
+        "goal": "只按独立行为测试最小修复controller/schema，保留旧结果与门禁，真实Red/Green。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/implementer",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "f0b9b1fc3b7c0cfd17a3bbf15a5377cb27613d279742a3389d25fcd2eaf2cc76",
+        "brief_path": ".tmp/gto/20260920-101849-507587-gto-evidence-receipts/brief-WORK-001.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "在既有dirty基线上仅修改GTO controller与canonical state schema：新增原验收作者可追加的终态证据receipt、严格身份/结果哈希/候选/仓内已登记文件校验与幂等冲突语义；新增ordinary/blackbox证据键归属及验收登记、CLOSE双门禁。历史receipt保留但不贡献新candidate，preparation与旧candidate的直接验收key也不贡献当前CLOSE证据。",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence test_gto_verification_evidence_acceptance",
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence_acceptance",
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_workflow.WorkflowTest.test_blackbox_published_results_complete_cli_sequence test_gto_workflow.WorkflowTest.test_scoped_acceptance_repair_and_wording_closeout_cli test_gto_workflow.WorkflowTest.test_closeout_cannot_write_substantive_formal_documents test_control_plane.ControlPlaneContractTest.test_set_phase_reuses_verification_workspace_and_review_evidence_gates test_control_plane.ControlPlaneContractTest.test_final_documentation_and_finalize_require_current_candidate_evidence",
+            "git diff --check -- skills/global-task-orchestrator/scripts/orchestrator_ctl.py skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
+          ],
+          "result": "冻结15节点通过；最后一处直接验收来源过滤后受影响7节点通过；5项workflow/control-plane相关回归通过；历史receipt与直接证据来源诊断、AST/schema和diff检查通过。controller SHA256=2ca7bb0bc3d0c8a03d4e1741ec61bcd9cd1e62cb6ee787a334538db5cdcbf160，schema SHA256=b783498d4a0307b01c799f59007b611ce4b9ca80e02f079e43eb4550d9f60ee8。"
+        },
+        "deviations": [
+          "原冻结12节点中的documentation-only closeout夹具write scope与既有controller门禁冲突；原tester纠正夹具并补3项边界证明，最新15节点测试SHA分别为e31c168cab76c19208b53150ef435e46cd64541454b215a6d59726deb498f32f与aa0a541b66aa2ff954a716778d9fb318016e9cee9154239bc3cc63cdfbd0e208，本实现者未改测试。",
+          "第一次12节点组合失败日志的原tee文件曾被后续Green覆盖；已从Codex持久rollout的原始CommandExecution.aggregated_output逐字恢复为first-full-failure.log，并另存恢复来源元数据。",
+          "既有CoordinatorBlockingTest在setUp因合同JSON不在消费者.tmp被拒；baseline controller/schema对照同样失败，未触达本轮逻辑，因此未放宽路径安全门禁或修改旧测试。CFM已record/query，因不再重试该旧夹具而未宣称解决。",
+          "15节点全绿后仅追加直接terminal evidence的current-candidate/non-preparation/pass来源过滤；其受影响acceptance/CLOSE模块7节点重新全绿，并以独立诊断证明preparation与历史candidate不计入。",
+          "首次result schema校验被PowerShell展开且尾随sha256sum掩盖退出码；未计入完成检查，已按CFM record/query/success后用Python内构造schema关键字和pipefail重跑，source/installed双schema均通过。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "源码尚未由独立Reviewer审查，也未同步到安装副本；发布与安装版真实CLI验收属于后续INTEGRATE/REVIEW/ACCEPT。",
+          "旧CoordinatorBlockingTest夹具路径不兼容仍是仓库既有测试债务；本轮新blocked receipt节点已经真实CLI通过。"
+        ],
+        "follow_up": [
+          "由/root以同一/root/implementer身份正式绑定INTEGRATE-001，只读核对当前源码哈希、15节点与相关回归证据；不要在整合前发布安装副本。",
+          "独立Review重点复核receipt历史自洽与当前候选消费分离、额外acceptance review_evidence来源校验、CLOSE双门禁及非法请求零写入。"
+        ],
+        "written_by": "/root/implementer",
+        "written_role": "backend-implementer",
+        "checks": [
+          {
+            "purpose": "red",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence.VerificationEvidenceReceiptTest.test_original_acceptor_appends_only_a_reference_and_exact_replay_is_idempotent",
+            "scope": [
+              "tests/harness/test_gto_verification_evidence.py"
+            ],
+            "exit_code": 1,
+            "expected_exit_code": 1,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/minimal-red.log"
+            ]
+          },
+          {
+            "purpose": "red",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_assigned_key_missing_is_rejected_during_acceptance_without_any_write",
+            "scope": [
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 1,
+            "expected_exit_code": 1,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/assignment-red.log"
+            ]
+          },
+          {
+            "purpose": "green",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence test_gto_verification_evidence_acceptance",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_verification_evidence.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/final-15-green.log"
+            ]
+          },
+          {
+            "purpose": "green",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence_acceptance",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/final-acceptance-source-green.log"
+            ]
+          },
+          {
+            "purpose": "regression",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_workflow.WorkflowTest.test_blackbox_published_results_complete_cli_sequence test_gto_workflow.WorkflowTest.test_scoped_acceptance_repair_and_wording_closeout_cli test_gto_workflow.WorkflowTest.test_closeout_cannot_write_substantive_formal_documents test_control_plane.ControlPlaneContractTest.test_set_phase_reuses_verification_workspace_and_review_evidence_gates test_control_plane.ControlPlaneContractTest.test_final_documentation_and_finalize_require_current_candidate_evidence",
+            "scope": [
+              "tests/harness/test_gto_workflow.py",
+              "tests/harness/test_control_plane.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/related-regression-five-green.log"
+            ]
+          }
+        ],
+        "review_evidence": {
+          "repro_before_fix": ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/minimal-red.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/assignment-red.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/first-full-failure.log",
+          "pass_after_fix": ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/final-15-green.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/final-acceptance-source-green.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/related-regression-five-green.log",
+          "hit_proof_observed": ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/historical-receipt-diagnostic.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/direct-evidence-source-diagnostic.log"
+        },
+        "tested_candidate_fingerprint": "b782a24282b788af97b299eff93a45cec9e1681772a91ddbcd32be2d8558b5d4"
+      }
+    },
+    {
+      "subtask_id": "INTEGRATE-001",
+      "title": "integration",
+      "role": "backend-implementer",
+      "stage": "integration",
+      "status": "completed",
+      "dependencies": [
+        "WORK-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "write_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
+      ],
+      "assignment": {
+        "goal": "原实现者整合证据追加及提前门禁，核对全部文档与回归，不改独立测试。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/implementer",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "d34ad6dfaf61dce0befae09c323dae4425abfbea0b7a1a75a800b3858972fecf",
+        "brief_path": ".tmp/gto/20260920-101849-507587-gto-evidence-receipts/brief-INTEGRATE-001.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "只读整合核对了controller、canonical schema、两份独立测试和四份正式合同共8条candidate input；全部逐文件SHA与已登记DOC/TEST修正/WORK事实一致。source controller canonical inventory得到8 records和tested candidate fingerprint b782a24282b788af97b299eff93a45cec9e1681772a91ddbcd32be2d8558b5d4；本整合未修改交付文件。",
+        "changed_files": [],
+        "planned_files_not_changed": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
+        ],
+        "verification": {
+          "commands": [
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence test_gto_verification_evidence_acceptance",
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence_acceptance",
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_workflow.WorkflowTest.test_blackbox_published_results_complete_cli_sequence test_gto_workflow.WorkflowTest.test_scoped_acceptance_repair_and_wording_closeout_cli test_gto_workflow.WorkflowTest.test_closeout_cannot_write_substantive_formal_documents test_control_plane.ControlPlaneContractTest.test_set_phase_reuses_verification_workspace_and_review_evidence_gates test_control_plane.ControlPlaneContractTest.test_final_documentation_and_finalize_require_current_candidate_evidence",
+            "git diff --check -- skills/global-task-orchestrator/scripts/orchestrator_ctl.py skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json tests/harness/test_gto_verification_evidence.py tests/harness/test_gto_verification_evidence_acceptance.py skills/global-task-orchestrator/SKILL.md skills/global-task-orchestrator/references/state-schema.md skills/global-task-orchestrator/references/usage-modes.md skills/global-task-orchestrator/references/revision-3-results.example.json"
+          ],
+          "result": "复用前逐文件核对稳定哈希：15节点、最终来源过滤后的7节点、5项关键回归均为真实exit0；本阶段用source controller candidate inventory核对8 records及coverage inputs，八路径合同/CLI/schema关键字段与diff检查通过。未重跑长测试，未执行安装发布或真实CLI验收。"
+        },
+        "deviations": [
+          "TEST-001历史回执仍记录最初12节点；原tester通过test-fixture-correction.json保留历史并另行冻结修正后的15节点SHA，本整合按当前8路径和修正证据核对，未把测试作者改动写成本整合changed_files。",
+          "第一次12节点组合失败日志曾被后续Green覆盖；WORK阶段已从Codex持久rollout原始CommandExecution.aggregated_output逐字恢复并保存恢复来源元数据，本整合复核该披露与文件存在性。",
+          "旧CoordinatorBlockingTest在setUp的消费者.tmp路径不兼容由baseline controller/schema同样复现；该失败未触达本轮逻辑，不列为完成check。新冻结blocked receipt节点已包含在15节点Green。",
+          "本阶段第一次静态核对因证据目录未创建且PowerShell展开bash变量失败，已按CFM record/query/success后分开重跑；失败命令未列为完成check。",
+          "四份正式合同仍保留实现前的待实现措辞；按brief由最终CLOSE在安装验收后同步现行事实，本整合不越权修改文档。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "候选尚未独立Review，也未同步安装副本或完成安装版真实CLI验收；当前结果只证明source候选整合一致。"
+        ],
+        "follow_up": [
+          "由root登记本整合并freeze当前candidate，随后交独立Reviewer核对非法请求原子性、历史receipt/current candidate分离及文档合同一致性。",
+          "Review通过后才按正式sync/doctor链发布，并由独立acceptor执行安装版真实CLI验收。"
+        ],
+        "written_by": "/root/implementer",
+        "written_role": "backend-implementer",
+        "checks": [
+          {
+            "purpose": "regression",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence test_gto_verification_evidence_acceptance",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_verification_evidence.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/final-15-green.log"
+            ]
+          },
+          {
+            "purpose": "regression",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_verification_evidence_acceptance",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/final-acceptance-source-green.log"
+            ]
+          },
+          {
+            "purpose": "regression",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest test_gto_workflow.WorkflowTest.test_blackbox_published_results_complete_cli_sequence test_gto_workflow.WorkflowTest.test_scoped_acceptance_repair_and_wording_closeout_cli test_gto_workflow.WorkflowTest.test_closeout_cannot_write_substantive_formal_documents test_control_plane.ControlPlaneContractTest.test_set_phase_reuses_verification_workspace_and_review_evidence_gates test_control_plane.ControlPlaneContractTest.test_final_documentation_and_finalize_require_current_candidate_evidence",
+            "scope": [
+              "tests/harness/test_gto_workflow.py",
+              "tests/harness/test_control_plane.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/related-regression-five-green.log"
+            ]
+          },
+          {
+            "purpose": "diagnostic",
+            "command": "git diff --check -- skills/global-task-orchestrator/scripts/orchestrator_ctl.py skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json tests/harness/test_gto_verification_evidence.py tests/harness/test_gto_verification_evidence_acceptance.py skills/global-task-orchestrator/SKILL.md skills/global-task-orchestrator/references/state-schema.md skills/global-task-orchestrator/references/usage-modes.md skills/global-task-orchestrator/references/revision-3-results.example.json",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_verification_evidence.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py",
+              "skills/global-task-orchestrator/SKILL.md",
+              "skills/global-task-orchestrator/references/state-schema.md",
+              "skills/global-task-orchestrator/references/usage-modes.md",
+              "skills/global-task-orchestrator/references/revision-3-results.example.json"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/INTEGRATE-001/candidate-contract-check.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/INTEGRATE-001/eight-path-diff-check.log"
+            ]
+          }
+        ],
+        "review_evidence": {
+          "repro_before_fix": ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/minimal-red.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/assignment-red.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/first-full-failure.log",
+          "pass_after_fix": ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/final-15-green.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/final-acceptance-source-green.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/related-regression-five-green.log",
+          "hit_proof_observed": ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/historical-receipt-diagnostic.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001/direct-evidence-source-diagnostic.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/INTEGRATE-001/candidate-contract-check.log"
+        },
+        "tested_candidate_fingerprint": "b782a24282b788af97b299eff93a45cec9e1681772a91ddbcd32be2d8558b5d4",
+        "integration": {
+          "summary": "当前source候选的controller/schema实现、独立测试与四份正式合同覆盖同一receipt八字段、assignment归属、验收登记和CLOSE门禁；本轮只读核对8条candidate input，未修改正式文档。",
+          "document_paths": [
+            "skills/global-task-orchestrator/SKILL.md",
+            "skills/global-task-orchestrator/references/state-schema.md",
+            "skills/global-task-orchestrator/references/usage-modes.md",
+            "skills/global-task-orchestrator/references/revision-3-results.example.json"
+          ]
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-001",
+      "title": "pre_acceptance_review",
+      "role": "reviewer",
+      "stage": "pre_acceptance_review",
+      "status": "completed",
+      "dependencies": [
+        "INTEGRATE-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "write_paths": [
+        "tests/harness/test_gto_verification_evidence_acceptance.py"
+      ],
+      "assignment": {
+        "goal": "独立完整审查身份、引用、候选、原子拒绝、历史不可变及全部文档，发现问题先证明。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/gto_reviewer",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "63d3b29fd9edac7bfeb4a8ff95535516f883e8b76bd239d9ba7ff3586907348d",
+        "brief_path": ".tmp/gto/20260920-101849-507587-gto-evidence-receipts/brief-REVIEW-001.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "task review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [
+          "tests/harness/test_gto_verification_evidence_acceptance.py"
+        ],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/gto_reviewer",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "task",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "/root/gto_reviewer",
+          "reviewed_candidate_fingerprint": "cc4db314fe1edbdb74e53b8de7eebc18f678a2a7ab6291ab4092a9b90058cd0c",
+          "source_candidate_fingerprint": "b782a24282b788af97b299eff93a45cec9e1681772a91ddbcd32be2d8558b5d4",
+          "covered_paths": [
+            "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+            "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+            "tests/harness/test_gto_verification_evidence.py",
+            "tests/harness/test_gto_verification_evidence_acceptance.py",
+            "skills/global-task-orchestrator/SKILL.md",
+            "skills/global-task-orchestrator/references/state-schema.md",
+            "skills/global-task-orchestrator/references/usage-modes.md",
+            "skills/global-task-orchestrator/references/revision-3-results.example.json"
+          ],
+          "findings": [
+            {
+              "finding_id": "REVIEW-EVIDENCE-OWNER-001",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_gto_verification_evidence_acceptance.py"
+              ],
+              "summary": "证据键唯一归属未用于登记或补录校验：当前 attempt 可登记其他 kind 或其他 template 专属 key，形成错误来源索引。",
+              "evidence": ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/ownership-red.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/template-ownership-red.log",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/implementer"
+              }
+            }
+          ],
+          "evidence_refs": [
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/ownership-red.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/template-ownership-red.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/independent-cli-green.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/static-review.log"
+          ],
+          "checks_completed": [
+            "8路径相对冻结baseline完整代码、schema、测试质量与正式合同审查",
+            "本人4条归属最小Red及3条真实CLI Green，实际退出码与原始输出已保存",
+            "候选、身份、引用、历史、blocked和CLOSE/finalize调用链核查；旧夹具及恢复日志证据如实区分"
+          ],
+          "checks_not_run": [
+            "安装版发布后验收尚未执行，须修复并复审后由独立acceptor完成",
+            "未重复全部15节点或全仓回归；复用WORK已登记结果并对高风险路径本人执行",
+            "未重新访问持久rollout验证恢复件逐字来源；已核对恢复元数据、日志内容及其已披露SHA"
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "REVIEW-EVIDENCE-OWNER-001"
+            ],
+            "fix_delta_sha256": "1d8fc6ceb1f94c6326d6d5483d258fcb2e179e9869325b245d105c2219bf69fd",
+            "paths": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/ownership-red.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/template-ownership-red.log"
+            ]
+          },
+          "usage_evidence": [
+            {
+              "written_by": "/root/gto_reviewer",
+              "environment": "wsl",
+              "tool": "CLI",
+              "entry": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind",
+              "scope": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_gto_verification_evidence_acceptance.py"
+              ],
+              "result": "2个预期Red真实exit1：两个公开CLI均错误exit0/ok=true接受其他kind专属key；另两个template专属key Red也exit1；3个独立合法/拒绝/blocked/CLOSE节点exit0。",
+              "evidence_refs": [
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/ownership-red.log",
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/template-ownership-red.log",
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/independent-cli-green.log"
+              ],
+              "ui_applicability": "not_applicable",
+              "ui_not_applicable_reason": "GTO为本地CLI/state控制器，本修复无网页或GUI入口。"
+            }
+          ],
+          "coverage_snapshot": {
+            "skills/global-task-orchestrator/scripts/orchestrator_ctl.py": "7b9d404d5a9c959f133a34f07cdb2a0a951ccd53fb2027b2144afb8080c7ebc1",
+            "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json": "3a445dde2e31cb08fe8aa6fe549849ef7ca9e3c8c91e31c942b3c3d3d5d2871d",
+            "tests/harness/test_gto_verification_evidence.py": "c807e897b5e1802a04ab20a58d538bbbfb353f41844185126860a7b716dec3d3",
+            "tests/harness/test_gto_verification_evidence_acceptance.py": "e785f0bfd7a0c419666ed0b84c661f789bd1f61f182ae8efb02e98539f5dd51c",
+            "skills/global-task-orchestrator/SKILL.md": "5c71f21c55490c662542a9b926063cfe3bc0ddc25f6722d5408acec2031de4e9",
+            "skills/global-task-orchestrator/references/state-schema.md": "505c3ac357f017cb03e29db9abbc24bcd3fff9f6fe66b59dfd6f6a7a6f0af4f1",
+            "skills/global-task-orchestrator/references/usage-modes.md": "6393e14ebd498a8d9202f9055cf56add70a3c05eb83923a708937385f4f1e518",
+            "skills/global-task-orchestrator/references/revision-3-results.example.json": "1863ed8fdd6621780b095d63e8a6b67fc807d281d66bc87d5cb367c4a842fa46"
+          },
+          "coverage_inputs_sha256": "a47a9a774cb179bfd248c42bfe4d1d7f7756f7b27ede50a8d74d84842ec64fc7"
+        }
+      }
+    },
+    {
+      "subtask_id": "ACCEPT-001",
+      "title": "expensive_acceptance",
+      "role": "tester",
+      "stage": "expensive_acceptance",
+      "status": "ready",
+      "dependencies": [
+        "REVIEW-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "独立安装版真实CLI验收全部三个条目；核对受控发布和本地拒绝边界，无模型调用。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      }
+    },
+    {
+      "subtask_id": "CLOSE-001",
+      "title": "final_documentation",
+      "role": "doc-curator",
+      "stage": "final_documentation",
+      "status": "completed",
+      "dependencies": [
+        "ACCEPT-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "write_paths": [
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "assignment": {
+        "goal": "核对正式文档与已验收事实，纯文字收尾；root维护六工件。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "doc-curator",
+        "platform_agent_id": "/root/doc_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "7e515b0e8125fe0e4115392f4600754c82ba63d6a1972bd313d752209f169a67",
+        "brief_path": ".tmp/gto/20260920-101849-507587-gto-evidence-receipts/brief-CLOSE-001.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "已将四个 GTO 正式入口收敛到同一候选已验收的终态证据补登记接口：限定通过的非 preparation 昂贵验收来源，明确八字段 receipt、双重身份与当前候选校验、template/kind owner、历史 attempt 确定性回溯及 legacy 无声明兼容。",
+        "changed_files": [
+          "skills/global-task-orchestrator/SKILL.md",
+          "skills/global-task-orchestrator/references/state-schema.md",
+          "skills/global-task-orchestrator/references/usage-modes.md",
+          "skills/global-task-orchestrator/references/revision-3-results.example.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "PYTHONDONTWRITEBYTECODE=1 python3 -B .tmp/gto/20260920-101849-507587-gto-evidence-receipts/close-001-validate.py",
+            "git diff --check -- skills/global-task-orchestrator/SKILL.md skills/global-task-orchestrator/references/state-schema.md skills/global-task-orchestrator/references/usage-modes.md skills/global-task-orchestrator/references/revision-3-results.example.json"
+          ],
+          "result": "四文档合同、相对链接、JSON 示例、安装版 Draft 2020-12 result schema 与 controller 只读 documentation delta 均通过；原始结果见 CLOSE-001 验证日志。"
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "本回执只登记已验收接口的纯文档同步；任务完成状态仍由 root 的 accept-artifact-update、结果登记和 finalize 决定。"
+        ],
+        "follow_up": [
+          "root 核对四文件 delta 后执行受控工件事实同步、accept-artifact-update、record-subtask-result 与 finalize-task。"
+        ],
+        "written_by": "/root/doc_001",
+        "written_role": "doc-curator",
+        "documentation_sync": {
+          "checked_paths": [
+            "skills/global-task-orchestrator/SKILL.md",
+            "skills/global-task-orchestrator/references/state-schema.md",
+            "skills/global-task-orchestrator/references/usage-modes.md",
+            "skills/global-task-orchestrator/references/revision-3-results.example.json"
+          ],
+          "changed_paths": [
+            "skills/global-task-orchestrator/SKILL.md",
+            "skills/global-task-orchestrator/references/state-schema.md",
+            "skills/global-task-orchestrator/references/usage-modes.md",
+            "skills/global-task-orchestrator/references/revision-3-results.example.json"
+          ],
+          "behavior_changed": false,
+          "contract_changed": false,
+          "configuration_changed": false,
+          "reason": "纯文字同步同一候选已经通过独立测试、复审与安装 CLI 验收的接口事实；未改变已验收行为、契约或配置。"
+        }
+      }
+    },
+    {
+      "subtask_id": "INTEGRATE-001-integration-2",
+      "title": "integration",
+      "role": "backend-implementer",
+      "stage": "integration",
+      "status": "completed",
+      "dependencies": [
+        "INTEGRATE-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "write_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
+      ],
+      "assignment": {
+        "goal": "原实现者整合证据追加及提前门禁，核对全部文档与回归，不改独立测试。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/implementer",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "76ac53ba794cc4efd9bcb33e3b42b01bc144838147879e31cd3d252964c0db08",
+        "brief_path": ".tmp/gto/20260920-101849-507587-gto-evidence-receipts/brief-INTEGRATE-001-integration-2.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "只读整合核对了已登记 REVIEW-EVIDENCE-OWNER-001 round1 修复、controller、canonical schema、两份冻结测试和四份正式合同共8条candidate input。统一template/kind owner校验覆盖直接结果、receipt与pre-final消费；新template_subtask_id及旧attempt fallback与公开合同一致。源码controller canonical inventory得到8 records和当前candidate fingerprint 54d2d55b2f6ba2ea9ea4c89bcda8d1114e74392ce83301f454555a49b7658469；本integration未修改交付文件。",
+        "changed_files": [],
+        "planned_files_not_changed": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
+        ],
+        "verification": {
+          "commands": [
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_template test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_template",
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence test_gto_verification_evidence_acceptance",
+            "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_workflow.WorkflowTest.test_blackbox_published_results_complete_cli_sequence test_gto_workflow.WorkflowTest.test_scoped_acceptance_repair_and_wording_closeout_cli test_gto_workflow.WorkflowTest.test_closeout_cannot_write_substantive_formal_documents test_control_plane.ControlPlaneContractTest.test_set_phase_reuses_verification_workspace_and_review_evidence_gates test_control_plane.ControlPlaneContractTest.test_final_documentation_and_finalize_require_current_candidate_evidence",
+            "PYTHONDONTWRITEBYTECODE=1 python3 -B .tmp/gto/20260920-101849-507587-gto-evidence-receipts/integration-2-candidate-fingerprint-check.py",
+            "git diff --check -- skills/global-task-orchestrator/scripts/orchestrator_ctl.py skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json tests/harness/test_gto_verification_evidence.py tests/harness/test_gto_verification_evidence_acceptance.py skills/global-task-orchestrator/SKILL.md skills/global-task-orchestrator/references/state-schema.md skills/global-task-orchestrator/references/usage-modes.md skills/global-task-orchestrator/references/revision-3-results.example.json"
+          ],
+          "result": "逐文件哈希确认当前controller 0a60c7e…a72a1、schema 1a408009…ca9b、主测试e31c168c…f32f、acceptance测试44dd060e…8938，并核对四份正式合同。复用哈希未变的真实4/4、19/19、5/5 Green原始日志；本阶段未重跑测试。精确只读候选命令得到8 records及当前指纹54d2d55b…58469，8路径git diff --check exit 0。"
+        },
+        "deviations": [
+          "上一轮integration候选指纹b782a242…b5d4不再代表当前内容；本轮按修复后的controller/schema与Reviewer新增公开测试重新使用canonical inventory计算为54d2d55b…58469，未复用旧指纹。",
+          "19项和5项测试未重复运行；本轮先核对其持久日志SHA分别为0b2927cb…59d8与82af2c2b…66e8，再复用真实Green。",
+          "四份正式合同仍保留最终CLOSE前的状态措辞；本integration按brief只读核对，不越权修改正式文档。",
+          "一次控制工件目录假设错误和一次跨PowerShell/Bash的PIPESTATUS包装错误均按CFM record/query/success闭环；成功的正式路径读取及无管道diff-check另行完成，失败命令未列为完成check。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "当前修复尚待同一独立Reviewer复审；安装副本尚未发布，安装版真实CLI验收与最终CLOSE尚未执行。"
+        ],
+        "follow_up": [
+          "由root登记本integration并freeze当前candidate，再交原Reviewer复审REVIEW-EVIDENCE-OWNER-001。",
+          "复审通过后才进入受控sync/strict doctor发布及独立安装版验收。"
+        ],
+        "written_by": "/root/implementer",
+        "written_role": "backend-implementer",
+        "checks": [
+          {
+            "purpose": "green",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_template test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_template",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/owner-four-green.log"
+            ]
+          },
+          {
+            "purpose": "regression",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence test_gto_verification_evidence_acceptance",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_verification_evidence.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/full-19-green.log"
+            ]
+          },
+          {
+            "purpose": "regression",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_workflow.WorkflowTest.test_blackbox_published_results_complete_cli_sequence test_gto_workflow.WorkflowTest.test_scoped_acceptance_repair_and_wording_closeout_cli test_gto_workflow.WorkflowTest.test_closeout_cannot_write_substantive_formal_documents test_control_plane.ControlPlaneContractTest.test_set_phase_reuses_verification_workspace_and_review_evidence_gates test_control_plane.ControlPlaneContractTest.test_final_documentation_and_finalize_require_current_candidate_evidence",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_workflow.py",
+              "tests/harness/test_control_plane.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/related-five-green.log"
+            ]
+          },
+          {
+            "purpose": "diagnostic",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 -B .tmp/gto/20260920-101849-507587-gto-evidence-receipts/integration-2-candidate-fingerprint-check.py",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_verification_evidence.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py",
+              "skills/global-task-orchestrator/SKILL.md",
+              "skills/global-task-orchestrator/references/state-schema.md",
+              "skills/global-task-orchestrator/references/usage-modes.md",
+              "skills/global-task-orchestrator/references/revision-3-results.example.json"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/INTEGRATE-001-integration-2/candidate-fingerprint-check.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/INTEGRATE-001-integration-2/candidate-contract-check.log"
+            ]
+          },
+          {
+            "purpose": "diagnostic",
+            "command": "git diff --check -- skills/global-task-orchestrator/scripts/orchestrator_ctl.py skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json tests/harness/test_gto_verification_evidence.py tests/harness/test_gto_verification_evidence_acceptance.py skills/global-task-orchestrator/SKILL.md skills/global-task-orchestrator/references/state-schema.md skills/global-task-orchestrator/references/usage-modes.md skills/global-task-orchestrator/references/revision-3-results.example.json",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_verification_evidence.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py",
+              "skills/global-task-orchestrator/SKILL.md",
+              "skills/global-task-orchestrator/references/state-schema.md",
+              "skills/global-task-orchestrator/references/usage-modes.md",
+              "skills/global-task-orchestrator/references/revision-3-results.example.json"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/INTEGRATE-001-integration-2/eight-path-diff-check.log"
+            ]
+          }
+        ],
+        "review_evidence": {
+          "repro_before_fix": ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/ownership-red.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/template-ownership-red.log",
+          "pass_after_fix": ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/owner-four-green.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/full-19-green.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/related-five-green.log",
+          "hit_proof_observed": ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/owner-four-green.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/INTEGRATE-001-integration-2/candidate-contract-check.log"
+        },
+        "tested_candidate_fingerprint": "54d2d55b2f6ba2ea9ea4c89bcda8d1114e74392ce83301f454555a49b7658469",
+        "integration": {
+          "summary": "当前source候选的controller/schema、两份公开测试与四份正式合同覆盖同一verification receipt、assignment归属、验收登记、CLOSE门禁和template/kind owner约束；本轮只读核对8条candidate input，未修改交付文件。",
+          "document_paths": [
+            "skills/global-task-orchestrator/SKILL.md",
+            "skills/global-task-orchestrator/references/state-schema.md",
+            "skills/global-task-orchestrator/references/usage-modes.md",
+            "skills/global-task-orchestrator/references/revision-3-results.example.json"
+          ]
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-001-rereview-1",
+      "title": "Scope re-review of latest integration",
+      "role": "reviewer",
+      "stage": "pre_acceptance_review",
+      "status": "completed",
+      "dependencies": [
+        "REVIEW-001",
+        "INTEGRATE-001-integration-2"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "write_paths": [
+        "tests/harness/test_gto_verification_evidence_acceptance.py"
+      ],
+      "assignment": {
+        "goal": "Review latest changed scope and fixed findings; report new findings with proof.",
+        "must_include": [
+          "Cover current candidate changes and affected formal documents.",
+          "Re-review finding REVIEW-EVIDENCE-OWNER-001."
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/implementer"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/gto_reviewer"
+        }
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/gto_reviewer",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "dee804445140d2738e2618d514a5958cbc3fd79dcbfe9666934e52a9547e5c96",
+        "brief_path": ".tmp/gto/20260920-101849-507587-gto-evidence-receipts/brief-REVIEW-001-rereview-1.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict pass.",
+        "changed_files": [],
+        "planned_files_not_changed": [
+          "tests/harness/test_gto_verification_evidence_acceptance.py"
+        ],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/gto_reviewer",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "pass",
+          "reviewer_platform_agent_id": "/root/gto_reviewer",
+          "reviewed_candidate_fingerprint": "54d2d55b2f6ba2ea9ea4c89bcda8d1114e74392ce83301f454555a49b7658469",
+          "covered_paths": [
+            "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+            "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+            "tests/harness/test_gto_verification_evidence.py",
+            "tests/harness/test_gto_verification_evidence_acceptance.py",
+            "skills/global-task-orchestrator/SKILL.md",
+            "skills/global-task-orchestrator/references/state-schema.md",
+            "skills/global-task-orchestrator/references/usage-modes.md",
+            "skills/global-task-orchestrator/references/revision-3-results.example.json"
+          ],
+          "findings": [
+            {
+              "finding_id": "REVIEW-EVIDENCE-OWNER-001",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_gto_verification_evidence_acceptance.py"
+              ],
+              "summary": "证据键唯一归属未用于登记或补录校验：当前 attempt 可登记其他 kind 或其他 template 专属 key，形成错误来源索引。",
+              "evidence": ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/ownership-red.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/template-ownership-red.log",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/implementer"
+              },
+              "fix_delta": {
+                "summary": "统一按 verification evidence 声明的 acceptance template 与 attempt kind 所有权校验直接 result.review_evidence、verification receipt 及 pre-final 消费；跨 kind 或跨 template 的专属 key 原子拒绝，同时保留无归属旧合同和普通 work prose 兼容。attempt 新增显式 template_subtask_id，旧 attempt 使用确定性前缀推断。",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
+                ],
+                "sha256": "bdfb9eac5fcafa3088b21c2f638be7ebecf3ec9055d5aa8ce7262385671c6022",
+                "verification": "四条 Reviewer 最小 Red 均在修复前按预期失败；修复后目标 4/4、完整证据合同 19/19、相关工作流与控制面 5/5 通过。controller SHA256=0a60c7eeda4df4823bf52ca4d63def3d01b08aad5af7823d7ba93e96879a72a1; schema SHA256=1a4080094553fc7b5703deb912eb19830228c4dbc71ca3713bfa1c5e7b1cca9b. AST、Draft 2020-12 schema 与 git diff --check 均通过。一次误用 Windows PowerShell 的 git 只读命令已按 CFM record/query/success 闭环，随后由 Ubuntu-24.04 WSL 成功复核。",
+                "checks": [
+                  {
+                    "purpose": "red",
+                    "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind",
+                    "scope": [
+                      "tests/harness/test_gto_verification_evidence_acceptance.py"
+                    ],
+                    "exit_code": 1,
+                    "expected_exit_code": 1,
+                    "evidence_refs": [
+                      ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/kind-owner-red.log"
+                    ]
+                  },
+                  {
+                    "purpose": "red",
+                    "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_template test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_template",
+                    "scope": [
+                      "tests/harness/test_gto_verification_evidence_acceptance.py"
+                    ],
+                    "exit_code": 1,
+                    "expected_exit_code": 1,
+                    "evidence_refs": [
+                      ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/template-owner-red.log"
+                    ]
+                  },
+                  {
+                    "purpose": "green",
+                    "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_template test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_template",
+                    "scope": [
+                      "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                      "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+                      "tests/harness/test_gto_verification_evidence_acceptance.py"
+                    ],
+                    "exit_code": 0,
+                    "expected_exit_code": 0,
+                    "evidence_refs": [
+                      ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/owner-four-green.log"
+                    ]
+                  },
+                  {
+                    "purpose": "regression",
+                    "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence test_gto_verification_evidence_acceptance",
+                    "scope": [
+                      "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                      "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+                      "tests/harness/test_gto_verification_evidence.py",
+                      "tests/harness/test_gto_verification_evidence_acceptance.py"
+                    ],
+                    "exit_code": 0,
+                    "expected_exit_code": 0,
+                    "evidence_refs": [
+                      ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/full-19-green.log"
+                    ]
+                  },
+                  {
+                    "purpose": "regression",
+                    "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_workflow.WorkflowTest.test_blackbox_published_results_complete_cli_sequence test_gto_workflow.WorkflowTest.test_scoped_acceptance_repair_and_wording_closeout_cli test_gto_workflow.WorkflowTest.test_closeout_cannot_write_substantive_formal_documents test_control_plane.ControlPlaneContractTest.test_set_phase_reuses_verification_workspace_and_review_evidence_gates test_control_plane.ControlPlaneContractTest.test_final_documentation_and_finalize_require_current_candidate_evidence",
+                    "scope": [
+                      "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                      "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+                      "tests/harness/test_gto_workflow.py",
+                      "tests/harness/test_control_plane.py"
+                    ],
+                    "exit_code": 0,
+                    "expected_exit_code": 0,
+                    "evidence_refs": [
+                      ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/related-five-green.log"
+                    ]
+                  }
+                ],
+                "written_by": "/root/implementer",
+                "written_role": "backend-implementer"
+              }
+            }
+          ],
+          "evidence_refs": [
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001-rereview-1/owner-four-green.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001-rereview-1/legacy-attempt-green.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001-rereview-1/static-review.log"
+          ],
+          "checks_completed": [
+            "统一(template,kind)归属识别及三条消费链代码/schema范围复审",
+            "本人原4条Red转Green与新字段持久化、旧缺字段合法/拒绝CLI验证",
+            "旧错误归属直接证据在聚合时被排除；8路径哈希和未变测试/正式合同核对"
+          ],
+          "checks_not_run": [
+            "未重复完整19项和5项相关回归；使用已登记同候选实现者证据",
+            "尚未执行安装版验收、发布或最终CLOSE；复审通过不代表这些阶段完成",
+            "旧CoordinatorBlocking初始化夹具债务保持原样，未再次运行该既有失败节点"
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "REVIEW-EVIDENCE-OWNER-001"
+            ],
+            "fix_delta_sha256": "5f14500b810a67c2171376e046c5107a7468299a676a4739a77e0b1347e66d4f",
+            "paths": [
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001-rereview-1/owner-four-green.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001-rereview-1/legacy-attempt-green.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001-rereview-1/static-review.log"
+            ]
+          },
+          "usage_evidence": [
+            {
+              "written_by": "/root/gto_reviewer",
+              "environment": "wsl",
+              "tool": "CLI",
+              "entry": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_template test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_template",
+              "scope": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_gto_verification_evidence.py",
+                "tests/harness/test_gto_verification_evidence_acceptance.py"
+              ],
+              "result": "本人4条目标63.018s全部通过exit0；另用两个临时消费者真实CLI验证新字段持久化、旧缺字段正确owner通过和错误template原子拒绝；聚合排除检查通过。",
+              "evidence_refs": [
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001-rereview-1/owner-four-green.log",
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001-rereview-1/legacy-attempt-green.log",
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001-rereview-1/static-review.log"
+              ],
+              "ui_applicability": "not_applicable",
+              "ui_not_applicable_reason": "本修复为本地GTO CLI/state控制器，没有网页或GUI入口。"
+            }
+          ],
+          "source_candidate_fingerprint": "54d2d55b2f6ba2ea9ea4c89bcda8d1114e74392ce83301f454555a49b7658469",
+          "coverage_snapshot": {
+            "skills/global-task-orchestrator/scripts/orchestrator_ctl.py": "31f4413857bda19e6e872894b64e64b33c669cb59b534ee05c15b5bc0dc41ea8",
+            "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json": "2bc9470fea146613ce970b8b91dba8b711320ae57948ee96d6490789e4446728",
+            "tests/harness/test_gto_verification_evidence.py": "c807e897b5e1802a04ab20a58d538bbbfb353f41844185126860a7b716dec3d3",
+            "tests/harness/test_gto_verification_evidence_acceptance.py": "e785f0bfd7a0c419666ed0b84c661f789bd1f61f182ae8efb02e98539f5dd51c",
+            "skills/global-task-orchestrator/SKILL.md": "5c71f21c55490c662542a9b926063cfe3bc0ddc25f6722d5408acec2031de4e9",
+            "skills/global-task-orchestrator/references/state-schema.md": "505c3ac357f017cb03e29db9abbc24bcd3fff9f6fe66b59dfd6f6a7a6f0af4f1",
+            "skills/global-task-orchestrator/references/usage-modes.md": "6393e14ebd498a8d9202f9055cf56add70a3c05eb83923a708937385f4f1e518",
+            "skills/global-task-orchestrator/references/revision-3-results.example.json": "1863ed8fdd6621780b095d63e8a6b67fc807d281d66bc87d5cb367c4a842fa46"
+          },
+          "coverage_inputs_sha256": "a47a9a774cb179bfd248c42bfe4d1d7f7756f7b27ede50a8d74d84842ec64fc7"
+        }
+      }
+    },
+    {
+      "subtask_id": "ACCEPT-001-attempt-1",
+      "title": "expensive_acceptance attempt-1",
+      "role": "tester",
+      "stage": "expensive_acceptance",
+      "status": "completed",
+      "dependencies": [
+        "REVIEW-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "独立安装版真实CLI验收全部三个条目；核对受控发布和本地拒绝边界，无模型调用。",
+        "must_include": [
+          "实际命令、范围、退出结果、证据路径和真实作者身份。"
+        ],
+        "verification": [
+          "运行本职责必要范围检查；映射所有验收条目。"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "tester",
+        "platform_agent_id": "/root/test_001",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "38ce026e4e8da94c3ade939e3e9002f8504f85c5de305f91c9561221d45c4ce7",
+        "brief_path": ".tmp/gto/20260920-101849-507587-gto-evidence-receipts/brief-ACCEPT-001.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "已以原独立 tester 身份完成安装版 GTO CLI 验收：15 个定向行为节点全部通过，261 次控制器调用均指向绝对安装入口；源码、安装副本、同步 receipt 与发布哈希的 11 个 GTO 文件一致，幂等同步未产生运行时变更。",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "PYTHONDONTWRITEBYTECODE=1 python3 -B .tmp/gto/20260920-101849-507587-gto-evidence-receipts/accept-001-installed-runner.py",
+            "python3 -B .tmp/gto/20260920-101849-507587-gto-evidence-receipts/accept-001-release-check.py"
+          ],
+          "result": "安装版定向行为验收 15 passed、0 failures、0 errors；审计记录 261 次 CLI 调用且 all_cli_entries_installed=true。发布核验 ok=true，11 个 GTO 文件的 source/install/receipt/publication SHA256 全部一致，第二次 scoped sync runtime_changed=false。"
+        },
+        "deviations": [
+          "首次外层 tee 在 runner 创建证据目录之前打开目标，导致 shell pipeline 退出 1；Python runner 本身完整执行并报告 15 tests OK。未重跑验收，保留结构化 summary 与 261-call audit，并单独验证后续日志路径可写。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "首次运行没有聚合 stdout 文件；逐 action 审计、runner summary、发布核验及 CFM 闭环完整保留实际结论和入口。"
+        ],
+        "follow_up": [
+          "由主协调器登记本回执后交 CLOSE-001 同步已验收事实。"
+        ],
+        "written_by": "/root/test_001",
+        "written_role": "tester",
+        "expensive_acceptance": {
+          "outcome": "pass",
+          "real_call_count": 0,
+          "duration_seconds": 311.659,
+          "failed_stage": "none",
+          "evidence_refs": [
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-audit.jsonl",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-summary.json",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/release-verification.json",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/logging-path-check.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/publication-hashes.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-publication.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-publication-idempotent.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-doctor.log"
+          ],
+          "evidence_by_acceptance_id": {
+            "EVIDENCE-01": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-audit.jsonl",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-summary.json"
+            ],
+            "GATE-01": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-audit.jsonl",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-summary.json"
+            ],
+            "RELEASE-01": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/release-verification.json",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/publication-hashes.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-publication-idempotent.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-doctor.log"
+            ]
+          },
+          "mode": "full",
+          "scope_acceptance_ids": [
+            "EVIDENCE-01",
+            "GATE-01",
+            "RELEASE-01"
+          ],
+          "usage_evidence": [
+            {
+              "written_by": "/root/test_001",
+              "environment": "wsl",
+              "tool": "CLI",
+              "entry": "python3 -B /mnt/c/Users/Laptop/.codex/skills/global-task-orchestrator/scripts/orchestrator_ctl.py --action <audited-action> --repo-root <temporary-consumer-repo> --task-id 20300102-030405-control-plane-contract --json",
+              "scope": [
+                "/mnt/c/Users/Laptop/.codex/skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_gto_verification_evidence.py",
+                "tests/harness/test_gto_verification_evidence_acceptance.py"
+              ],
+              "result": "15 个安装版定向行为节点通过；261 次 action 调用均由审计确认 entry 为绝对安装 controller。合法补录、幂等、历史不变、blocked 保持、身份/hash/候选/引用/所有权拒绝、assigned evidence 提前门禁及 CLOSE 汇总均实际执行。",
+              "evidence_refs": [
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-audit.jsonl",
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-summary.json"
+              ],
+              "ui_applicability": "not_applicable",
+              "ui_not_applicable_reason": "本验收对象是 GTO 命令行控制器，没有浏览器或图形界面交互。"
+            },
+            {
+              "written_by": "/root/test_001",
+              "environment": "wsl",
+              "tool": "CLI",
+              "entry": "python3 -B .tmp/gto/20260920-101849-507587-gto-evidence-receipts/accept-001-release-check.py",
+              "scope": [
+                "skills/global-task-orchestrator",
+                "/mnt/c/Users/Laptop/.codex/skills/global-task-orchestrator",
+                "/mnt/c/Users/Laptop/.codex/.ai-harness/codex-sync.receipt.json"
+              ],
+              "result": "11 个发布文件的 source、installed、receipt、publication SHA256 全部一致；首次 scoped publish 成功，第二次 runtime_changed=false，strict doctor 无 errors/warnings，非 GTO 12 行和宿主 config/AGENTS 保持不变。",
+              "evidence_refs": [
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/release-verification.json",
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/publication-hashes.log",
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-publication.log",
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-publication-idempotent.log",
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-doctor.log"
+              ],
+              "ui_applicability": "not_applicable",
+              "ui_not_applicable_reason": "发布与 receipt 一致性核验是文件和 CLI 检查，不涉及 UI。"
+            }
+          ],
+          "passed_acceptance_ids": [
+            "EVIDENCE-01",
+            "GATE-01",
+            "RELEASE-01"
+          ]
+        }
+      }
+    }
+  ],
+  "workflow_revision": 3,
+  "acceptance_gate": {
+    "candidate_inputs": {
+      "code_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_gto_verification_evidence.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py"
+      ],
+      "config_paths": [],
+      "runtime_input_paths": [],
+      "runtime_inputs": {},
+      "document_paths": [
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json"
+      ]
+    },
+    "current_candidate": {
+      "candidate_id": "candidate-54d2d55b2f6ba2ea",
+      "status": "frozen",
+      "fingerprint": "54d2d55b2f6ba2ea9ea4c89bcda8d1114e74392ce83301f454555a49b7658469",
+      "frozen_at": "2026-09-20T04:00:37.999604Z",
+      "review_baseline": {
+        "candidate_id": "candidate-54d2d55b2f6ba2ea",
+        "review_ids": [
+          "REVIEW-001",
+          "REVIEW-001-rereview-1"
+        ],
+        "review_sha256": "52b2aea7b7ee7546891c29a7542acb95506c355d636e1bd5217db853c5c83586"
+      }
+    },
+    "acceptance_items": [
+      {
+        "acceptance_id": "EVIDENCE-01",
+        "evidence_refs": [],
+        "paths": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+          "tests/harness/test_gto_verification_evidence.py",
+          "tests/harness/test_gto_verification_evidence_acceptance.py",
+          "skills/global-task-orchestrator/SKILL.md",
+          "skills/global-task-orchestrator/references/state-schema.md",
+          "skills/global-task-orchestrator/references/usage-modes.md",
+          "skills/global-task-orchestrator/references/revision-3-results.example.json"
+        ]
+      },
+      {
+        "acceptance_id": "GATE-01",
+        "evidence_refs": [],
+        "paths": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+          "tests/harness/test_gto_verification_evidence.py",
+          "tests/harness/test_gto_verification_evidence_acceptance.py",
+          "skills/global-task-orchestrator/SKILL.md",
+          "skills/global-task-orchestrator/references/state-schema.md",
+          "skills/global-task-orchestrator/references/usage-modes.md",
+          "skills/global-task-orchestrator/references/revision-3-results.example.json"
+        ]
+      },
+      {
+        "acceptance_id": "RELEASE-01",
+        "evidence_refs": [],
+        "paths": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+          "tests/harness/test_gto_verification_evidence.py",
+          "tests/harness/test_gto_verification_evidence_acceptance.py",
+          "skills/global-task-orchestrator/SKILL.md",
+          "skills/global-task-orchestrator/references/state-schema.md",
+          "skills/global-task-orchestrator/references/usage-modes.md",
+          "skills/global-task-orchestrator/references/revision-3-results.example.json"
+        ]
+      }
+    ],
+    "attempt_policy": {
+      "max_expensive_attempts": 4,
+      "max_full_attempts_per_candidate": 1,
+      "max_environment_retries_per_candidate": 1,
+      "approval_required_from_attempt": 3
+    },
+    "attempts": [
+      {
+        "attempt_id": "attempt-1",
+        "subtask_id": "ACCEPT-001-attempt-1",
+        "template_subtask_id": "ACCEPT-001",
+        "candidate_id": "candidate-54d2d55b2f6ba2ea",
+        "kind": "ordinary",
+        "coverage_snapshot": {
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py": "31f4413857bda19e6e872894b64e64b33c669cb59b534ee05c15b5bc0dc41ea8",
+          "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json": "2bc9470fea146613ce970b8b91dba8b711320ae57948ee96d6490789e4446728",
+          "tests/harness/test_gto_verification_evidence.py": "c807e897b5e1802a04ab20a58d538bbbfb353f41844185126860a7b716dec3d3",
+          "tests/harness/test_gto_verification_evidence_acceptance.py": "e785f0bfd7a0c419666ed0b84c661f789bd1f61f182ae8efb02e98539f5dd51c",
+          "skills/global-task-orchestrator/SKILL.md": "5c71f21c55490c662542a9b926063cfe3bc0ddc25f6722d5408acec2031de4e9",
+          "skills/global-task-orchestrator/references/state-schema.md": "505c3ac357f017cb03e29db9abbc24bcd3fff9f6fe66b59dfd6f6a7a6f0af4f1",
+          "skills/global-task-orchestrator/references/usage-modes.md": "6393e14ebd498a8d9202f9055cf56add70a3c05eb83923a708937385f4f1e518",
+          "skills/global-task-orchestrator/references/revision-3-results.example.json": "1863ed8fdd6621780b095d63e8a6b67fc807d281d66bc87d5cb367c4a842fa46"
+        },
+        "coverage_inputs_sha256": "a47a9a774cb179bfd248c42bfe4d1d7f7756f7b27ede50a8d74d84842ec64fc7",
+        "review_baseline": {
+          "candidate_id": "candidate-54d2d55b2f6ba2ea",
+          "review_ids": [
+            "REVIEW-001",
+            "REVIEW-001-rereview-1"
+          ],
+          "review_sha256": "52b2aea7b7ee7546891c29a7542acb95506c355d636e1bd5217db853c5c83586"
+        },
+        "outcome": "pass",
+        "real_call_count": 0,
+        "duration_seconds": 311.659,
+        "failed_stage": "none",
+        "evidence_refs": [
+          ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-audit.jsonl",
+          ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-summary.json",
+          ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/release-verification.json",
+          ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/logging-path-check.log",
+          ".artifacts/20260920-101849-507587-gto-evidence-receipts/publication-hashes.log",
+          ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-publication.log",
+          ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-publication-idempotent.log",
+          ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-doctor.log"
+        ],
+        "evidence_by_acceptance_id": {
+          "EVIDENCE-01": [
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-audit.jsonl",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-summary.json"
+          ],
+          "GATE-01": [
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-audit.jsonl",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-summary.json"
+          ],
+          "RELEASE-01": [
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/release-verification.json",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/publication-hashes.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-publication-idempotent.log",
+            ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-doctor.log"
+          ]
+        },
+        "mode": "full",
+        "scope_acceptance_ids": [
+          "EVIDENCE-01",
+          "GATE-01",
+          "RELEASE-01"
+        ],
+        "usage_evidence": [
+          {
+            "written_by": "/root/test_001",
+            "environment": "wsl",
+            "tool": "CLI",
+            "entry": "python3 -B /mnt/c/Users/Laptop/.codex/skills/global-task-orchestrator/scripts/orchestrator_ctl.py --action <audited-action> --repo-root <temporary-consumer-repo> --task-id 20300102-030405-control-plane-contract --json",
+            "scope": [
+              "/mnt/c/Users/Laptop/.codex/skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "tests/harness/test_gto_verification_evidence.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "result": "15 个安装版定向行为节点通过；261 次 action 调用均由审计确认 entry 为绝对安装 controller。合法补录、幂等、历史不变、blocked 保持、身份/hash/候选/引用/所有权拒绝、assigned evidence 提前门禁及 CLOSE 汇总均实际执行。",
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-audit.jsonl",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/installed-cli-summary.json"
+            ],
+            "ui_applicability": "not_applicable",
+            "ui_not_applicable_reason": "本验收对象是 GTO 命令行控制器，没有浏览器或图形界面交互。"
+          },
+          {
+            "written_by": "/root/test_001",
+            "environment": "wsl",
+            "tool": "CLI",
+            "entry": "python3 -B .tmp/gto/20260920-101849-507587-gto-evidence-receipts/accept-001-release-check.py",
+            "scope": [
+              "skills/global-task-orchestrator",
+              "/mnt/c/Users/Laptop/.codex/skills/global-task-orchestrator",
+              "/mnt/c/Users/Laptop/.codex/.ai-harness/codex-sync.receipt.json"
+            ],
+            "result": "11 个发布文件的 source、installed、receipt、publication SHA256 全部一致；首次 scoped publish 成功，第二次 runtime_changed=false，strict doctor 无 errors/warnings，非 GTO 12 行和宿主 config/AGENTS 保持不变。",
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/ACCEPT-001-attempt-1/release-verification.json",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/publication-hashes.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-publication.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-publication-idempotent.log",
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/scoped-doctor.log"
+            ],
+            "ui_applicability": "not_applicable",
+            "ui_not_applicable_reason": "发布与 receipt 一致性核验是文件和 CLI 检查，不涉及 UI。"
+          }
+        ],
+        "passed_acceptance_ids": [
+          "EVIDENCE-01",
+          "GATE-01",
+          "RELEASE-01"
+        ]
+      }
+    ],
+    "documentation_sync": {
+      "before_fingerprint": "54d2d55b2f6ba2ea9ea4c89bcda8d1114e74392ce83301f454555a49b7658469",
+      "after_fingerprint": "1fea4b1397374b2669e9f5d77c9e5805cc69a803c7c8abfc76ca972ab8087218",
+      "coverage_inputs_sha256": "a47a9a774cb179bfd248c42bfe4d1d7f7756f7b27ede50a8d74d84842ec64fc7",
+      "written_by": "/root/doc_001",
+      "changed_paths": [
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json",
+        "skills/global-task-orchestrator/references/state-schema.md",
+        "skills/global-task-orchestrator/references/usage-modes.md"
+      ],
+      "reason": "纯文字同步同一候选已经通过独立测试、复审与安装 CLI 验收的接口事实；未改变已验收行为、契约或配置。"
+    }
+  },
+  "initial_test_owners": [
+    "TEST-001"
+  ],
+  "objective": "修复GTO验收证据登记与关闭脱节：受控追加终态证据引用、提前检查、单一证据真源，并发布后恢复原聊天任务。",
+  "scope_in": [
+    "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+    "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+    "tests/harness/test_gto_verification_evidence.py",
+    "tests/harness/test_gto_verification_evidence_acceptance.py",
+    "skills/global-task-orchestrator/SKILL.md",
+    "skills/global-task-orchestrator/references/state-schema.md",
+    "skills/global-task-orchestrator/references/usage-modes.md",
+    "skills/global-task-orchestrator/references/revision-3-results.example.json"
+  ],
+  "scope_out": [
+    "不改原任务已完成结果、候选、验收结论或失败历史，不降低关闭门槛。",
+    "不修改业务产品或受保护模块，不新跑AI场景，不提交推送Git。",
+    "不覆盖或清理当前harness既有未提交改动。"
+  ],
+  "acceptance": [
+    "EVIDENCE-01：原作者可追加合同要求的缺失证据引用，原终态结果和历史保持不变；来源、身份、哈希、候选、引用错误均拒绝且零修改。",
+    "GATE-01：验收登记时核对所属证据关联，CLOSE前汇总所有必需证据；引用已登记证据，无业务键硬编码或第二份事实。",
+    "RELEASE-01：独立测试和审查通过，受控同步GTO安装副本与receipt一致，安装版CLI验收与幂等同步通过。"
+  ],
+  "stop_conditions": [
+    "保护harness既有dirty基线；只修改获批GTO范围。",
+    "不能把补录当作重验或授权失败结果通过；非法请求不得改变六工件。"
+  ],
+  "task_id": "20260920-101849-507587-gto-evidence-receipts",
+  "title": "GTO-evidence-receipts",
+  "owner": "coordinator",
+  "status": "completed",
+  "current_phase": "review",
+  "version": 3,
+  "workspace": {
+    "repo_root": "<repo-root>",
+    "checkout_kind": "primary",
+    "branch": "main",
+    "head": "c79d58cb0345a0cb879b2be06073a1ef04962c36",
+    "dirty_paths": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "agents/README.md",
+      "agents/_schema.example.md",
+      "agents/backend-implementer.md",
+      "agents/doc-curator.md",
+      "agents/frontend-implementer.md",
+      "agents/ops-runbook.md",
+      "agents/planner.md",
+      "agents/reader.md",
+      "agents/reviewer.md",
+      "agents/test-verifier.md",
+      "config/ai/environment.json",
+      "config/ai/windows-external-capabilities.json",
+      "config/ai/wsl-tool-baseline.json",
+      "contexts/README.md",
+      "contexts/compression/README.md",
+      "contexts/project_types/README.md",
+      "contexts/startup/README.md",
+      "docs/AGENTS.md",
+      "docs/ARCHITECTURE.md",
+      "docs/CODEX_COMPAT.md",
+      "docs/INSTALL.md",
+      "docs/PROJECT_TEMPLATE.md",
+      "docs/SUBAGENT_GOVERNANCE.md",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/events.jsonl",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/task.md",
+      "docs/ai/tasks/20260905-030055-424575-wsl-environment-unification/events.jsonl",
+      "docs/ai/tasks/20260905-030055-424575-wsl-environment-unification/state.json",
+      "docs/ai/tasks/20260905-030055-424575-wsl-environment-unification/task.md",
+      "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox/events.jsonl",
+      "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox/state.json",
+      "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox/task.md",
+      "docs/ai/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/events.jsonl",
+      "docs/ai/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/state.json",
+      "docs/ai/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/task.md",
+      "docs/ai/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/events.jsonl",
+      "docs/ai/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/state.json",
+      "docs/ai/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/task.md",
+      "docs/ai/tasks/20260909-141012-review-acceptance-routing/events.jsonl",
+      "docs/ai/tasks/20260909-141012-review-acceptance-routing/state.json",
+      "docs/ai/tasks/20260909-141012-review-acceptance-routing/task.md",
+      "docs/ai/tasks/20260911-140612-767128-harness-minimal-convergence/events.jsonl",
+      "docs/ai/tasks/20260911-140612-767128-harness-minimal-convergence/state.json",
+      "docs/ai/tasks/20260911-140612-767128-harness-minimal-convergence/task.md",
+      "docs/modules/wsl-environment/contract/layered-environment-contract.md",
+      "docs/modules/wsl-environment/delivery/code-map/wsl-environment-code-map.md",
+      "docs/modules/wsl-environment/delivery/engineering/wsl-environment-delivery.md",
+      "docs/modules/wsl-environment/design/doctor-and-startup-boundaries.md",
+      "docs/modules/wsl-environment/design/windows-attachment-path-bridge.md",
+      "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/execution.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/plan.md",
+      "docs/tasks/20260905-030055-424575-wsl-environment-unification/acceptance.md",
+      "docs/tasks/20260905-030055-424575-wsl-environment-unification/execution.md",
+      "docs/tasks/20260905-030055-424575-wsl-environment-unification/plan.md",
+      "docs/tasks/20260905-121534-602895-codex-environment-blackbox/acceptance.md",
+      "docs/tasks/20260905-121534-602895-codex-environment-blackbox/execution.md",
+      "docs/tasks/20260905-121534-602895-codex-environment-blackbox/plan.md",
+      "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/acceptance.md",
+      "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/execution.md",
+      "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/plan.md",
+      "docs/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/acceptance.md",
+      "docs/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/execution.md",
+      "docs/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/plan.md",
+      "docs/tasks/20260909-141012-review-acceptance-routing/acceptance.md",
+      "docs/tasks/20260909-141012-review-acceptance-routing/execution.md",
+      "docs/tasks/20260909-141012-review-acceptance-routing/plan.md",
+      "docs/tasks/20260910-windows-native-transition/acceptance.md",
+      "docs/tasks/20260910-windows-native-transition/environment-scan-baseline.json",
+      "docs/tasks/20260910-windows-native-transition/environment-scan-review.md",
+      "docs/tasks/20260910-windows-native-transition/envscan-backup-location.txt",
+      "docs/tasks/20260910-windows-native-transition/envscan-cleanup.json",
+      "docs/tasks/20260910-windows-native-transition/envscan-final-audit.json",
+      "docs/tasks/20260910-windows-native-transition/envscan-isolated-publication.json",
+      "docs/tasks/20260910-windows-native-transition/envscan-live-publication.json",
+      "docs/tasks/20260910-windows-native-transition/envscan-postpublish-verification.json",
+      "docs/tasks/20260910-windows-native-transition/events.jsonl",
+      "docs/tasks/20260910-windows-native-transition/execution.md",
+      "docs/tasks/20260910-windows-native-transition/handoff-prompt.md",
+      "docs/tasks/20260910-windows-native-transition/inventory.md",
+      "docs/tasks/20260910-windows-native-transition/p6-cleanup.json",
+      "docs/tasks/20260910-windows-native-transition/p6-final-audit.json",
+      "docs/tasks/20260910-windows-native-transition/p6-publication.json",
+      "docs/tasks/20260910-windows-native-transition/p6-verification.json",
+      "docs/tasks/20260910-windows-native-transition/plan.md",
+      "docs/tasks/20260910-windows-native-transition/review.md",
+      "docs/tasks/20260910-windows-native-transition/state.json",
+      "docs/tasks/20260910-windows-native-transition/task.md",
+      "docs/tasks/20260911-140612-767128-harness-minimal-convergence/acceptance.md",
+      "docs/tasks/20260911-140612-767128-harness-minimal-convergence/execution.md",
+      "docs/tasks/20260911-140612-767128-harness-minimal-convergence/plan.md",
+      "hooks/README.md",
+      "hooks/codex/README.md",
+      "modules/wsl-environment/tooling/docker-desktop-safe-start.ps1",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_01.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_02.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_03.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_04.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_05.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_06.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_07.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_08.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_09.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_10.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_11.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_12.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_13.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_14.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_15.png",
+      "output/imagegen/finnlp_paper_slide_images/style1/slide_16.png",
+      "output/imagegen/finnlp_paper_slide_images/style1_contact_sheet.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_01.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_02.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_03.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_04.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_05.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_06.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_07.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_08.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_09.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_10.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_11.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_12.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_13.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_14.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_15.png",
+      "output/imagegen/finnlp_paper_slide_images/style2/slide_16.png",
+      "output/imagegen/finnlp_paper_slide_images/style2_contact_sheet.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_01.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_02.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_03.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_04.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_05.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_06.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_07.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_08.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_09.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_10.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_11.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_12.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_13.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_14.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_15.png",
+      "output/imagegen/finnlp_paper_slide_images/style3/slide_16.png",
+      "output/imagegen/finnlp_paper_slide_images/style3_contact_sheet.png",
+      "output/imagegen/finnlp_paper_slide_images/style3_master_background.png",
+      "requirements.txt",
+      "rules/items/architecture/仓库目录边界.md",
+      "rules/items/policy/变更约束.md",
+      "rules/items/policy/命令失败闭环.md",
+      "rules/items/policy/命令构造约束.md",
+      "rules/items/policy/核心文档与测试先于代码实现.md",
+      "rules/items/policy/窗口系统附件路径桥接.md",
+      "rules/items/policy/缺失工具分层与依赖处理.md",
+      "rules/items/policy/脚本运行基线.md",
+      "rules/items/quality/方案与施工文档必填字段.md",
+      "rules/items/workflow/复杂任务全局编排.md",
+      "rules/items/workflow/子代理委派与协作.md",
+      "rules/items/workflow/审阅返工固定路由.md",
+      "rules/items/workflow/长任务实施顺序.md",
+      "rules/items/workflow/黑盒测试原则.md",
+      "rules/registry/RULES_INDEX.json",
+      "rules/registry/RULES_INDEX.md",
+      "rules/registry/方案与施工文档字段规范.md",
+      "sandbox/rules-evals/process-runs/审阅返工/run-1/README.md",
+      "sandbox/rules-evals/process-runs/审阅返工/run-1/docs/plans/.gitkeep",
+      "sandbox/rules-evals/process-runs/审阅返工/run-1/src/slugify.js",
+      "sandbox/rules-evals/process-runs/审阅返工/run-1/tests/run-tests.js",
+      "sandbox/rules-evals/process-runs/审阅返工/run-1/tests/slugify.test.js",
+      "sandbox/rules-evals/process-runs/审阅返工/run-2/README.md",
+      "sandbox/rules-evals/process-runs/审阅返工/run-2/docs/plans/.gitkeep",
+      "sandbox/rules-evals/process-runs/审阅返工/run-2/src/slugify.js",
+      "sandbox/rules-evals/process-runs/审阅返工/run-2/tests/run-tests.js",
+      "sandbox/rules-evals/process-runs/审阅返工/run-2/tests/slugify.test.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-1/README.md",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-1/docs/plans/.gitkeep",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-1/docs/plans/重构方案.md",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-1/docs/plans/重构施工.md",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-1/src/money.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-1/src/pricing.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-1/src/report.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-1/tests/pricing.test.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-1/tests/run-tests.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-2/README.md",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-2/docs/plans/.gitkeep",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-2/docs/plans/重构方案.md",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-2/docs/plans/重构施工.md",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-2/src/invoice.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-2/src/money.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-2/src/pricing.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-2/src/report.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-2/tests/pricing.test.js",
+      "sandbox/rules-evals/process-runs/慢子代等待/run-2/tests/run-tests.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/README.md",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/docs/ARCHITECTURE.md",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/docs/plans/.gitkeep",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/docs/plans/run-1-重构方案.md",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/docs/plans/run-1-重构施工.md",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/src/invoice-calculator.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/src/money.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/src/pricing.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/src/report.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/tests/pricing.test.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/tests/report.test.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-1/tests/run-tests.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-2/README.md",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-2/docs/plans/.gitkeep",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-2/docs/plans/重构方案.md",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-2/docs/plans/重构施工.md",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-2/src/invoice.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-2/src/money.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-2/src/pricing.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-2/src/report.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-2/tests/pricing.test.js",
+      "sandbox/rules-evals/process-runs/插问优先回答/run-2/tests/run-tests.js",
+      "sandbox/rules-evals/runs/小任务修复/run-1/README.md",
+      "sandbox/rules-evals/runs/小任务修复/run-1/docs/plans/.gitkeep",
+      "sandbox/rules-evals/runs/小任务修复/run-1/src/slugify.js",
+      "sandbox/rules-evals/runs/小任务修复/run-1/tests/run-tests.js",
+      "sandbox/rules-evals/runs/小任务修复/run-1/tests/slugify.test.js",
+      "sandbox/rules-evals/runs/小任务修复/run-2/README.md",
+      "sandbox/rules-evals/runs/小任务修复/run-2/docs/plans/.gitkeep",
+      "sandbox/rules-evals/runs/小任务修复/run-2/src/slugify.js",
+      "sandbox/rules-evals/runs/小任务修复/run-2/tests/run-tests.js",
+      "sandbox/rules-evals/runs/小任务修复/run-2/tests/slugify.test.js",
+      "sandbox/rules-evals/runs/小任务修复/run-3/README.md",
+      "sandbox/rules-evals/runs/小任务修复/run-3/docs/plans/.gitkeep",
+      "sandbox/rules-evals/runs/小任务修复/run-3/src/slugify.js",
+      "sandbox/rules-evals/runs/小任务修复/run-3/tests/run-tests.js",
+      "sandbox/rules-evals/runs/小任务修复/run-3/tests/slugify.test.js",
+      "sandbox/rules-evals/runs/长任务重构/run-1/README.md",
+      "sandbox/rules-evals/runs/长任务重构/run-1/docs/module-overview.md",
+      "sandbox/rules-evals/runs/长任务重构/run-1/docs/plans/.gitkeep",
+      "sandbox/rules-evals/runs/长任务重构/run-1/docs/plans/重构方案.md",
+      "sandbox/rules-evals/runs/长任务重构/run-1/docs/plans/重构施工.md",
+      "sandbox/rules-evals/runs/长任务重构/run-1/src/pricing.js",
+      "sandbox/rules-evals/runs/长任务重构/run-1/src/report.js",
+      "sandbox/rules-evals/runs/长任务重构/run-1/tests/pricing.test.js",
+      "sandbox/rules-evals/runs/长任务重构/run-1/tests/run-tests.js",
+      "sandbox/rules-evals/runs/长任务重构/run-2/README.md",
+      "sandbox/rules-evals/runs/长任务重构/run-2/docs/plans/.gitkeep",
+      "sandbox/rules-evals/runs/长任务重构/run-2/docs/plans/重构方案.md",
+      "sandbox/rules-evals/runs/长任务重构/run-2/docs/plans/重构施工.md",
+      "sandbox/rules-evals/runs/长任务重构/run-2/src/money.js",
+      "sandbox/rules-evals/runs/长任务重构/run-2/src/pricing.js",
+      "sandbox/rules-evals/runs/长任务重构/run-2/src/report.js",
+      "sandbox/rules-evals/runs/长任务重构/run-2/src/reportFormatter.js",
+      "sandbox/rules-evals/runs/长任务重构/run-2/tests/pricing.test.js",
+      "sandbox/rules-evals/runs/长任务重构/run-2/tests/run-tests.js",
+      "sandbox/rules-evals/runs/长任务重构/run-3/README.md",
+      "sandbox/rules-evals/runs/长任务重构/run-3/docs/plans/.gitkeep",
+      "sandbox/rules-evals/runs/长任务重构/run-3/docs/plans/run-3-重构方案.md",
+      "sandbox/rules-evals/runs/长任务重构/run-3/docs/plans/run-3-重构施工.md",
+      "sandbox/rules-evals/runs/长任务重构/run-3/src/invoice.js",
+      "sandbox/rules-evals/runs/长任务重构/run-3/src/pricing.js",
+      "sandbox/rules-evals/runs/长任务重构/run-3/src/report.js",
+      "sandbox/rules-evals/runs/长任务重构/run-3/tests/invoice.test.js",
+      "sandbox/rules-evals/runs/长任务重构/run-3/tests/pricing.test.js",
+      "sandbox/rules-evals/runs/长任务重构/run-3/tests/report.test.js",
+      "sandbox/rules-evals/runs/长任务重构/run-3/tests/run-tests.js",
+      "schemas/README.md",
+      "schemas/orchestrator-task-state.schema.json",
+      "schemas/project-environment.schema.json",
+      "schemas/task-event.schema.json",
+      "schemas/task-state.schema.json",
+      "schemas/windows-external-capabilities.schema.json",
+      "schemas/wsl-tool-baseline.schema.json",
+      "scripts/README.md",
+      "scripts/bootstrap-local.py",
+      "scripts/doctor-core.py",
+      "scripts/project-env-doctor.py",
+      "scripts/provision-wsl.py",
+      "scripts/resolve-wsl-path.py",
+      "scripts/runtime_common.py",
+      "scripts/start_session.py",
+      "scripts/sync-codex.py",
+      "scripts/validate_doc_routing.py",
+      "scripts/validate_plan_docs.py",
+      "skills/command-failure-memory/SKILL.md",
+      "skills/command-failure-memory/agents/openai.yaml",
+      "skills/command-failure-memory/scripts/command-failure-memory.py",
+      "skills/fix-closure-gate/SKILL.md",
+      "skills/global-task-orchestrator/SKILL.md",
+      "skills/global-task-orchestrator/agents/openai.yaml",
+      "skills/global-task-orchestrator/references/blackbox-methodology.md",
+      "skills/global-task-orchestrator/references/governance-essentials.md",
+      "skills/global-task-orchestrator/references/revision-3-contract.example.json",
+      "skills/global-task-orchestrator/references/revision-3-results.example.json",
+      "skills/global-task-orchestrator/references/state-schema.md",
+      "skills/global-task-orchestrator/references/usage-modes.md",
+      "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+      "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+      "skills/global-task-orchestrator/scripts/start_session.py",
+      "skills/pre-dev-benchmark/SKILL.md",
+      "templates/README.md",
+      "templates/codex/AGENTS.global.md",
+      "templates/orchestrator/state.template.json",
+      "templates/project/.codex/README.md",
+      "templates/project/README.md",
+      "templates/project/config/ai/environment.example.json",
+      "templates/task-state.example.json",
+      "tests/README.md",
+      "tests/benchmarks/gto_blackbox.py",
+      "tests/fixtures/gto-blackbox-methodology/l3-cross-project-restore/scenario-card.json",
+      "tests/fixtures/gto-blackbox-methodology/l3-cross-project-restore/stage-fixture/business-root/request.txt",
+      "tests/fixtures/gto-blackbox-methodology/l3-cross-project-restore/stage-fixture/fixture-manifest.json",
+      "tests/fixtures/gto-blackbox-methodology/l3-cross-project-restore/stage-fixture/state-slice.json",
+      "tests/fixtures/gto-blackbox-methodology/l3-cross-project-restore/stage-fixture/tool-root/installed.marker",
+      "tests/fixtures/gto-workflow/README.md",
+      "tests/fixtures/gto-workflow/entry-precision/project/modules/order_cli/main.py",
+      "tests/fixtures/gto-workflow/entry-precision/prompt.txt",
+      "tests/fixtures/gto-workflow/manifest.json",
+      "tests/fixtures/gto-workflow/normal/project/.gitignore",
+      "tests/fixtures/gto-workflow/normal/project/AGENTS.md",
+      "tests/fixtures/gto-workflow/normal/project/docs/modules/orders/contract/orders.md",
+      "tests/fixtures/gto-workflow/normal/project/docs/modules/orders/delivery/engineering/run.md",
+      "tests/fixtures/gto-workflow/normal/project/modules/order_cli/main.py",
+      "tests/fixtures/gto-workflow/normal/project/modules/orders/domain.py",
+      "tests/fixtures/gto-workflow/normal/project/tests/test_orders.py",
+      "tests/fixtures/gto-workflow/normal/prompt.txt",
+      "tests/fixtures/gto-workflow/platform-probe.txt",
+      "tests/fixtures/gto-workflow/project-config/project/config/order-policy.example.json",
+      "tests/fixtures/gto-workflow/project-config/project/docs/modules/orders/delivery/engineering/run.md",
+      "tests/fixtures/gto-workflow/project-config/project/modules/order_cli/main.py",
+      "tests/fixtures/gto-workflow/project-config/prompt.txt",
+      "tests/fixtures/gto-workflow/review-boundaries/project/docs/modules/orders/contract/orders.md",
+      "tests/fixtures/gto-workflow/review-boundaries/project/modules/order_cli/main.py",
+      "tests/fixtures/gto-workflow/review-boundaries/project/modules/orders/domain.py",
+      "tests/fixtures/gto-workflow/review-boundaries/prompt.txt",
+      "tests/fixtures/wsl-environment/README.md",
+      "tests/fixtures/wsl-environment/baseline.invalid.json",
+      "tests/fixtures/wsl-environment/baseline.valid.json",
+      "tests/fixtures/wsl-environment/project-valid/config/ai/environment.json",
+      "tests/fixtures/wsl-environment/project-valid/package.json",
+      "tests/fixtures/wsl-environment/project-valid/requirements.txt",
+      "tests/harness/README.md",
+      "tests/harness/fixtures/harness-minimal-convergence/legacy-no-requirements/docs/ai/tasks/20300102-030405-control-plane-contract/.control.lock",
+      "tests/harness/fixtures/harness-minimal-convergence/legacy-no-requirements/docs/ai/tasks/20300102-030405-control-plane-contract/events.jsonl",
+      "tests/harness/fixtures/harness-minimal-convergence/legacy-no-requirements/docs/ai/tasks/20300102-030405-control-plane-contract/state.json",
+      "tests/harness/fixtures/harness-minimal-convergence/legacy-no-requirements/docs/ai/tasks/20300102-030405-control-plane-contract/task.md",
+      "tests/harness/fixtures/harness-minimal-convergence/legacy-no-requirements/docs/tasks/20300102-030405-control-plane-contract/acceptance.md",
+      "tests/harness/fixtures/harness-minimal-convergence/legacy-no-requirements/docs/tasks/20300102-030405-control-plane-contract/execution.md",
+      "tests/harness/fixtures/harness-minimal-convergence/legacy-no-requirements/docs/tasks/20300102-030405-control-plane-contract/plan.md",
+      "tests/harness/fixtures/harness-minimal-convergence/legacy-no-requirements/provenance.json",
+      "tests/harness/test_command_failure_memory.py",
+      "tests/harness/test_control_plane.py",
+      "tests/harness/test_docker_desktop_safe_start.py",
+      "tests/harness/test_gto_acceptance_budget.py",
+      "tests/harness/test_gto_acceptance_retest_contract.py",
+      "tests/harness/test_gto_blackbox_methodology.py",
+      "tests/harness/test_gto_blackbox_runner.py",
+      "tests/harness/test_gto_consumer_validation.py",
+      "tests/harness/test_gto_coordinator_blocking.py",
+      "tests/harness/test_gto_default_release.py",
+      "tests/harness/test_gto_independent_review_20260909.py",
+      "tests/harness/test_gto_initial_test_routing.py",
+      "tests/harness/test_gto_plan_preflight_contract.py",
+      "tests/harness/test_gto_review_regressions.py",
+      "tests/harness/test_gto_runner_environment_review.py",
+      "tests/harness/test_gto_workflow.py",
+      "tests/harness/test_pure_codex_cleanup.py",
+      "tests/harness/test_sync_codex_scope.py",
+      "tests/harness/test_windows_native_environment.py",
+      "tests/harness/test_windows_native_transition.py",
+      "tests/harness/test_wsl_environment.py",
+      "tests/harness/test_wsl_runtime.py",
+      "tests/harness/test_wsl_tools.py"
+    ],
+    "write_overlap": [
+      "skills/global-task-orchestrator/SKILL.md",
+      "skills/global-task-orchestrator/references/revision-3-results.example.json",
+      "skills/global-task-orchestrator/references/state-schema.md",
+      "skills/global-task-orchestrator/references/usage-modes.md",
+      "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+      "skills/global-task-orchestrator/scripts/orchestrator_ctl.py"
+    ],
+    "overlap_decision": {
+      "status": "resolved",
+      "summary": "User approved scoped GTO evidence repair on 2026-09-20. Preserve all existing dirty work; append minimal changes only to declared GTO files and new independent tests. No cleanup, commit or push.",
+      "baseline_hashes": {
+        "skills/global-task-orchestrator/SKILL.md": "bbe06a5e988a2f28792e1d9e403f523f773d0f411399f8a8e779bc1b794c3524",
+        "skills/global-task-orchestrator/references/revision-3-results.example.json": "e0ede3ab1f8b33e3aa7a77bd4581eaa94d4592601675efbaa03e1b4c9fbcb7ad",
+        "skills/global-task-orchestrator/references/state-schema.md": "2b6cb5c4c587f08bdf441d97851af8a7f54062d67b63095b59631064ec94e2a5",
+        "skills/global-task-orchestrator/references/usage-modes.md": "613fc4e9d99ccae703a8807b9e9299cce5070250f64705ac121985236e33d31a",
+        "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json": "034d18fdb90f0f9b5c3d1459c051384865e2bdeabdf810f4a0c2c6125324b2f2",
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py": "19c37879826b7003e42f6170a5c8ae30326a494895a637981a938b597cf147ce"
+      }
+    }
+  },
+  "review_policy": {
+    "max_fix_rounds": 3,
+    "require_independent_final_review": false,
+    "scope_expansion_requires_escalation": true
+  },
+  "findings": {
+    "REVIEW-EVIDENCE-OWNER-001": {
+      "finding_id": "REVIEW-EVIDENCE-OWNER-001",
+      "severity": "high",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "tests/harness/test_gto_verification_evidence_acceptance.py"
+      ],
+      "summary": "证据键唯一归属未用于登记或补录校验：当前 attempt 可登记其他 kind 或其他 template 专属 key，形成错误来源索引。",
+      "evidence": ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/ownership-red.log; .artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/template-ownership-red.log",
+      "status": "closed",
+      "fix_round": 1,
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/implementer"
+      },
+      "discovered_by": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/gto_reviewer"
+      },
+      "source_subtask_id": "REVIEW-001",
+      "root_cause": "_validate_contract 只检查模板/kind 间 key 声明唯一；_acceptance_review_evidence_errors 和 _verification_receipt_errors 只核对全局合同 key、来源文件和候选，没有核对该 key 声明所属的 template/kind。_observed_pre_final_evidence 同样按 key 聚合，因此错误所属不会在消费时被排除。",
+      "fix_plan": "从现有模板 assignment 构造单一 owner 查询，按实际 attempt 的模板和 kind 校验直接 review_evidence、receipt 及消费；拒绝其他 kind/template 的专属 key 且六工件零修改。保留完全无归属旧合同、已有 work prose、候选及历史不可变门禁；不修改或放宽四条 reviewer Red。",
+      "documentation_update": {
+        "written_by": "/root/gto_reviewer",
+        "status": "not_applicable",
+        "paths": [],
+        "reason": "已核对 SKILL、state-schema、usage-modes 和示例；现有合同明确 key 在模板/kind 间唯一且引用不得跨类填补，本问题为实现违约，无需修改正式合同。已批准的待实现措辞收尾仍由 CLOSE 按最终事实执行。"
+      },
+      "regression_proof": {
+        "written_by": "/root/gto_reviewer",
+        "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind",
+        "scope": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_gto_verification_evidence_acceptance.py"
+        ],
+        "exit_code": 1,
+        "expected_exit_code": 1,
+        "evidence_refs": [
+          ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/ownership-red.log",
+          ".artifacts/20260920-101849-507587-gto-evidence-receipts/REVIEW-001/template-ownership-red.log"
+        ]
+      },
+      "acceptance_ids": [
+        "EVIDENCE-01",
+        "GATE-01"
+      ],
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/implementer"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/gto_reviewer"
+        }
+      },
+      "fix_history": [
+        {
+          "summary": "统一按 verification evidence 声明的 acceptance template 与 attempt kind 所有权校验直接 result.review_evidence、verification receipt 及 pre-final 消费；跨 kind 或跨 template 的专属 key 原子拒绝，同时保留无归属旧合同和普通 work prose 兼容。attempt 新增显式 template_subtask_id，旧 attempt 使用确定性前缀推断。",
+          "changed_files": [
+            "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+            "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
+          ],
+          "sha256": "bdfb9eac5fcafa3088b21c2f638be7ebecf3ec9055d5aa8ce7262385671c6022",
+          "verification": "四条 Reviewer 最小 Red 均在修复前按预期失败；修复后目标 4/4、完整证据合同 19/19、相关工作流与控制面 5/5 通过。controller SHA256=0a60c7eeda4df4823bf52ca4d63def3d01b08aad5af7823d7ba93e96879a72a1; schema SHA256=1a4080094553fc7b5703deb912eb19830228c4dbc71ca3713bfa1c5e7b1cca9b. AST、Draft 2020-12 schema 与 git diff --check 均通过。一次误用 Windows PowerShell 的 git 只读命令已按 CFM record/query/success 闭环，随后由 Ubuntu-24.04 WSL 成功复核。",
+          "checks": [
+            {
+              "purpose": "red",
+              "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind",
+              "scope": [
+                "tests/harness/test_gto_verification_evidence_acceptance.py"
+              ],
+              "exit_code": 1,
+              "expected_exit_code": 1,
+              "evidence_refs": [
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/kind-owner-red.log"
+              ]
+            },
+            {
+              "purpose": "red",
+              "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_template test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_template",
+              "scope": [
+                "tests/harness/test_gto_verification_evidence_acceptance.py"
+              ],
+              "exit_code": 1,
+              "expected_exit_code": 1,
+              "evidence_refs": [
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/template-owner-red.log"
+              ]
+            },
+            {
+              "purpose": "green",
+              "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_template test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_template",
+              "scope": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_gto_verification_evidence_acceptance.py"
+              ],
+              "exit_code": 0,
+              "expected_exit_code": 0,
+              "evidence_refs": [
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/owner-four-green.log"
+              ]
+            },
+            {
+              "purpose": "regression",
+              "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence test_gto_verification_evidence_acceptance",
+              "scope": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_gto_verification_evidence.py",
+                "tests/harness/test_gto_verification_evidence_acceptance.py"
+              ],
+              "exit_code": 0,
+              "expected_exit_code": 0,
+              "evidence_refs": [
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/full-19-green.log"
+              ]
+            },
+            {
+              "purpose": "regression",
+              "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_workflow.WorkflowTest.test_blackbox_published_results_complete_cli_sequence test_gto_workflow.WorkflowTest.test_scoped_acceptance_repair_and_wording_closeout_cli test_gto_workflow.WorkflowTest.test_closeout_cannot_write_substantive_formal_documents test_control_plane.ControlPlaneContractTest.test_set_phase_reuses_verification_workspace_and_review_evidence_gates test_control_plane.ControlPlaneContractTest.test_final_documentation_and_finalize_require_current_candidate_evidence",
+              "scope": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_gto_workflow.py",
+                "tests/harness/test_control_plane.py"
+              ],
+              "exit_code": 0,
+              "expected_exit_code": 0,
+              "evidence_refs": [
+                ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/related-five-green.log"
+              ]
+            }
+          ],
+          "written_by": "/root/implementer",
+          "written_role": "backend-implementer"
+        }
+      ],
+      "fix_delta": {
+        "summary": "统一按 verification evidence 声明的 acceptance template 与 attempt kind 所有权校验直接 result.review_evidence、verification receipt 及 pre-final 消费；跨 kind 或跨 template 的专属 key 原子拒绝，同时保留无归属旧合同和普通 work prose 兼容。attempt 新增显式 template_subtask_id，旧 attempt 使用确定性前缀推断。",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
+        ],
+        "sha256": "bdfb9eac5fcafa3088b21c2f638be7ebecf3ec9055d5aa8ce7262385671c6022",
+        "verification": "四条 Reviewer 最小 Red 均在修复前按预期失败；修复后目标 4/4、完整证据合同 19/19、相关工作流与控制面 5/5 通过。controller SHA256=0a60c7eeda4df4823bf52ca4d63def3d01b08aad5af7823d7ba93e96879a72a1; schema SHA256=1a4080094553fc7b5703deb912eb19830228c4dbc71ca3713bfa1c5e7b1cca9b. AST、Draft 2020-12 schema 与 git diff --check 均通过。一次误用 Windows PowerShell 的 git 只读命令已按 CFM record/query/success 闭环，随后由 Ubuntu-24.04 WSL 成功复核。",
+        "checks": [
+          {
+            "purpose": "red",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind",
+            "scope": [
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 1,
+            "expected_exit_code": 1,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/kind-owner-red.log"
+            ]
+          },
+          {
+            "purpose": "red",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_template test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_template",
+            "scope": [
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 1,
+            "expected_exit_code": 1,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/template-owner-red.log"
+            ]
+          },
+          {
+            "purpose": "green",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_attempt_kind test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_direct_evidence_owned_by_another_template test_gto_verification_evidence_acceptance.VerificationEvidenceAcceptanceTest.test_review_rejects_receipt_owned_by_another_template",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/owner-four-green.log"
+            ]
+          },
+          {
+            "purpose": "regression",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_verification_evidence test_gto_verification_evidence_acceptance",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_verification_evidence.py",
+              "tests/harness/test_gto_verification_evidence_acceptance.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/full-19-green.log"
+            ]
+          },
+          {
+            "purpose": "regression",
+            "command": "cd tests/harness && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B -m unittest test_gto_workflow.WorkflowTest.test_blackbox_published_results_complete_cli_sequence test_gto_workflow.WorkflowTest.test_scoped_acceptance_repair_and_wording_closeout_cli test_gto_workflow.WorkflowTest.test_closeout_cannot_write_substantive_formal_documents test_control_plane.ControlPlaneContractTest.test_set_phase_reuses_verification_workspace_and_review_evidence_gates test_control_plane.ControlPlaneContractTest.test_final_documentation_and_finalize_require_current_candidate_evidence",
+            "scope": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json",
+              "tests/harness/test_gto_workflow.py",
+              "tests/harness/test_control_plane.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "evidence_refs": [
+              ".artifacts/20260920-101849-507587-gto-evidence-receipts/WORK-001-owner-fix/related-five-green.log"
+            ]
+          }
+        ],
+        "written_by": "/root/implementer",
+        "written_role": "backend-implementer"
+      },
+      "fixed_after_integration": "INTEGRATE-001",
+      "closed_at": "2026-09-20T04:00:24.189534Z"
+    }
+  },
+  "next_action": {
+    "kind": "none"
+  },
+  "artifact_sha256": {
+    "task.md": "1b15fd1b0c87fa8e57c2e5ff7682964a253b65fee60fe0eb7be948ea6917ce6f",
+    "plan.md": "de3cdb747544b13eda7466deb7877e11fe4749cfb1153b8ec4181584d2affc0e",
+    "execution.md": "564cd0ab8e601ebbc7ac1b9b4bdf669fcc70838c2d09eb1ae4e040f011c746cd",
+    "acceptance.md": "122c23338f68bf7de40424cc36d89e881064095079614c697f5b8b7df3bc115c"
+  },
+  "updated_at": "2026-09-20T04:32:53.057926Z"
+}

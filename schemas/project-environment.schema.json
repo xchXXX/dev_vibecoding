@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Project environment declaration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "capabilities"],
+  "anyOf": [
+    {"required": ["python"]},
+    {"required": ["node"]}
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "python": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requirements_file", "venv"],
+          "properties": {
+            "requirements_file": {"type": "string", "minLength": 1},
+            "venv": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pyproject_file", "venv"],
+          "properties": {
+            "pyproject_file": {"type": "string", "minLength": 1},
+            "venv": {"type": "string", "minLength": 1},
+            "extras": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package_json", "node_modules"],
+      "properties": {
+        "package_json": {"type": "string", "minLength": 1},
+        "node_modules": {"type": "string", "minLength": 1}
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "required"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "required": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

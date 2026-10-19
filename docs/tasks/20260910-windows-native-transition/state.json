@@ -1,0 +1,134 @@
+{
+  "schema": "manual-task-control/v1",
+  "task_id": "20260910-windows-native-transition",
+  "gto": false,
+  "phase": "P7",
+  "status": "environment_cleanup_complete_gui_evidence_pending",
+  "agent_switch_performed": true,
+  "ready_to_switch": true,
+  "migration_accepted": false,
+  "execution_owner": "current-main-coordinator",
+  "review_owner": "independent-subagent",
+  "acceptance_owner": "main-coordinator",
+  "review_policy": "first-global-then-impact-scoped",
+  "acceptance_policy": "first-global-then-impact-scoped",
+  "target": {
+    "agent": "windows-native",
+    "project_commands": "wsl",
+    "distribution": "Ubuntu-24.04"
+  },
+  "pre_checks": {
+    "PRE-01": "pass",
+    "PRE-02": "pass",
+    "PRE-03": "pass",
+    "PRE-04": "pass",
+    "PRE-05": "pass",
+    "PRE-06": "pass",
+    "PRE-07": "pass"
+  },
+  "latest_verification": {
+    "date": "2026-09-10",
+    "harness_project_doctor": "pass current Windows wsl.exe Ubuntu-24.04",
+    "drugsale_project_doctor": "pass current Windows wsl.exe Ubuntu-24.04",
+    "native_host": "Win32NT pwsh and native codex.exe paths confirmed",
+    "native_plugins": "computer-use=true, browser=true, unified-computer-use=true; actual GUI tools absent",
+    "post_switch_harness_doctor": "pass via absolute Windows wsl.exe / Ubuntu-24.04",
+    "native_environment_tests": "28/28 pass, 22.860s; ENV-SCAN fixes",
+    "transition_guard_tests": "4/4 pass, 2.615s",
+    "post_switch_drugsale_doctor": "pass; findings=[], errors=[]",
+    "drugsale_typecheck": "pnpm typecheck / vue-tsc --noEmit exit 0",
+    "docker_readonly": "same five IDs and StartedAt; all healthy",
+    "scoped_publication": "ENV-SCAN environment-only plus CFM-only twice; second unchanged; receipts match",
+    "post_publish_project_doctors": "both pass after ENV-SCAN publication",
+    "scoped_environment_doctor": "pass after ENV-SCAN publication; no global/GTO/GUI claim",
+    "legacy_config": "absent; native plugins enabled; other semantics unchanged",
+    "restore": "isolated 16-file byte restore passed; verified private archive and temp cleanup"
+  },
+  "blockers": [],
+  "acceptance": {
+    "ACC-01": "user_confirmed_pending_coordinator_evidence",
+    "ACC-02": "pending",
+    "ACC-03": "pending",
+    "ACC-04": "pending",
+    "ACC-05": "pass",
+    "ACC-06": "pass",
+    "ACC-07": "pass: ENV-SCAN explicit-home contracts reviewed; scoped live environment and CFM publication twice; second unchanged",
+    "ACC-08": "pass: 17-file isolated restore; 29 source snapshots intact; known retired artifacts absent"
+  },
+  "baseline_cfm": "f1d30d3eca1806a94cfa6844d6216fdd8f1a05df10f549f27cc8d2103a5c8584",
+  "pending_user_input": [
+    "New attachment for ACC-03; GUI evidence remains pending in this coordinator."
+  ],
+  "next_action": "Only remaining ACC-01..04 coordinator GUI/new-attachment evidence; environment cleanup and scoped publication complete.",
+  "urgent_plugins": [
+    "computer-use@openai-bundled",
+    "browser@openai-bundled",
+    "unified-computer-use@openai-bundled"
+  ],
+  "current_host": {
+    "codex_home": "C:/Users/Laptop/.codex",
+    "reported_cwd": "C:/mnt/d/prj/harnesss/dev_vibecoding",
+    "reported_cwd_exists": false,
+    "native_switch_verified": true,
+    "codex_home_env": "unset; Windows user profile store verified",
+    "verified_project": "D:/prj/harnesss/dev_vibecoding",
+    "runtime_tools": [],
+    "agent": "windows-native",
+    "native_process_ids": [
+      27720,
+      28412
+    ]
+  },
+  "pre_check_notes": {
+    "PRE-01": "Backups and after copies intact; complete config restore blocked for unrelated model_reasoning_effort drift. Only scoped key merge permitted.",
+    "PRE-03": "browser config/cache absent; no claim of live plugin loading. Existing migration flags preserved."
+  },
+  "review_result": {
+    "scope": "comprehensive environment audit",
+    "full_migration": "pass_within_environment_scan_scope",
+    "reviewer": "Fermat 01a08a95-b269-7c73-9567-f8f3ec9bec24",
+    "open_findings": []
+  },
+  "user_confirmed_plugins_working": true,
+  "evidence_gaps": [
+    "Main coordinator GUI evidence ACC-01/02/04 pending; user confirms plugins usable.",
+    "New attachment ACC-03 pending."
+  ],
+  "maintenance_hold_present": false,
+  "legacy_cleanup_complete": true,
+  "historical_preparation_verification": {
+    "unit_tests": "4/4 transition guards including empty-directory detection; 5.841s",
+    "snapshot_backups": "23/23 intact",
+    "current_matches_seal": "22/23; config model_reasoning_effort drift",
+    "scoped_restore_preflight": "blocked for complete config restore",
+    "coordinator_PRE_recheck": "pass: candidate unchanged, backups intact, known config drift retained, hold intact"
+  },
+  "private_recovery_package": "/mnt/c/Users/Laptop/.codex/.ai-harness/backups/windows-native-transition-20260910-p6-085320",
+  "comprehensive_audit": {
+    "status": "repairs_reviewed_and_published",
+    "report": "environment-scan-review.md",
+    "reviewer": "Fermat",
+    "agent_id": "01a08a95-b269-7c73-9567-f8f3ec9bec24",
+    "scope": "independent environment source/docs/tests/rules/install scan; exclusions in report",
+    "open_findings": [],
+    "finding_counts": {
+      "P1": 0,
+      "P3": 5,
+      "P2": 6
+    },
+    "remaining_finding_counts": {
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    }
+  },
+  "installed_legacy_gui_removed": true,
+  "previous_p6_review": {
+    "reviewer": "Carver 01a08a71-4fe0-7a11-aca1-61e997448bc7",
+    "initial": "4 findings",
+    "scoped_rereview": "pass",
+    "open_findings": [],
+    "scope": "full migration candidate plus scoped fixes and final documentation",
+    "full_migration": "pass"
+  }
+}

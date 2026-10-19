@@ -1,0 +1,13 @@
+{
+  "native_plugins_enabled": {
+    "browser@openai-bundled": true,
+    "computer-use@openai-bundled": true,
+    "unified-computer-use@openai-bundled": true
+  },
+  "other_configuration_semantics_unchanged": true,
+  "unrelated_sync_receipt_records_unchanged": true,
+  "agents_and_template_receipt_match": true,
+  "legacy_config_absent": true,
+  "legacy_installed_skill_absent": true,
+  "legacy_installed_runtime_absent": true
+}

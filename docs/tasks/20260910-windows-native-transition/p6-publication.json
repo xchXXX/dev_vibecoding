@@ -1,0 +1,646 @@
+{
+  "started_at": "2026-09-10T08:57:37.703749+00:00",
+  "backup_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/backups/windows-native-transition-20260910-p6-085320",
+  "candidate": {
+    "scripts/bootstrap-local.py": "f907cf9e13048aca5c325086b2d530e3d7dce96e82d7caf3956444b2c3df6ec3",
+    "scripts/sync-codex.py": "9804e70d8e32662c8acd55f90290343b4d446519bc805f14ffa4d0b1af021266",
+    "scripts/runtime_common.py": "9a05b1ee08001b0d8c53516d200a709c438b8e290f1e545ac6bbc41f03d914c2",
+    "scripts/doctor-core.py": "fbd1eda0039af80eb0ebc59a627ccdf95fcae10bfbd271a6fa28e3520404f716",
+    "config/ai/windows-external-capabilities.json": "978743c0bdd7ccb46b501b635b0e7d92e8a14c76e9a173cfe8a39d0ceced6178",
+    "schemas/windows-external-capabilities.schema.json": "d5f9db00c4c3bbd9703ab61deb6ad8831a1b5e93eb50ca2282c587b6ec582313",
+    "tests/harness/test_windows_native_environment.py": "1908383d6384ff3f4d63328536a5f5a3efeea408c823855bfb40857995a5c83f",
+    ".tmp/windows-native-transition/retire-legacy-config.py": "0b9252a439cf7b9227b55af93024ee60e05d65607f70e0437f8c5d1a1b2936d9"
+  },
+  "steps": [
+    {
+      "entry": ".tmp/windows-native-transition/retire-legacy-config.py",
+      "arguments": [
+        "--codex-home",
+        "/mnt/c/Users/Laptop/.codex",
+        "--apply",
+        "--expected-sha",
+        "002436a39317ca2862ce75b2ccc39dd39587739b9658a6d2863c63084a3ff337"
+      ],
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "removed_tables": [
+          "computer_use_wsl"
+        ],
+        "before_sha256": "002436a39317ca2862ce75b2ccc39dd39587739b9658a6d2863c63084a3ff337",
+        "after_sha256": "f24a40c40d03fec9799b301d0ad92133a5938d827183fecc3c6689ecb34ebb4d",
+        "applied": true,
+        "unrelated_semantics_unchanged": true,
+        "target_path": "/mnt/c/Users/Laptop/.codex/config.toml",
+        "backup_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/backups/windows-native-legacy-config-hu4a8vm8",
+        "phase": "verified"
+      }
+    },
+    {
+      "entry": "scripts/bootstrap-local.py",
+      "arguments": [
+        "--harness-root",
+        "/mnt/d/prj/harnesss/dev_vibecoding",
+        "--codex-home",
+        "/mnt/c/Users/Laptop/.codex",
+        "--environment-only",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "scope": "environment-only",
+        "runtime_changed": true,
+        "managed_runtime_files": [
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/config/ai/wsl-tool-baseline.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/wsl-tool-baseline.json",
+            "source_sha256": "7d38fa0107903e96a0b26a0a8789fb591f7f4005c5ca271e4318c3a7c5dceee9",
+            "target_sha256": "7d38fa0107903e96a0b26a0a8789fb591f7f4005c5ca271e4318c3a7c5dceee9"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/config/ai/windows-external-capabilities.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/windows-external-capabilities.json",
+            "source_sha256": "978743c0bdd7ccb46b501b635b0e7d92e8a14c76e9a173cfe8a39d0ceced6178",
+            "target_sha256": "978743c0bdd7ccb46b501b635b0e7d92e8a14c76e9a173cfe8a39d0ceced6178"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/wsl-tool-baseline.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/wsl-tool-baseline.schema.json",
+            "source_sha256": "d08a0c9baf85935016d02574fd4176391e452da725e98ee564adaa52be1291f2",
+            "target_sha256": "d08a0c9baf85935016d02574fd4176391e452da725e98ee564adaa52be1291f2"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/windows-external-capabilities.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/windows-external-capabilities.schema.json",
+            "source_sha256": "d5f9db00c4c3bbd9703ab61deb6ad8831a1b5e93eb50ca2282c587b6ec582313",
+            "target_sha256": "d5f9db00c4c3bbd9703ab61deb6ad8831a1b5e93eb50ca2282c587b6ec582313"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/project-environment.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/project-environment.schema.json",
+            "source_sha256": "d11f2bf4a1e9ba42f536e75cd7766c0698130de7fbcb3e531deba6750ba60597",
+            "target_sha256": "d11f2bf4a1e9ba42f536e75cd7766c0698130de7fbcb3e531deba6750ba60597"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/provision-wsl.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/provision-wsl.py",
+            "source_sha256": "f4f9ccfc1a17eedf9813fea10fae43f5eb5d51c93ce47989fab8c677b2e95a3b",
+            "target_sha256": "f4f9ccfc1a17eedf9813fea10fae43f5eb5d51c93ce47989fab8c677b2e95a3b"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/project-env-doctor.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/project-env-doctor.py",
+            "source_sha256": "0e8e071f8f49aa9d5c54b7eb37ce0d298d73927db1bc87287280f59d6c64b3fd",
+            "target_sha256": "0e8e071f8f49aa9d5c54b7eb37ce0d298d73927db1bc87287280f59d6c64b3fd"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/resolve-wsl-path.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/resolve-wsl-path.py",
+            "source_sha256": "e3560b2ebb3187dfadf16f0f0f2cdc66a13276f573506b6245aa51a47e8e6bcd",
+            "target_sha256": "e3560b2ebb3187dfadf16f0f0f2cdc66a13276f573506b6245aa51a47e8e6bcd"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/doctor-core.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/doctor-core.py",
+            "source_sha256": "fbd1eda0039af80eb0ebc59a627ccdf95fcae10bfbd271a6fa28e3520404f716",
+            "target_sha256": "fbd1eda0039af80eb0ebc59a627ccdf95fcae10bfbd271a6fa28e3520404f716"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/runtime_common.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/runtime_common.py",
+            "source_sha256": "9a05b1ee08001b0d8c53516d200a709c438b8e290f1e545ac6bbc41f03d914c2",
+            "target_sha256": "9a05b1ee08001b0d8c53516d200a709c438b8e290f1e545ac6bbc41f03d914c2"
+          }
+        ],
+        "retired_runtime_files_removed": [
+          "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/node-repl-wsl-compat.py"
+        ],
+        "receipt_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/bootstrap.receipt.json"
+      }
+    },
+    {
+      "entry": "scripts/sync-codex.py",
+      "arguments": [
+        "--harness-root",
+        "/mnt/d/prj/harnesss/dev_vibecoding",
+        "--codex-home",
+        "/mnt/c/Users/Laptop/.codex",
+        "--retire-legacy-gui",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "changed": true,
+        "retired_skill": "windows-computer-use-wsl",
+        "backup_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/backups/retired-windows-gui/08bd74a3466442157fab041c66c2e10ae922570e09d0b678b81f9af4aed9e1da"
+      }
+    },
+    {
+      "entry": "scripts/bootstrap-local.py",
+      "arguments": [
+        "--harness-root",
+        "/mnt/d/prj/harnesss/dev_vibecoding",
+        "--codex-home",
+        "/mnt/c/Users/Laptop/.codex",
+        "--environment-only",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "scope": "environment-only",
+        "runtime_changed": false,
+        "managed_runtime_files": [
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/config/ai/wsl-tool-baseline.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/wsl-tool-baseline.json",
+            "source_sha256": "7d38fa0107903e96a0b26a0a8789fb591f7f4005c5ca271e4318c3a7c5dceee9",
+            "target_sha256": "7d38fa0107903e96a0b26a0a8789fb591f7f4005c5ca271e4318c3a7c5dceee9"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/config/ai/windows-external-capabilities.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/windows-external-capabilities.json",
+            "source_sha256": "978743c0bdd7ccb46b501b635b0e7d92e8a14c76e9a173cfe8a39d0ceced6178",
+            "target_sha256": "978743c0bdd7ccb46b501b635b0e7d92e8a14c76e9a173cfe8a39d0ceced6178"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/wsl-tool-baseline.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/wsl-tool-baseline.schema.json",
+            "source_sha256": "d08a0c9baf85935016d02574fd4176391e452da725e98ee564adaa52be1291f2",
+            "target_sha256": "d08a0c9baf85935016d02574fd4176391e452da725e98ee564adaa52be1291f2"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/windows-external-capabilities.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/windows-external-capabilities.schema.json",
+            "source_sha256": "d5f9db00c4c3bbd9703ab61deb6ad8831a1b5e93eb50ca2282c587b6ec582313",
+            "target_sha256": "d5f9db00c4c3bbd9703ab61deb6ad8831a1b5e93eb50ca2282c587b6ec582313"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/project-environment.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/project-environment.schema.json",
+            "source_sha256": "d11f2bf4a1e9ba42f536e75cd7766c0698130de7fbcb3e531deba6750ba60597",
+            "target_sha256": "d11f2bf4a1e9ba42f536e75cd7766c0698130de7fbcb3e531deba6750ba60597"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/provision-wsl.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/provision-wsl.py",
+            "source_sha256": "f4f9ccfc1a17eedf9813fea10fae43f5eb5d51c93ce47989fab8c677b2e95a3b",
+            "target_sha256": "f4f9ccfc1a17eedf9813fea10fae43f5eb5d51c93ce47989fab8c677b2e95a3b"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/project-env-doctor.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/project-env-doctor.py",
+            "source_sha256": "0e8e071f8f49aa9d5c54b7eb37ce0d298d73927db1bc87287280f59d6c64b3fd",
+            "target_sha256": "0e8e071f8f49aa9d5c54b7eb37ce0d298d73927db1bc87287280f59d6c64b3fd"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/resolve-wsl-path.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/resolve-wsl-path.py",
+            "source_sha256": "e3560b2ebb3187dfadf16f0f0f2cdc66a13276f573506b6245aa51a47e8e6bcd",
+            "target_sha256": "e3560b2ebb3187dfadf16f0f0f2cdc66a13276f573506b6245aa51a47e8e6bcd"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/doctor-core.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/doctor-core.py",
+            "source_sha256": "fbd1eda0039af80eb0ebc59a627ccdf95fcae10bfbd271a6fa28e3520404f716",
+            "target_sha256": "fbd1eda0039af80eb0ebc59a627ccdf95fcae10bfbd271a6fa28e3520404f716"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/runtime_common.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/runtime_common.py",
+            "source_sha256": "9a05b1ee08001b0d8c53516d200a709c438b8e290f1e545ac6bbc41f03d914c2",
+            "target_sha256": "9a05b1ee08001b0d8c53516d200a709c438b8e290f1e545ac6bbc41f03d914c2"
+          }
+        ],
+        "retired_runtime_files_removed": [],
+        "receipt_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/bootstrap.receipt.json"
+      }
+    },
+    {
+      "entry": "scripts/sync-codex.py",
+      "arguments": [
+        "--harness-root",
+        "/mnt/d/prj/harnesss/dev_vibecoding",
+        "--codex-home",
+        "/mnt/c/Users/Laptop/.codex",
+        "--retire-legacy-gui",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "changed": false,
+        "retired_skill": "windows-computer-use-wsl"
+      }
+    },
+    {
+      "entry": "scripts/doctor-core.py",
+      "arguments": [
+        "--root",
+        "/mnt/d/prj/harnesss/dev_vibecoding",
+        "--codex-home",
+        "/mnt/c/Users/Laptop/.codex",
+        "--environment-only",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "scope": "environment-only",
+        "issues": [],
+        "runtime_verified": false,
+        "windows_external_capabilities": {
+          "ok": true,
+          "runtime_verified": false,
+          "declaration_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/windows-external-capabilities.json",
+          "capabilities": [
+            {
+              "id": "codex-browser",
+              "kind": "windows_native",
+              "provider": "codex_builtin_browser",
+              "plugin_states": {
+                "browser@openai-bundled": "enabled",
+                "unified-computer-use@openai-bundled": "enabled"
+              },
+              "status": "configured_on_disk",
+              "action": "use_native_plugin",
+              "runtime_verified": false
+            },
+            {
+              "id": "computer-use",
+              "kind": "windows_native",
+              "provider": "official_computer_use",
+              "plugin_states": {
+                "computer-use@openai-bundled": "enabled"
+              },
+              "status": "configured_on_disk",
+              "action": "use_native_plugin",
+              "runtime_verified": false
+            }
+          ],
+          "issues": []
+        },
+        "wsl_tool_audit": {
+          "ok": true,
+          "tools": [
+            {
+              "id": "bwrap",
+              "available": true,
+              "path": "/usr/bin/bwrap",
+              "linux_native": true
+            },
+            {
+              "id": "node",
+              "available": true,
+              "path": "/usr/local/bin/node",
+              "linux_native": true
+            },
+            {
+              "id": "npm",
+              "available": true,
+              "path": "/usr/local/bin/npm",
+              "linux_native": true
+            },
+            {
+              "id": "jq",
+              "available": true,
+              "path": "/usr/bin/jq",
+              "linux_native": true
+            },
+            {
+              "id": "unzip",
+              "available": true,
+              "path": "/usr/bin/unzip",
+              "linux_native": true
+            },
+            {
+              "id": "zip",
+              "available": true,
+              "path": "/usr/bin/zip",
+              "linux_native": true
+            },
+            {
+              "id": "tree",
+              "available": true,
+              "path": "/usr/bin/tree",
+              "linux_native": true
+            },
+            {
+              "id": "strace",
+              "available": true,
+              "path": "/usr/bin/strace",
+              "linux_native": true
+            },
+            {
+              "id": "shellcheck",
+              "available": true,
+              "path": "/usr/bin/shellcheck",
+              "linux_native": true
+            },
+            {
+              "id": "shfmt",
+              "available": true,
+              "path": "/usr/bin/shfmt",
+              "linux_native": true
+            },
+            {
+              "id": "fzf",
+              "available": true,
+              "path": "/usr/bin/fzf",
+              "linux_native": true
+            },
+            {
+              "id": "fdfind",
+              "available": true,
+              "path": "/usr/bin/fdfind",
+              "linux_native": true
+            },
+            {
+              "id": "sqlite3",
+              "available": true,
+              "path": "/usr/bin/sqlite3",
+              "linux_native": true
+            },
+            {
+              "id": "dos2unix",
+              "available": true,
+              "path": "/usr/bin/dos2unix",
+              "linux_native": true
+            },
+            {
+              "id": "gcc",
+              "available": true,
+              "path": "/usr/bin/gcc",
+              "linux_native": true
+            },
+            {
+              "id": "g++",
+              "available": true,
+              "path": "/usr/bin/g++",
+              "linux_native": true
+            },
+            {
+              "id": "make",
+              "available": true,
+              "path": "/usr/bin/make",
+              "linux_native": true
+            },
+            {
+              "id": "pkg-config",
+              "available": true,
+              "path": "/usr/bin/pkg-config",
+              "linux_native": true
+            },
+            {
+              "id": "cmake",
+              "available": true,
+              "path": "/usr/bin/cmake",
+              "linux_native": true
+            },
+            {
+              "id": "ninja",
+              "available": true,
+              "path": "/usr/bin/ninja",
+              "linux_native": true
+            },
+            {
+              "id": "pip3",
+              "available": true,
+              "path": "/usr/bin/pip3",
+              "linux_native": true
+            },
+            {
+              "id": "pnpm",
+              "available": true,
+              "path": "/usr/local/bin/pnpm",
+              "linux_native": true
+            }
+          ],
+          "package_audit": [
+            {
+              "id": "git",
+              "command": "git",
+              "available": true,
+              "path": "/usr/bin/git",
+              "linux_native": true
+            },
+            {
+              "id": "ripgrep",
+              "command": "rg",
+              "available": true,
+              "path": "/usr/bin/rg",
+              "linux_native": true
+            },
+            {
+              "id": "curl",
+              "command": "curl",
+              "available": true,
+              "path": "/usr/bin/curl",
+              "linux_native": true
+            },
+            {
+              "id": "wget",
+              "command": "wget",
+              "available": true,
+              "path": "/usr/bin/wget",
+              "linux_native": true
+            },
+            {
+              "id": "rsync",
+              "command": "rsync",
+              "available": true,
+              "path": "/usr/bin/rsync",
+              "linux_native": true
+            },
+            {
+              "id": "file",
+              "command": "file",
+              "available": true,
+              "path": "/usr/bin/file",
+              "linux_native": true
+            },
+            {
+              "id": "lsof",
+              "command": "lsof",
+              "available": true,
+              "path": "/usr/bin/lsof",
+              "linux_native": true
+            },
+            {
+              "id": "python3",
+              "command": "python3",
+              "available": true,
+              "path": "/usr/bin/python3",
+              "linux_native": true
+            },
+            {
+              "id": "python3-venv",
+              "command": "python3",
+              "available": true,
+              "path": "/usr/bin/python3",
+              "linux_native": true
+            },
+            {
+              "id": "bubblewrap",
+              "command": "bwrap",
+              "available": true,
+              "path": "/usr/bin/bwrap",
+              "linux_native": true
+            },
+            {
+              "id": "nodejs",
+              "command": "node",
+              "available": true,
+              "path": "/usr/local/bin/node",
+              "linux_native": true
+            },
+            {
+              "id": "npm",
+              "command": "npm",
+              "available": true,
+              "path": "/usr/local/bin/npm",
+              "linux_native": true
+            },
+            {
+              "id": "jq",
+              "command": "jq",
+              "available": true,
+              "path": "/usr/bin/jq",
+              "linux_native": true
+            },
+            {
+              "id": "unzip",
+              "command": "unzip",
+              "available": true,
+              "path": "/usr/bin/unzip",
+              "linux_native": true
+            },
+            {
+              "id": "zip",
+              "command": "zip",
+              "available": true,
+              "path": "/usr/bin/zip",
+              "linux_native": true
+            },
+            {
+              "id": "tree",
+              "command": "tree",
+              "available": true,
+              "path": "/usr/bin/tree",
+              "linux_native": true
+            },
+            {
+              "id": "strace",
+              "command": "strace",
+              "available": true,
+              "path": "/usr/bin/strace",
+              "linux_native": true
+            },
+            {
+              "id": "shellcheck",
+              "command": "shellcheck",
+              "available": true,
+              "path": "/usr/bin/shellcheck",
+              "linux_native": true
+            },
+            {
+              "id": "shfmt",
+              "command": "shfmt",
+              "available": true,
+              "path": "/usr/bin/shfmt",
+              "linux_native": true
+            },
+            {
+              "id": "fzf",
+              "command": "fzf",
+              "available": true,
+              "path": "/usr/bin/fzf",
+              "linux_native": true
+            },
+            {
+              "id": "fd-find",
+              "command": "fdfind",
+              "available": true,
+              "path": "/usr/bin/fdfind",
+              "linux_native": true
+            },
+            {
+              "id": "sqlite3",
+              "command": "sqlite3",
+              "available": true,
+              "path": "/usr/bin/sqlite3",
+              "linux_native": true
+            },
+            {
+              "id": "dos2unix",
+              "command": "dos2unix",
+              "available": true,
+              "path": "/usr/bin/dos2unix",
+              "linux_native": true
+            },
+            {
+              "id": "build-essential",
+              "command": "make",
+              "available": true,
+              "path": "/usr/bin/make",
+              "linux_native": true
+            },
+            {
+              "id": "pkg-config",
+              "command": "pkg-config",
+              "available": true,
+              "path": "/usr/bin/pkg-config",
+              "linux_native": true
+            },
+            {
+              "id": "cmake",
+              "command": "cmake",
+              "available": true,
+              "path": "/usr/bin/cmake",
+              "linux_native": true
+            },
+            {
+              "id": "ninja-build",
+              "command": "ninja",
+              "available": true,
+              "path": "/usr/bin/ninja",
+              "linux_native": true
+            },
+            {
+              "id": "python3-pip",
+              "command": "pip3",
+              "available": true,
+              "path": "/usr/bin/pip3",
+              "linux_native": true
+            },
+            {
+              "id": "node-pnpm",
+              "command": "pnpm",
+              "available": true,
+              "path": "/usr/local/bin/pnpm",
+              "linux_native": true
+            }
+          ],
+          "missing_tools": [],
+          "windows_path_tools": [],
+          "fd_compatibility": {
+            "available": true,
+            "command": "fdfind",
+            "path": "/usr/bin/fdfind",
+            "ubuntu_package": "fd-find",
+            "note": "Ubuntu fd-find exposes fdfind; fd is accepted when present."
+          }
+        },
+        "findings": [],
+        "errors": []
+      }
+    }
+  ],
+  "ok": true,
+  "config_after_sha256": "f24a40c40d03fec9799b301d0ad92133a5938d827183fecc3c6689ecb34ebb4d",
+  "source_installed_receipt_match": true,
+  "hold_removed": true,
+  "finished_at": "2026-09-10T08:57:42.120362+00:00"
+}

@@ -49,7 +49,7 @@ def get_default_codex_home() -> str:
     env_codex_home = normalize_user_path(os.environ.get("CODEX_HOME", ""))
     if env_codex_home:
         return env_codex_home
-    return os.path.join(os.path.expanduser("~"), ".codex")
+    raise MemoryErrorRuntime("codex_home_required: pass --codex-home or set CODEX_HOME to the verified host directory")
 
 
 def limit_string_length(text: Optional[str], max_length: int, suffix: str = " <truncated>") -> str:
@@ -244,7 +244,10 @@ def get_sanitized_stored_text(text: str, max_length: int) -> str:
 
 def normalize_signature_text(text: str, preserve_line_breaks: bool = False) -> str:
     limited = limit_string_length(text, MAX_SIGNATURE_SOURCE_LENGTH, suffix="")
-    normalized = redact_sensitive_text(limited).strip().lower()
+    normalized = redact_sensitive_text(limited).strip()
+    # Python tempfile directory names are run-specific; keep the file beneath
+    # them and all ordinary paths/arguments (including case) significant.
+    normalized = re.sub(r"(?<![\w/])(/(?:var/)?tmp)/tmp[a-z0-9_]{8}(?=/)", r"\1/<tempdir>", normalized)
     if preserve_line_breaks:
         normalized = normalized.replace("\r\n", "\n").replace("\r", "\n")
         normalized = re.sub(r"[\t\f\v ]+", " ", normalized)
@@ -257,7 +260,10 @@ def get_error_signature_line(error_value: str) -> str:
     normalized = normalize_signature_text(error_value, preserve_line_breaks=True)
     if not normalized.strip():
         return ""
-    return normalized.split("\n", 1)[0].strip()
+    lines = normalized.split("\n")
+    if lines[0].startswith("Traceback (most recent call last):"):
+        return lines[-1].strip()
+    return lines[0].strip()
 
 
 def get_case_signature(command_value: str, error_value: str) -> Dict[str, str]:
@@ -266,7 +272,9 @@ def get_case_signature(command_value: str, error_value: str) -> Dict[str, str]:
     if not normalized_command or not normalized_error:
         raise MemoryErrorRuntime("command/error cannot be empty when computing failure signature.")
     return {
-        "signature": get_string_sha256(f"{normalized_command}|{normalized_error}"),
+        # Separate the new semantic hash domain from v1's lossy hash. Legacy
+        # entries can only be reused after matching_case_entries checks them.
+        "signature": get_string_sha256(f"v2|{normalized_command}|{normalized_error}"),
         "command_signature": normalized_command,
         "error_signature": normalized_error,
     }
@@ -276,6 +284,16 @@ def get_canonical_project_id(value: str) -> str:
     if not value or not str(value).strip():
         return "unknown-project"
     return re.sub(r"[^a-z0-9.\-_]", "-", str(value).strip().lower())
+
+
+def get_legacy_case_signature(command_value: str, error_value: str) -> str:
+    """Locate v1 records without applying its lossy semantics to new records."""
+    command = redact_sensitive_text(limit_string_length(command_value, MAX_SIGNATURE_SOURCE_LENGTH, suffix="")).strip().lower()
+    error = redact_sensitive_text(limit_string_length(error_value, MAX_SIGNATURE_SOURCE_LENGTH, suffix="")).strip().lower()
+    error = error.replace("\r\n", "\n").replace("\r", "\n").split("\n", 1)[0]
+    command = re.sub(r"\s+", " ", command)
+    error = re.sub(r"[\t\f\v ]+", " ", error).strip()
+    return get_string_sha256(f"{command}|{error}")
 
 
 def get_default_scope_reason(scope_kind_value: str) -> str:
@@ -596,6 +614,20 @@ def load_case_data(storage: Dict[str, str], entry: Dict[str, Any]) -> Dict[str, 
     return case_data
 
 
+def matching_case_entries(storage: Dict[str, str], catalog: Dict[str, Any],
+                          signature: str, command: str, error: str) -> List[Dict[str, Any]]:
+    entries = list(catalog["by_signature"].get(signature, []))
+    legacy_signature = get_legacy_case_signature(command, error)
+    if legacy_signature != signature:
+        for entry in catalog["by_signature"].get(legacy_signature, []):
+            case_data = load_case_data(storage, entry)
+            # A legacy hash alone can conflate case-sensitive arguments and
+            # different traceback exceptions. Recheck the retained evidence.
+            if get_case_signature(case_data["command_excerpt"], case_data["error_excerpt"])["signature"] == signature:
+                entries.append(entry)
+    return entries
+
+
 def case_to_index_entry(case_data: Dict[str, Any]) -> Dict[str, Any]:
     assert_valid_case_data(case_data)
     entry = {
@@ -768,7 +800,7 @@ def main() -> int:
             catalog = get_case_catalog(storage)
             changed_cases: Dict[str, Dict[str, Any]] = {}
             suggestions: List[Dict[str, Any]] = []
-            exact_entries = catalog["by_signature"].get(sig["signature"], [])
+            exact_entries = matching_case_entries(storage, catalog, sig["signature"], args.CommandText, args.ErrorText)
             exact_case_ids = {entry["case_id"] for entry in exact_entries}
             for entry in exact_entries:
                 case_data = load_case_data(storage, entry)
@@ -818,7 +850,7 @@ def main() -> int:
             catalog = get_case_catalog(storage)
             changed_cases: Dict[str, Dict[str, Any]] = {}
             case_data = None
-            existing_entries = catalog["by_signature"].get(sig["signature"], [])
+            existing_entries = matching_case_entries(storage, catalog, sig["signature"], args.CommandText, args.ErrorText)
             if existing_entries:
                 case_data = load_case_data(storage, existing_entries[0])
             created_new_case = False
@@ -852,7 +884,7 @@ def main() -> int:
                     "scope_reason": scope_reason,
                     "projects_seen": [project],
                     "solution": get_sanitized_stored_text(args.Resolution, MAX_STORED_RESOLUTION_LENGTH),
-                    "stats": {"hit_count": 0, "verify_count": 1, "incident_count": 1},
+                    "stats": {"hit_count": 0, "verify_count": 0, "incident_count": 1},
                     "created_at": now,
                     "updated_at": now,
                     "last_verified_at": "",
@@ -863,8 +895,7 @@ def main() -> int:
 
             assert_valid_case_data(case_data)
             ensure_stats(case_data)
-            if not str(case_data.get("solution", "")).strip() and args.Resolution.strip():
-                case_data["solution"] = get_sanitized_stored_text(args.Resolution, MAX_STORED_RESOLUTION_LENGTH)
+            case_data["solution"] = get_sanitized_stored_text(args.Resolution, MAX_STORED_RESOLUTION_LENGTH)
             case_data["stats"]["verify_count"] = int(case_data["stats"]["verify_count"]) + 1
             case_data["last_verified_at"] = now
             case_data["updated_at"] = now

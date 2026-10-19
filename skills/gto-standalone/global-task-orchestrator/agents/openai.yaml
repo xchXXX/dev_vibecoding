@@ -1,0 +1,7 @@
+policy:
+  allow_implicit_invocation: false
+
+interface:
+  display_name: "Global Task Orchestrator"
+  short_description: "显式启用的单任务合同、审查和验收"
+  default_prompt: "Use $global-task-orchestrator only when explicitly selected. Read its phase router, resume the same task state, and use the task-bound runtime snapshot after freezing. Follow the linked current contracts for dispatch, capabilities, review, acceptance and retained evidence."

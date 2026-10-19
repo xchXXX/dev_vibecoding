@@ -1,0 +1,29 @@
+{
+  "scenario_id": "l3-cross-project-restore",
+  "target_behavior": "Restore the current task across project roots without repeating prior phases.",
+  "initial_state": "A validated review-phase task slice and separate installed tool root.",
+  "business_prompt": "Continue the existing approved task from its current phase.",
+  "trigger": "Start recovery from a different business project root.",
+  "observable_evidence": [
+    "task_id remains unchanged",
+    "current_phase is review",
+    "tool root and business root remain distinct"
+  ],
+  "forbidden_behavior": [
+    "create a new task",
+    "repeat completed work phases"
+  ],
+  "stop_condition": "Stop after identity, phase, and root separation are observed.",
+  "preparation_checks": [
+    "fixture hashes match",
+    "installed candidate identity is known"
+  ],
+  "cost_budget": {
+    "max_scenarios": 1,
+    "max_attempts": 1,
+    "max_seconds": 30
+  },
+  "cleanup": "Remove only the copied fixture directory.",
+  "level": "L3",
+  "run_policy": "targeted_once"
+}

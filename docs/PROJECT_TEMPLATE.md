@@ -79,18 +79,16 @@ python3 "$harness_root/scripts/validate_rules.py" \
 - Codex 固定读取项目 `AGENTS.md`、索引元数据及恰好三条 `activation=always_on` 规则；其余规则由 Codex 结合语义、目标、风险、阶段和本轮操作自由选读
 - Python 只离线生成、校验索引，不为每个任务拼装固定规则套餐
 
-### 长任务文档
+### 显式 GTO 任务文档
 
-- 长任务默认先在 `docs/tasks/<task-id>/plan.md` 落方案文档，再在 `docs/tasks/<task-id>/execution.md` 落施工文档，最后在验收时补 `docs/tasks/<task-id>/acceptance.md`。
-- 同一任务还必须维护 `docs/ai/tasks/<task-id>/state.json`、`task.md`、`events.jsonl`；六份工件全部必备。
-- 项目模板只要求保留该顺序和落盘位置约定；方案文档、施工文档的固定必填字段由项目规则系统和校验脚本统一定义。
-- 主协调器负责先组织核心文档与测试的同步更新，再派发后续实现；执行型子代理不应跳过这一前置步骤直接落代码。
-- 审阅与返工走固定路由：执行完成后进入审查型子代理；若审查不通过，退回原执行型子代理返工，主协调器只负责转发 findings 与重新组织复验。
+任务工件及 Plan/Execute 顺序见 [GTO 流程真源](../skills/global-task-orchestrator/references/workflow.md)。`acceptance.md` 在确认后与其余五工件一起编制，验收阶段只回填实际证据；不能等验收时才创建。流程与返工正文不复制到项目模板。
 
 ### `config/ai/`
 
-- 只保留本仓任务单、schema、注册表、样例
-- 不重复保存全局 review/testcase/worker 模板副本，除非项目明确需要局部覆盖
+- 只保留本项目环境声明、注册表和样例。
+- 不重复保存全局 review/testcase/worker 模板副本，除非项目明确需要局部覆盖。
+
+
 
 ## 推荐最小骨架
 
@@ -114,11 +112,24 @@ python3 "$harness_root/scripts/validate_rules.py" \
 
 ## 项目接入检查点
 
-- 已在 `AGENTS.md` 写入全局规则真源入口
-- 已在 `AGENTS.md` 或其他项目入口写入 `rules/registry/RULES_ENTRY.md` 入口
-- 已创建 `docs/ai/tasks/`，且当前任务包含 `state.json`、`task.md` 与必备 `events.jsonl`
-- 已建立 `rules/registry/*` 与 `rules/items/<kind>/*` 的项目级 rules system
-- 已按全局基线预留 `modules/`、`docs/modules/`、`docs/tasks/`、`tests/fixtures/`、`.tmp/` 与 `.artifacts/`
-- 涉及长任务时，已约定 `docs/tasks/<task-id>/plan.md|execution.md|acceptance.md` 与核心文档/测试同步、代码实现的先后顺序
-- 已为当前 GTO 预留 `docs/ai/tasks/`，并明确六份工件和 `events.jsonl` 必备
-- 已明确历史 task/run 只读且不参与当前实现路由
+目录骨架说明文件职责，不要求空项目一次创建所有目录，也不因任务规模自动启用 GTO。
+
+| 适用条件 | 接入要求 |
+| --- | --- |
+| 所有接入项目 | `AGENTS.md` 指向已选择的全局真源、项目边界和规则入口；使用可用规则索引，普通任务采用简洁验收清单 |
+| 项目有增量规则 | 在项目 `rules/` 维护并生成索引；不复制全局正文作为第二真源 |
+| 使用 harness Git 策略检查 | 由项目维护者确认实际约定并填写 `config/ai/git-policy.json`；不自动猜测策略 |
+| 首次执行项目测试或构建 | 按实际 manifest/lock 配置 `config/ai/environment.json`，运行项目环境检查；可选能力只声明确实需要的部分 |
+| 用户明确选择 GTO | 按 GTO 合同创建六工件、冻结版本、分工和证据；只接入 harness 不要求当前存在 GTO 任务 |
+
+Git 配置存在且合法时按阶段检查；应已接入但配置缺失或损坏时，先处理配置问题，不能视为检查成功。明确未接入的项目先核对原有约定、分支、dirty 和工作区归属；不以未接入放行推送、合并或发布，也不自动补造策略。完整合同见 [Git 配置接口](modules/git-workflow/contract/README.md)。本仓或示例缺配置时同样遵守此边界。
+
+历史 task/run 只读保留，不参与当前实现路由。最小操作示例见 [接入与检查示例](harness-usage-examples.md)。
+
+## 范围复验变更入口
+
+现行行为与版本边界见[按验收点保留结果与范围复验](../skills/global-task-orchestrator/references/acceptance-points.md)。首次验收可分范围登记；保留任意历史轮次中仍有效的结果，最终检查完整覆盖，不要求额外整轮全绿。普通任务使用简洁清单，只有显式选择 GTO 才使用控制面。
+
+## 恢复与登记精简
+
+新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](../skills/global-task-orchestrator/references/streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。

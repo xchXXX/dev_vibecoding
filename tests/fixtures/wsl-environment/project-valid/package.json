@@ -1,0 +1,7 @@
+{
+  "name": "wsl-environment-fixture",
+  "private": true,
+  "dependencies": {
+    "fixture-node-package": "1.0.0"
+  }
+}

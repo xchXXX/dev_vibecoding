@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.ai-harness/schemas/windows-external-capabilities.schema.json",
+  "title": "Windows native plugin declaration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 3
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "provider",
+          "required_plugins"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9+._-]*$"
+          },
+          "provider": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9+._-]*$"
+          },
+          "kind": {
+            "const": "windows_native"
+          },
+          "required_plugins": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9+._@-]*$"
+            }
+          }
+        }
+      }
+    }
+  }
+}

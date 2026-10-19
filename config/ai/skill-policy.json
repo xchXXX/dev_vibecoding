@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plugin": "superpowers",
+  "disabled": [
+    "using-superpowers", "brainstorming", "writing-plans", "executing-plans",
+    "subagent-driven-development", "dispatching-parallel-agents", "requesting-code-review",
+    "using-git-worktrees", "finishing-a-development-branch"
+  ],
+  "retained_methods": [
+    "systematic-debugging", "test-driven-development", "receiving-code-review",
+    "verification-before-completion"
+  ]
+}

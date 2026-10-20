@@ -1,0 +1,137 @@
+﻿{
+    "task_id":  "codex-fixed-subagent-delegation-20260407-145034-kewd",
+    "work_order_id":  "WO-P4-DISPATCH-COMPILER-001",
+    "plan_id":  "PLAN-CODEX-FIXED-SUBAGENT-DELEGATION-20260407-145034-KEWD",
+    "role":  "backend-implementer",
+    "task_goal":  "完成阶段4：将“角色真源 + 合同”编译为稳定 dispatch message，并保持历史工单兼容。",
+    "instruction_source":  "docs/plans/codex-fixed-subagent-delegation.md",
+    "scope_in":  [
+                     "skills/global-task-orchestrator/scripts/control-plane-common.ps1",
+                     "skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1",
+                     "skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md",
+                     "skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md",
+                     "skills/global-task-orchestrator/assets/prompts/work-order-generator.md"
+                 ],
+    "scope_out":  [
+                      "阶段5路由策略文件",
+                      "阶段6测试与治理文档",
+                      "agents 角色正文与映射文件",
+                      "模板/schema 文件"
+                  ],
+    "read_paths_mandatory":  [
+                                 "docs/plans/codex-fixed-subagent-delegation.md",
+                                 "docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/plan.json",
+                                 "agents/codex-role-map.json",
+                                 "skills/global-task-orchestrator/scripts/control-plane-common.ps1",
+                                 "skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1",
+                                 "skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md",
+                                 "skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md",
+                                 "skills/global-task-orchestrator/assets/prompts/work-order-generator.md"
+                             ],
+    "read_paths_optional":  [
+                                "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+                                "agents/README.md"
+                            ],
+    "write_paths":  [
+                        "skills/global-task-orchestrator/scripts/control-plane-common.ps1",
+                        "skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1",
+                        "skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md",
+                        "skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md",
+                        "skills/global-task-orchestrator/assets/prompts/work-order-generator.md"
+                    ],
+    "context_paths":  [
+                          "agents/codex-role-map.json",
+                          "skills/global-task-orchestrator/scripts/control-plane-common.ps1",
+                          "skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1"
+                      ],
+    "evidence_summary":  [
+                             "阶段4目标是编译器稳定落地，避免继续手写大段委派 prompt。",
+                             "需体现角色真源与映射层信息，但不能让历史 work_order 立即失配。",
+                             "应采用可选字段驱动的新编译逻辑，默认兼容旧合同。"
+                         ],
+    "constraints":  [
+                        "必须先完整阅读 read_paths_mandatory，evidence_summary 仅作导航。",
+                        "说明性文本默认中文；字段名、路径、脚本参数、代码标识符保持原样。",
+                        "编译器升级必须保持旧 work_order 可继续通过 validate。",
+                        "仅可修改 write_paths，禁止越界。",
+                        "return_packet 正文必须由执行子代理本人填写，主协调器不得代写。"
+                    ],
+    "change_spec":  [
+                        {
+                            "path":  "skills/global-task-orchestrator/scripts/control-plane-common.ps1",
+                            "instructions":  [
+                                                 "扩展 dispatch 编译逻辑：支持可选读取 role_source_path 与 role_map_path。",
+                                                 "当可选字段缺失时保持旧输出行为，避免历史工单失配。"
+                                             ]
+                        },
+                        {
+                            "path":  "skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1",
+                            "instructions":  [
+                                                 "补充编译入口参数或兼容处理，支持新字段参与编译。",
+                                                 "保持 -WriteBack 行为不变。"
+                                             ]
+                        },
+                        {
+                            "path":  "skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md",
+                            "instructions":  [
+                                                 "补充“角色真源 + 角色映射 + 合同”三元输入提示口径。"
+                                             ]
+                        },
+                        {
+                            "path":  "skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md",
+                            "instructions":  [
+                                                 "补充审查角色的编译输入口径。"
+                                             ]
+                        },
+                        {
+                            "path":  "skills/global-task-orchestrator/assets/prompts/work-order-generator.md",
+                            "instructions":  [
+                                                 "补充 role_source_path 与 role_map_path 的可选生成规则。"
+                                             ]
+                        }
+                    ],
+    "execution_steps":  [
+                            "先实现脚本层兼容改造，再同步提示模板口径。",
+                            "用阶段4工单本身做编译演练，验证新旧兼容。",
+                            "完成后写入 return_packet。"
+                        ],
+    "verification_steps":  [
+                               "编译阶段4工单自身并确认无报错。",
+                               "再次 validate 当前 task，确认历史工单未因编译器升级而失配。",
+                               "检查新增逻辑在缺省字段时输出不变。"
+                           ],
+    "acceptance_criteria":  [
+                                "委派消息可选承载角色真源与角色映射信息。",
+                                "历史工单继续可用，不触发大面积 dispatch_message_raw 不一致。",
+                                "模板提示与脚本编译口径一致。",
+                                "未触及阶段5+范围文件。"
+                            ],
+    "stop_conditions":  [
+                            "发现兼容要求无法满足且必须重写历史工单。",
+                            "发现需改模板/schema 才能完成脚本改造。",
+                            "发现必须越过 write_paths 才能推进。"
+                        ],
+    "dispatch_packet_path":  "docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/dispatch_packets/DP-P4-DISPATCH-COMPILER-001.json",
+    "return_packet_path":  "docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/return_packets/RP-P4-DISPATCH-COMPILER-001.json",
+    "return_packet_required":  true,
+    "required_return_fields":  [
+                                   "work_order_id",
+                                   "status",
+                                   "summary",
+                                   "changed_files",
+                                   "planned_files_not_changed",
+                                   "verification_commands",
+                                   "verification_result",
+                                   "deviations_from_dispatch",
+                                   "blocked_by",
+                                   "risks",
+                                   "follow_up_needed",
+                                   "written_by",
+                                   "written_role"
+                               ],
+    "completion_gate":  "return_packet_written_and_accepted",
+    "state_owner":  "main-coordinator",
+    "dispatch_message_raw":  "你是 `backend-implementer` 执行子代理。\n先完整阅读 `read_paths_mandatory`，`evidence_summary` 仅作导航，不能代替原文件阅读。\n说明性文本默认中文；字段名、路径、脚本参数、代码标识符保持原样。\n\n角色上下文（可选启用）：\n- `role_source_path`: `agents/backend-implementer.md`\n- `role_map_path`: `agents/codex-role-map.json`\n- 缺省上述字段时，沿用历史工单编译行为。\n\n任务目标：\n- 完成阶段4：将“角色真源 + 合同”编译为稳定 dispatch message，并保持历史工单兼容。\n\n必读上下文：\n- `docs/plans/codex-fixed-subagent-delegation.md`\n- `docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/plan.json`\n- `agents/codex-role-map.json`\n- `skills/global-task-orchestrator/scripts/control-plane-common.ps1`\n- `skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1`\n- `skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md`\n- `skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md`\n- `skills/global-task-orchestrator/assets/prompts/work-order-generator.md`\n\n导航摘要：\n- 阶段4目标是编译器稳定落地，避免继续手写大段委派 prompt。\n- 需体现角色真源与映射层信息，但不能让历史 work_order 立即失配。\n- 应采用可选字段驱动的新编译逻辑，默认兼容旧合同。\n\n唯一写入范围：\n- `skills/global-task-orchestrator/scripts/control-plane-common.ps1`\n- `skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1`\n- `skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md`\n- `skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md`\n- `skills/global-task-orchestrator/assets/prompts/work-order-generator.md`\n\n禁改范围：\n- 阶段5路由策略文件\n- 阶段6测试与治理文档\n- agents 角色正文与映射文件\n- 模板/schema 文件\n\n执行约束：\n- 必须先完整阅读 read_paths_mandatory，evidence_summary 仅作导航。\n- 说明性文本默认中文；字段名、路径、脚本参数、代码标识符保持原样。\n- 编译器升级必须保持旧 work_order 可继续通过 validate。\n- 仅可修改 write_paths，禁止越界。\n- return_packet 正文必须由执行子代理本人填写，主协调器不得代写。\n\n逐文件改法：\n- `skills/global-task-orchestrator/scripts/control-plane-common.ps1`: 扩展 dispatch 编译逻辑：支持可选读取 role_source_path 与 role_map_path。；当可选字段缺失时保持旧输出行为，避免历史工单失配。\n- `skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1`: 补充编译入口参数或兼容处理，支持新字段参与编译。；保持 -WriteBack 行为不变。\n- `skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md`: 补充“角色真源 + 角色映射 + 合同”三元输入提示口径。\n- `skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md`: 补充审查角色的编译输入口径。\n- `skills/global-task-orchestrator/assets/prompts/work-order-generator.md`: 补充 role_source_path 与 role_map_path 的可选生成规则。\n\n复杂任务施工图：\n先读后写：\n- `docs/plans/codex-fixed-subagent-delegation.md`\n- `docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/plan.json`\n- `agents/codex-role-map.json`\n- `skills/global-task-orchestrator/scripts/control-plane-common.ps1`\n- `skills/global-task-orchestrator/scripts/compile-dispatch-message.ps1`\n- `skills/global-task-orchestrator/assets/prompts/execution-dispatch-template.md`\n- `skills/global-task-orchestrator/assets/prompts/review-dispatch-template.md`\n- `skills/global-task-orchestrator/assets/prompts/work-order-generator.md`\n\n执行顺序：\n- 先在 control-plane-common.ps1 做兼容编译增强。\n- 再同步 compile-dispatch-message.ps1 入口行为。\n- 再更新 execution/review/work-order 三份提示模板。\n- 编译阶段4工单并执行 validate，最后写入 return_packet。\n\n不变量：\n- 历史工单默认兼容，不强制立刻重编译旧文件。\n- 不修改阶段5+文件。\n- 不修改模板/schema。\n\n禁改范围：\n- 不得修改 agents/*.md 与 agents/codex-role-map.json。\n- 不得修改 templates/*.json 与 schemas/*.json。\n- 不得由主协调器代写 return_packet 正文。\n\n依赖说明：\n- 阶段4改造直接影响后续阶段5路由与阶段6验证。\n- 若出现 dispatch_message_raw 大面积失配，必须优先保兼容。\n\n完成信号：\n- 脚本编译逻辑支持可选角色上下文输入。\n- 当前 task validate 通过。\n- return_packet 由执行子代理本人写入。\n\n校验关注点：\n- 新字段可选启用且缺省兼容。\n- compile-dispatch-message 可成功回写阶段4工单。\n- validate 不出现历史工单大面积不一致。\n\n回退策略：\n- 若升级破坏兼容，回退到缺省行为并返回 blocked。\n- 若必须改阶段5文件，停止并回退主协调器。\n\n交接说明：\n- 完整填写 required_return_fields。\n- 验证命令与结果需可复核。\n- written_by/written_role 必须标注执行子代理本人。\n\n执行步骤：\n- 先实现脚本层兼容改造，再同步提示模板口径。\n- 用阶段4工单本身做编译演练，验证新旧兼容。\n- 完成后写入 return_packet。\n\n验收标准：\n- 委派消息可选承载角色真源与角色映射信息。\n- 历史工单继续可用，不触发大面积 dispatch_message_raw 不一致。\n- 模板提示与脚本编译口径一致。\n- 未触及阶段5+范围文件。\n\n验证步骤：\n- 编译阶段4工单自身并确认无报错。\n- 再次 validate 当前 task，确认历史工单未因编译器升级而失配。\n- 检查新增逻辑在缺省字段时输出不变。\n\n停止条件：\n- 发现兼容要求无法满足且必须重写历史工单。\n- 发现需改模板/schema 才能完成脚本改造。\n- 发现必须越过 write_paths 才能推进。\n\n回执要求：\n- `return_packet` 正文必须由执行子代理本人填写，主协调器不得代写。\n- `return_packet_path`: `docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/return_packets/RP-P4-DISPATCH-COMPILER-001.json`\n- `completion_gate`: `return_packet_written_and_accepted`\n- 若信息不足以安全实施，返回 `blocked`，不要猜测。\n- 完成前先写 `return_packet`，再声明完成。",
+    "role_source_path":  "agents/backend-implementer.md",
+    "role_map_path":  "agents/codex-role-map.json"
+}

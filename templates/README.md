@@ -19,7 +19,7 @@
 - `task-summary.example.md` 对应人读摘要 `task.md`
 - `task-events.example.jsonl` 对应必备事件流 `events.jsonl`
 
-六工件必须按同一 `task_id` 配套维护：
+仅显式 GTO 任务的六工件必须按同一 `task_id` 配套维护；普通项目接入条件见 [项目模板](../docs/PROJECT_TEMPLATE.md)：
 
 - `docs/ai/tasks/<task-id>/state.json`
 - `docs/ai/tasks/<task-id>/task.md`

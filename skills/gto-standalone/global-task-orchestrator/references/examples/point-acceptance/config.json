@@ -1,0 +1,367 @@
+{
+  "contract": {
+    "six_points": {
+      "do": "Check configured values and retain unaffected results.",
+      "do_not": [
+        "No product integration or external services."
+      ],
+      "change_areas": [
+        "candidate-source.py",
+        "inputs"
+      ],
+      "implementation": "Use the configured check entry and relative dependency paths.",
+      "acceptance": [
+        "Ten initial checks, two scoped rechecks, complete coverage."
+      ],
+      "risks": [
+        "Synthetic governance receipts demonstrate the API only."
+      ]
+    },
+    "objective": "Check configured values and retain unaffected results.",
+    "scope_in": [
+      "candidate-source.py",
+      "inputs"
+    ],
+    "scope_out": [
+      "No product integration or external services."
+    ],
+    "acceptance": [
+      "Ten initial checks, two scoped rechecks, complete coverage."
+    ],
+    "stop_conditions": [
+      "Synthetic governance receipts demonstrate the API only."
+    ],
+    "decisions": [
+      "Use the configured check entry and relative dependency paths.",
+      "REQ-01｜完成合成任务的既定业务行为｜落实：WORK-001｜验收：CHECK-01"
+    ],
+    "approval": {
+      "status": "approved",
+      "approved_by": "user"
+    },
+    "verification_contract": {
+      "minimal_repro": "The focused fixture fails before implementation.",
+      "hit_proof": "The focused fixture directly exercises the gate.",
+      "diagnostic_checks": [
+        "Run focused diagnostics."
+      ],
+      "acceptance_checks": [
+        "Run focused acceptance."
+      ],
+      "non_goals": [
+        "Do not infer semantics in Python."
+      ],
+      "review_evidence": [
+        "pass_after_fix"
+      ]
+    },
+    "subtasks": [
+      {
+        "subtask_id": "WORK-001",
+        "title": "work",
+        "role": "backend-implementer",
+        "stage": "work",
+        "status": "ready",
+        "dependencies": [
+          "TEST-001"
+        ],
+        "read_paths": [
+          "candidate-source.py"
+        ],
+        "write_paths": [
+          "candidate-source.py",
+          "inputs"
+        ],
+        "assignment": {
+          "goal": "Complete work.",
+          "must_include": [
+            "minimal deterministic behavior"
+          ],
+          "verification": [
+            "Run the focused Python unittest."
+          ]
+        },
+        "planned_agent_key": "backend-implementer"
+      },
+      {
+        "subtask_id": "INTEGRATE-001",
+        "title": "integration",
+        "role": "backend-implementer",
+        "stage": "integration",
+        "status": "ready",
+        "dependencies": [
+          "WORK-001"
+        ],
+        "read_paths": [
+          "candidate-source.py"
+        ],
+        "write_paths": [
+          "candidate-source.py",
+          "docs/contract.md",
+          "inputs"
+        ],
+        "assignment": {
+          "goal": "Complete integration.",
+          "must_include": [
+            "minimal deterministic behavior"
+          ],
+          "verification": [
+            "Run the focused Python unittest."
+          ]
+        },
+        "planned_agent_key": "backend-implementer"
+      },
+      {
+        "subtask_id": "REVIEW-SEC-001",
+        "title": "pre acceptance review",
+        "role": "reviewer",
+        "stage": "pre_acceptance_review",
+        "status": "ready",
+        "dependencies": [
+          "INTEGRATE-001"
+        ],
+        "read_paths": [
+          "candidate-source.py"
+        ],
+        "write_paths": [],
+        "assignment": {
+          "goal": "Complete pre_acceptance_review.",
+          "must_include": [
+            "minimal deterministic behavior"
+          ],
+          "verification": [
+            "Run the focused Python unittest."
+          ]
+        },
+        "planned_agent_key": "reviewer"
+      },
+      {
+        "subtask_id": "EXPENSIVE-001",
+        "title": "expensive acceptance",
+        "role": "tester",
+        "stage": "expensive_acceptance",
+        "status": "ready",
+        "dependencies": [
+          "REVIEW-SEC-001"
+        ],
+        "read_paths": [
+          "candidate-source.py"
+        ],
+        "write_paths": [],
+        "assignment": {
+          "goal": "Complete expensive_acceptance.",
+          "must_include": [
+            "minimal deterministic behavior"
+          ],
+          "verification": [
+            "Run the focused Python unittest."
+          ]
+        },
+        "planned_agent_key": "tester"
+      },
+      {
+        "subtask_id": "TEST-001",
+        "title": "work",
+        "role": "tester",
+        "stage": "work",
+        "status": "ready",
+        "dependencies": [],
+        "read_paths": [
+          "candidate-source.py"
+        ],
+        "write_paths": [],
+        "assignment": {
+          "goal": "Complete work.",
+          "must_include": [
+            "minimal deterministic behavior"
+          ],
+          "verification": [
+            "Run the focused Python unittest."
+          ]
+        },
+        "planned_agent_key": "initial-tester"
+      },
+      {
+        "subtask_id": "DOC-FINAL-001",
+        "title": "final documentation",
+        "role": "doc-curator",
+        "stage": "final_documentation",
+        "status": "ready",
+        "dependencies": [
+          "EXPENSIVE-001"
+        ],
+        "read_paths": [
+          "candidate-source.py"
+        ],
+        "write_paths": [
+          "docs/tasks/20300102-030405-control-plane-contract"
+        ],
+        "assignment": {
+          "goal": "Complete final_documentation.",
+          "must_include": [
+            "minimal deterministic behavior"
+          ],
+          "verification": [
+            "Run the focused Python unittest."
+          ]
+        },
+        "planned_agent_key": "doc-curator"
+      }
+    ],
+    "workflow_revision": 3,
+    "acceptance_gate": {
+      "candidate_inputs": {
+        "code_paths": [
+          "candidate-source.py",
+          "inputs"
+        ],
+        "config_paths": [
+          "candidate-config.json"
+        ],
+        "runtime_inputs": {
+          "provider": "fixture-v1"
+        },
+        "document_paths": [
+          "docs/contract.md"
+        ]
+      },
+      "current_candidate": null,
+      "acceptance_items": [
+        {
+          "acceptance_id": "CHECK-01",
+          "evidence_refs": [],
+          "entry": "python3 candidate-source.py <scope-json> <output-directory>",
+          "paths": [
+            "candidate-source.py",
+            "inputs/CHECK-01.json",
+            "candidate-config.json"
+          ]
+        },
+        {
+          "acceptance_id": "CHECK-02",
+          "evidence_refs": [],
+          "entry": "python3 candidate-source.py <scope-json> <output-directory>",
+          "paths": [
+            "candidate-source.py",
+            "inputs/CHECK-02.json",
+            "candidate-config.json"
+          ]
+        },
+        {
+          "acceptance_id": "CHECK-03",
+          "evidence_refs": [],
+          "entry": "python3 candidate-source.py <scope-json> <output-directory>",
+          "paths": [
+            "candidate-source.py",
+            "inputs/CHECK-03.json",
+            "candidate-config.json"
+          ]
+        },
+        {
+          "acceptance_id": "CHECK-04",
+          "evidence_refs": [],
+          "entry": "python3 candidate-source.py <scope-json> <output-directory>",
+          "paths": [
+            "candidate-source.py",
+            "inputs/CHECK-04.json",
+            "candidate-config.json"
+          ]
+        },
+        {
+          "acceptance_id": "CHECK-05",
+          "evidence_refs": [],
+          "entry": "python3 candidate-source.py <scope-json> <output-directory>",
+          "paths": [
+            "candidate-source.py",
+            "inputs/CHECK-05.json",
+            "candidate-config.json"
+          ]
+        },
+        {
+          "acceptance_id": "CHECK-06",
+          "evidence_refs": [],
+          "entry": "python3 candidate-source.py <scope-json> <output-directory>",
+          "paths": [
+            "candidate-source.py",
+            "inputs/CHECK-06.json",
+            "candidate-config.json"
+          ]
+        },
+        {
+          "acceptance_id": "CHECK-07",
+          "evidence_refs": [],
+          "entry": "python3 candidate-source.py <scope-json> <output-directory>",
+          "paths": [
+            "candidate-source.py",
+            "inputs/CHECK-07.json",
+            "candidate-config.json"
+          ]
+        },
+        {
+          "acceptance_id": "CHECK-08",
+          "evidence_refs": [],
+          "entry": "python3 candidate-source.py <scope-json> <output-directory>",
+          "paths": [
+            "candidate-source.py",
+            "inputs/CHECK-08.json",
+            "candidate-config.json"
+          ]
+        },
+        {
+          "acceptance_id": "CHECK-09",
+          "evidence_refs": [],
+          "entry": "python3 candidate-source.py <scope-json> <output-directory>",
+          "paths": [
+            "candidate-source.py",
+            "inputs/shared.json",
+            "candidate-config.json"
+          ]
+        },
+        {
+          "acceptance_id": "CHECK-10",
+          "evidence_refs": [],
+          "entry": "python3 candidate-source.py <scope-json> <output-directory>",
+          "paths": [
+            "candidate-source.py",
+            "inputs/shared.json",
+            "candidate-config.json"
+          ]
+        }
+      ],
+      "attempt_policy": {
+        "max_expensive_attempts": 4,
+        "max_full_attempts_per_candidate": 1,
+        "max_environment_retries_per_candidate": 1,
+        "approval_required_from_attempt": 3
+      },
+      "attempts": []
+    },
+    "initial_test_owners": [
+      "TEST-001"
+    ]
+  },
+  "entry": [
+    "{python}",
+    "candidate-source.py",
+    "{scope}",
+    "{output}"
+  ],
+  "inputs": {
+    "CHECK-01": "inputs/CHECK-01.json",
+    "CHECK-02": "inputs/CHECK-02.json",
+    "CHECK-03": "inputs/CHECK-03.json",
+    "CHECK-04": "inputs/CHECK-04.json",
+    "CHECK-05": "inputs/CHECK-05.json",
+    "CHECK-06": "inputs/CHECK-06.json",
+    "CHECK-07": "inputs/CHECK-07.json",
+    "CHECK-08": "inputs/CHECK-08.json",
+    "CHECK-09": "inputs/shared.json",
+    "CHECK-10": "inputs/shared.json"
+  },
+  "initial_failure": "CHECK-10",
+  "repair_path": "inputs/shared.json",
+  "expected_retest": [
+    "CHECK-09",
+    "CHECK-10"
+  ]
+}

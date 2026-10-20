@@ -1,0 +1,28 @@
+{"timestamp":"2026-09-01T18:55:30+08:00","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"task_initialized","actor":"main-coordinator","summary":"用户批准后按 v2 bootstrap 合同创建长任务六工件；等待 Python GTO 接管。","refs":["docs/ai/tasks/20260901-185530-wsl-python-control-plane-automation/state.json","docs/tasks/20260901-185530-wsl-python-control-plane-automation/plan.md"]}
+{"timestamp":"2026-09-01T18:55:31+08:00","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"contract_approved","actor":"main-coordinator","summary":"冻结六要点、WSL Python 唯一主链、Codex hook 移除和 CFM 同物理 Store 边界。","refs":["docs/tasks/20260901-185530-wsl-python-control-plane-automation/plan.md","docs/tasks/20260901-185530-wsl-python-control-plane-automation/execution.md","docs/tasks/20260901-185530-wsl-python-control-plane-automation/acceptance.md"]}
+{"timestamp":"2026-09-01T20:00:00+08:00","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"bootstrap_state_migrated","actor":"main-coordinator","summary":"v2 bootstrap state 原位升级为 Python GTO v3；保留六份现有文档并以哈希接管。"}
+{"timestamp":"2026-09-01T20:00:01+08:00","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_closed","actor":"test_cfm_red","finding_id":"CFM-PERF-001","fix_round":1,"summary":"R1 re-review pass；CFM 真实 Store 常用操作降到亚秒级。"}
+{"timestamp":"2026-09-01T12:06:48.191443Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"dispatch_bound","subtask_id":"REVIEW-001"}
+{"timestamp":"2026-09-01T12:31:32.165242Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"review_recorded","subtask_id":"REVIEW-001","kind":"final"}
+{"timestamp":"2026-09-01T12:31:50.397216Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_dispatched","finding_id":"GTO-V3-GATE-001","fix_round":1}
+{"timestamp":"2026-09-01T12:31:50.571038Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_recorded","finding_id":"GTO-V3-GATE-001"}
+{"timestamp":"2026-09-01T12:31:50.749081Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_dispatched","finding_id":"GTO-FINAL-COVERAGE-002","fix_round":1}
+{"timestamp":"2026-09-01T12:31:50.916015Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_recorded","finding_id":"GTO-FINAL-COVERAGE-002"}
+{"timestamp":"2026-09-01T12:31:51.095447Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_dispatched","finding_id":"CFM-CAPACITY-002","fix_round":1}
+{"timestamp":"2026-09-01T12:31:51.282807Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_recorded","finding_id":"CFM-CAPACITY-002"}
+{"timestamp":"2026-09-01T12:31:51.486529Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_dispatched","finding_id":"CONTROL-CLI-CONTRACT-001","fix_round":1}
+{"timestamp":"2026-09-01T12:31:51.689883Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_recorded","finding_id":"CONTROL-CLI-CONTRACT-001"}
+{"timestamp":"2026-09-01T12:31:51.897055Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_dispatched","finding_id":"OPS-SESSION-DUAL-CONTROL-001","fix_round":1}
+{"timestamp":"2026-09-01T12:31:52.089424Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_recorded","finding_id":"OPS-SESSION-DUAL-CONTROL-001"}
+{"timestamp":"2026-09-01T12:32:13.858347Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_dispatched","finding_id":"CODEX-RUNTIME-AUDIT-001","fix_round":1}
+{"timestamp":"2026-09-01T12:32:14.031676Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_recorded","finding_id":"CODEX-RUNTIME-AUDIT-001"}
+{"timestamp":"2026-09-01T12:33:28.211023Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"review_recorded","subtask_id":"REVIEW-001","kind":"task"}
+{"timestamp":"2026-09-01T12:33:28.399546Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_dispatched","finding_id":"GTO-FINAL-SELFREF-003","fix_round":1}
+{"timestamp":"2026-09-01T12:34:05.378978Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_recorded","finding_id":"GTO-FINAL-SELFREF-003"}
+{"timestamp":"2026-09-01T12:38:53.123246Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"review_recorded","subtask_id":"REVIEW-001","kind":"re_review"}
+{"timestamp":"2026-09-01T12:38:53.323415Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_dispatched","finding_id":"GTO-V3-GATE-001","fix_round":2}
+{"timestamp":"2026-09-01T12:38:53.498312Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_dispatched","finding_id":"CODEX-RUNTIME-AUDIT-001","fix_round":2}
+{"timestamp":"2026-09-01T12:39:02.474790Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_recorded","finding_id":"CODEX-RUNTIME-AUDIT-001"}
+{"timestamp":"2026-09-01T12:41:17.890450Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"finding_fix_recorded","finding_id":"GTO-V3-GATE-001"}
+{"timestamp":"2026-09-01T12:43:46.638276Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"review_recorded","subtask_id":"REVIEW-001","kind":"re_review"}
+{"timestamp":"2026-09-01T12:46:23.959538Z","task_id":"20260901-185530-wsl-python-control-plane-automation","event":"review_recorded","subtask_id":"REVIEW-001","kind":"final"}

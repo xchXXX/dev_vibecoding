@@ -24,17 +24,14 @@
 
 ## 真源入口
 
-- 云端从 Git 接入本仓库时，先读 `docs/modules/portable-harness/delivery/engineering/dots-cloud.md` 并执行 `python3 scripts/cloud-setup.py --check`；使用其报告的本仓库 `.venv` Python。新环境设置由用户授权后运行不带 `--check` 的同一命令。
-- 仓库 `.agents/skills` 只引用 `skills/` 中四个 canonical 技能，不维护副本。普通任务直接执行，GTO 仍须用户显式选择；文件与依赖检查不等于实际新会话加载或平台能力通过。不要求云任务存在 Windows、WSL、作者 Codex home 或个人记忆。
-
 - 总纲：`docs/plans/AI_HARNESS_MASTER_PLAN.md`
 - 项目真源入口：`docs/ARCHITECTURE.md`、`docs/CODEX_COMPAT.md`、`docs/SUBAGENT_GOVERNANCE.md`、`docs/PROJECT_TEMPLATE.md`、`rules/registry/RULES_ENTRY.md`
 
 ## Bootstrap 与全局模板入口
 
-- Portable 接收者入口见 `docs/INSTALL.md`；`scripts/harness.py` 从固定 Git 提交构建包，以 receipt 管理安装文件及 AGENTS 区块，不要求作者 checkout 存在。
-- 维护既有 WSL 安装时仍可按明确范围使用旧 bootstrap/sync；普通新接入不走旧机器配置发布链，不扫描同机 clone，也不自动同步其他工作区。
-- 全局 Codex 入口模板位于 `templates/codex/AGENTS.global.md`，安装器按实际规则根和技能目录渲染；模板和本仓入口不保存机器绝对路径。
+- 新机器 clone 后，从仓库根运行 `python3 ./scripts/bootstrap-local.py --codex-home <已核实的Windows-Codex-home的WSL路径>`，由脚本以当前仓库作为默认 `<harness-root>`。
+- 需要选择其他已知 harness 时，只能显式传入 Python CLI 对应参数或设置 `AI_HARNESS_ROOT`；不扫描同机 clone，也不自动同步其他工作区。
+- 全局 Codex 入口模板位于 `templates/codex/AGENTS.global.md`，由 bootstrap 渲染到 `CODEX_HOME/AGENTS.md`；模板和本仓入口不保存机器绝对路径。
 
 ## 仓库目录边界
 
@@ -48,6 +45,16 @@
 - `rules/items/`：按 `kind` 组织的规则叶子文件；当前仓库中除 `仓库目录边界`、`真源入口` 外，其余条目默认作为全局规则维护。
 - `skills/*/SKILL.md`：复杂多步流程与可复用工作流真源。
 - `scripts/` 与 `tests/`：可执行校验与回归闸门。
-- 缺失工具的分层安装与授权边界由索引中的 `global.policy.缺失工具分层与依赖处理` 按当前操作决定是否适用。
+- 缺失工具的分层安装与授权边界由索引中的 `global.policy.WSL工具分层与缺失依赖处理` 按当前操作决定是否适用。
 
 若项目规则与全局规则发生冲突，必须通过项目规则 frontmatter 显式声明 `overrides`；未声明时不得静默覆盖。
+
+## 范围复验变更入口
+
+现行行为与版本边界见[按验收点保留结果与范围复验](skills/global-task-orchestrator/references/acceptance-points.md)。首次验收可分范围登记；保留任意历史轮次中仍有效的结果，最终检查完整覆盖，不要求额外整轮全绿。普通任务使用简洁清单，只有显式选择 GTO 才使用控制面。
+
+## 恢复与登记精简
+
+新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](skills/global-task-orchestrator/references/streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。
+
+项目接入条件见 [项目模板](docs/PROJECT_TEMPLATE.md)，公开操作示例见 [接入与检查](docs/harness-usage-examples.md)。版本、安装与实际会话加载分别报告，不因展示成功放行执行。

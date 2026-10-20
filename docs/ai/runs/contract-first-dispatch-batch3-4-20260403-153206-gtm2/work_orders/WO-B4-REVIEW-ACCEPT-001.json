@@ -1,0 +1,108 @@
+﻿{
+    "task_id":  "contract-first-dispatch-batch3-4-20260403-153206-gtm2",
+    "work_order_id":  "WO-B4-REVIEW-ACCEPT-001",
+    "plan_id":  "PLAN-CONTRACT-FIRST-DISPATCH-BATCH3-4-20260403-153206-GTM2",
+    "role":  "batch4-acceptance-reviewer",
+    "task_goal":  "对 Batch 4 的测试闭环与 dispatch_packet 校验闭环做专项验收，只输出审查结论与证据，不修改实现文件。",
+    "instruction_source":  "docs/plans/contract-first-dispatch.md",
+    "read_paths_mandatory":  [
+                                 "docs/plans/contract-first-dispatch.md",
+                                 "docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json",
+                                 "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json",
+                                 "docs/SUBAGENT_GOVERNANCE.md",
+                                 "skills/global-task-orchestrator/SKILL.md",
+                                 "tests/README.md",
+                                 "tests/harness/README.md",
+                                 "tests/harness/control-plane.integration.ps1",
+                                 "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+                                 "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/work_orders/WO-B4-TEST-SUITE-001.json",
+                                 "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/work_orders/WO-B4-VALIDATE-DISPATCH-001.json",
+                                 "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/dispatch_packets/DP-B4-TEST-SUITE-001.json",
+                                 "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-TEST-SUITE-001.json",
+                                 "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-VALIDATE-DISPATCH-001.json"
+                             ],
+    "read_paths_optional":  [
+                                "templates/review_report.example.md",
+                                "templates/review_testcases.example.md"
+                            ],
+    "context_paths":  [
+                          "docs/plans/contract-first-dispatch.md",
+                          "tests/harness/control-plane.integration.ps1",
+                          "skills/global-task-orchestrator/scripts/validate-control-plane.ps1"
+                      ],
+    "scope_in":  [
+                     "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-REVIEW-ACCEPT-001.json"
+                 ],
+    "scope_out":  [
+                      "不得修改任何测试、脚本、模板、计划或既有回执文件",
+                      "不得代替主协调器宣布进入 Batch 3.5 或 Batch 4 之外的新范围"
+                  ],
+    "write_paths":  [
+                        "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-REVIEW-ACCEPT-001.json"
+                    ],
+    "evidence_summary":  [
+                             "Batch 4 目标是补齐 control-plane 测试闭环，并把复杂任务缺少 dispatch_packet 的 bad path 变成 validate 阶段的硬失败。",
+                             "当前已有两份执行回执：测试子代理复跑 `tests/harness/control-plane.integration.ps1` 得到 `TOTAL PASS 5`；脚本子代理回执声明 validate 已新增 dispatch_packet 存在性、关键字段、task/work_order 关联校验。",
+                             "主窗口已再次执行 `orchestrator_ctl.ps1 -Action validate`，结果 `ok=True`，仅保留 `repo_doctor.ps1` 缺失 warning。"
+                         ],
+    "constraints":  [
+                        "先完整阅读 `read_paths_mandatory`，再形成结论。",
+                        "说明性输出默认中文；字段名、路径、命令保持机器可读。",
+                        "审查结论必须基于实际文件与实际命令，不得脑补。",
+                        "若认为未通过，必须写清阻断证据与缺口位置。"
+                    ],
+    "change_spec":  [
+                        {
+                            "path":  "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-REVIEW-ACCEPT-001.json",
+                            "instructions":  [
+                                                 "写出 Batch 4 专门审查回执，明确 `review_conclusion` 为 `pass` 或 `fail`。",
+                                                 "压缩给出 `findings`、`key_evidence`、`residual_risks`，并引用实际文件或命令结果。"
+                                             ],
+                            "done_when":  [
+                                              "回执可独立支撑主协调器判断 Batch 4 是否验收通过。"
+                                          ]
+                        }
+                    ],
+    "execution_steps":  [
+                            "阅读必读文件与两份 Batch 4 执行回执",
+                            "必要时复核 validate 与测试命令",
+                            "先写 `return_packet`，再回报审查结论"
+                        ],
+    "acceptance_criteria":  [
+                                "回执明确给出 `review_conclusion`、`findings`、`key_evidence`、`residual_risks`",
+                                "审查结论覆盖测试闭环与 dispatch_packet 校验闭环",
+                                "结论与证据可对应到实际文件或实际命令结果"
+                            ],
+    "verification_steps":  [
+                               "powershell -ExecutionPolicy Bypass -File .\\tests\\harness\\control-plane.integration.ps1",
+                               "powershell -ExecutionPolicy Bypass -File .\\skills\\global-task-orchestrator\\scripts\\orchestrator_ctl.ps1 -Action validate -TaskId contract-first-dispatch-batch3-4-20260403-153206-gtm2 -RepoRoot C:\\Users\\72385\\dev\\ai-harness"
+                           ],
+    "stop_conditions":  [
+                            "发现冻结真源与当前 run 产物存在冲突且无法仅凭证据判定",
+                            "需要修改任何 scope_out 文件才能给出结论"
+                        ],
+    "return_packet_path":  "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-REVIEW-ACCEPT-001.json",
+    "return_packet_required":  true,
+    "required_return_fields":  [
+                                   "work_order_id",
+                                   "status",
+                                   "summary",
+                                   "changed_files",
+                                   "planned_files_not_changed",
+                                   "verification_commands",
+                                   "verification_result",
+                                   "deviations_from_dispatch",
+                                   "blocked_by",
+                                   "risks",
+                                   "follow_up_needed",
+                                   "written_by",
+                                   "written_role",
+                                   "review_conclusion",
+                                   "findings",
+                                   "key_evidence",
+                                   "residual_risks"
+                               ],
+    "completion_gate":  "return_packet_written_and_accepted",
+    "state_owner":  "main-coordinator",
+    "dispatch_message_raw":  "你是 `batch4-acceptance-reviewer` 执行子代理。\n先完整阅读 `read_paths_mandatory`，`evidence_summary` 仅作导航，不能代替原文件阅读。\n说明性文本默认中文；字段名、路径、脚本参数、代码标识符保持原样。\n\n任务目标：\n- 对 Batch 4 的测试闭环与 dispatch_packet 校验闭环做专项验收，只输出审查结论与证据，不修改实现文件。\n\n必读上下文：\n- `docs/plans/contract-first-dispatch.md`\n- `docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json`\n- `docs/SUBAGENT_GOVERNANCE.md`\n- `skills/global-task-orchestrator/SKILL.md`\n- `tests/README.md`\n- `tests/harness/README.md`\n- `tests/harness/control-plane.integration.ps1`\n- `skills/global-task-orchestrator/scripts/validate-control-plane.ps1`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/work_orders/WO-B4-TEST-SUITE-001.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/work_orders/WO-B4-VALIDATE-DISPATCH-001.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/dispatch_packets/DP-B4-TEST-SUITE-001.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-TEST-SUITE-001.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-VALIDATE-DISPATCH-001.json`\n\n导航摘要：\n- Batch 4 目标是补齐 control-plane 测试闭环，并把复杂任务缺少 dispatch_packet 的 bad path 变成 validate 阶段的硬失败。\n- 当前已有两份执行回执：测试子代理复跑 `tests/harness/control-plane.integration.ps1` 得到 `TOTAL PASS 5`；脚本子代理回执声明 validate 已新增 dispatch_packet 存在性、关键字段、task/work_order 关联校验。\n- 主窗口已再次执行 `orchestrator_ctl.ps1 -Action validate`，结果 `ok=True`，仅保留 `repo_doctor.ps1` 缺失 warning。\n\n唯一写入范围：\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-REVIEW-ACCEPT-001.json`\n\n禁改范围：\n- 不得修改任何测试、脚本、模板、计划或既有回执文件\n- 不得代替主协调器宣布进入 Batch 3.5 或 Batch 4 之外的新范围\n\n执行约束：\n- 先完整阅读 `read_paths_mandatory`，再形成结论。\n- 说明性输出默认中文；字段名、路径、命令保持机器可读。\n- 审查结论必须基于实际文件与实际命令，不得脑补。\n- 若认为未通过，必须写清阻断证据与缺口位置。\n\n逐文件改法：\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-REVIEW-ACCEPT-001.json`: 写出 Batch 4 专门审查回执，明确 `review_conclusion` 为 `pass` 或 `fail`。；压缩给出 `findings`、`key_evidence`、`residual_risks`，并引用实际文件或命令结果。\n\n执行步骤：\n- 阅读必读文件与两份 Batch 4 执行回执\n- 必要时复核 validate 与测试命令\n- 先写 `return_packet`，再回报审查结论\n\n验收标准：\n- 回执明确给出 `review_conclusion`、`findings`、`key_evidence`、`residual_risks`\n- 审查结论覆盖测试闭环与 dispatch_packet 校验闭环\n- 结论与证据可对应到实际文件或实际命令结果\n\n验证步骤：\n- powershell -ExecutionPolicy Bypass -File .\\tests\\harness\\control-plane.integration.ps1\n- powershell -ExecutionPolicy Bypass -File .\\skills\\global-task-orchestrator\\scripts\\orchestrator_ctl.ps1 -Action validate -TaskId contract-first-dispatch-batch3-4-20260403-153206-gtm2 -RepoRoot C:\\Users\\72385\\dev\\ai-harness\n\n停止条件：\n- 发现冻结真源与当前 run 产物存在冲突且无法仅凭证据判定\n- 需要修改任何 scope_out 文件才能给出结论\n\n回执要求：\n- `return_packet` 正文必须由执行子代理本人填写，主协调器不得代写。\n- `return_packet_path`: `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-REVIEW-ACCEPT-001.json`\n- `completion_gate`: `return_packet_written_and_accepted`\n- 若信息不足以安全实施，返回 `blocked`，不要猜测。\n- 完成前先写 `return_packet`，再声明完成。"
+}

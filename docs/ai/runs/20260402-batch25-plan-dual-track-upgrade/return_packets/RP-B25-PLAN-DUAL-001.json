@@ -1,0 +1,49 @@
+{
+  "return_packet_id": "RP-B25-PLAN-DUAL-001",
+  "task_id": "20260402-batch25-plan-dual-track-upgrade",
+  "work_order_id": "WO-B25-PLAN-DUAL-001",
+  "status": "completed",
+  "summary": "Completed Batch 2.5 by upgrading the dual-artifact plan schema, examples, and minimum bootstrap plus validation scripts. Validation also created temporary smoke artifacts that were later cleaned in rework.",
+  "changed_files": [
+    "schemas/plan.schema.json",
+    "templates/plan.example.json",
+    "templates/progress.session.example.md",
+    "skills/global-task-orchestrator/scripts/bootstrap-task.ps1",
+    "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+    "scripts/start_session.ps1",
+    "docs/ai/runs/batch25-smoke-20260402",
+    "docs/ai/runs/batch25-smoke-20260402b",
+    "docs/ai/runs/batch25-smoke-20260402c",
+    "docs/plans/batch25-smoke-20260402.md",
+    "docs/plans/batch25-smoke-20260402b.md",
+    "docs/plans/batch25-smoke-20260402c.md",
+    ".ai/session/batch25-smoke-20260402",
+    ".ai/session/batch25-smoke-20260402b",
+    ".ai/session/batch25-smoke-20260402c"
+  ],
+  "planned_files_not_changed": [
+    "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1"
+  ],
+  "verification_commands": [
+    "python jsonschema validation for schemas/plan.schema.json <- templates/plan.example.json",
+    "powershell -ExecutionPolicy Bypass -File skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action bootstrap -RepoRoot C:/Users/72385/dev/ai-harness -TaskId batch25-smoke-20260402c -PlanId PLAN-BATCH25-SMOKE-20260402C -Json",
+    "powershell -ExecutionPolicy Bypass -File skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action validate -RepoRoot C:/Users/72385/dev/ai-harness -TaskId batch25-smoke-20260402c -Json"
+  ],
+  "verification_result": "The plan schema and example passed Draft202012 validation. Bootstrap generated a draft dual-artifact plan.json and a docs/plans markdown stub. Validate passed the minimum plan checks and emitted only the expected warning about the missing repo_doctor.ps1 path. Those temporary smoke artifacts were later cleaned in rework WO-B25-PLAN-DUAL-001-R1.",
+  "deviations_from_dispatch": [
+    "orchestrator_ctl.ps1 required no code change because the existing bootstrap and validate routing already matched the updated helper scripts.",
+    "Validation created temporary batch25-smoke artifacts outside the original write scope; they were cleaned in rework WO-B25-PLAN-DUAL-001-R1."
+  ],
+  "blocked_by": [],
+  "risks": [
+    "repo_doctor.ps1 is still absent in this repository, so validate currently skips the stricter repo_doctor gate and reports a warning instead.",
+    "Bootstrap creates a minimal draft plan markdown stub inline. A richer plan document template would need a later batch."
+  ],
+  "follow_up_needed": [
+    "Re-run the Batch 2.5 review gate using the cleaned repository state.",
+    "Consider adding Batch 4 tests for bootstrap and validate around source_plan_doc and Markdown-first plan reading."
+  ],
+  "written_at": "2026-04-03T00:00:00+08:00",
+  "written_by": "main-window-executor",
+  "written_role": "plan-contract-script-implementer"
+}

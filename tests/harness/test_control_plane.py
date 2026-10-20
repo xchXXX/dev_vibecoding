@@ -214,10 +214,7 @@ def result(status: str, written_by: str, written_role: str, **extra: object) -> 
 
 
 def _current_contract():
-    if __package__:
-        from .test_gto_workflow import workflow_contract
-    else:
-        from test_gto_workflow import workflow_contract
+    from test_gto_workflow import workflow_contract
     return workflow_contract()
 
 
@@ -590,10 +587,7 @@ class ControlPlaneContractTest(unittest.TestCase):
         )
         validator = Draft202012Validator(schema)
         baseline = self.state()
-        if __package__:
-            from .test_gto_workflow import WorkflowTest
-        else:
-            from test_gto_workflow import WorkflowTest
+        from test_gto_workflow import WorkflowTest
         lifecycle = WorkflowTest.new_finding(self, "SCHEMA-LIFECYCLE-001")
         lifecycle.update(discovered_by=REVIEWER, source_subtask_id='REVIEW-SEC-001')
         lifecycle.update(

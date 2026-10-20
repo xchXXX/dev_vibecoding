@@ -1,0 +1,114 @@
+﻿{
+    "task_id":  "contract-first-dispatch-batch3-4-20260403-153206-gtm2",
+    "work_order_id":  "WO-B35-HYDRATE-GATE-001",
+    "plan_id":  "PLAN-CONTRACT-FIRST-DISPATCH-BATCH3-4-20260403-153206-GTM2",
+    "role":  "hydrate-gate-hardener",
+    "task_goal":  "补强 Batch 3.5 的最小字段兜底逻辑，去掉模糊占位回填，并把 v2 回执字段与最小合同约束写入 hydrate 脚本。",
+    "instruction_source":  "docs/plans/contract-first-dispatch.md",
+    "read_paths_mandatory":  [
+                                 "docs/plans/contract-first-dispatch.md",
+                                 "docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json",
+                                 "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json",
+                                 "docs/SUBAGENT_GOVERNANCE.md",
+                                 "skills/global-task-orchestrator/SKILL.md",
+                                 "skills/global-task-orchestrator/scripts/ensure-work-order-fields.ps1",
+                                 "skills/global-task-orchestrator/scripts/ensure-return-packet-fields.ps1",
+                                 "templates/work_order.example.json",
+                                 "templates/return_packet.example.json"
+                             ],
+    "read_paths_optional":  [
+                                "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+                                "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/work_orders/WO-B35-TEMPLATE-HARDEN-001.json"
+                            ],
+    "context_paths":  [
+                          "docs/plans/contract-first-dispatch.md",
+                          "docs/SUBAGENT_GOVERNANCE.md",
+                          "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/dispatch_packets/DP-B35-HYDRATE-GATE-001.json"
+                      ],
+    "scope_in":  [
+                     "skills/global-task-orchestrator/scripts/ensure-work-order-fields.ps1",
+                     "skills/global-task-orchestrator/scripts/ensure-return-packet-fields.ps1"
+                 ],
+    "scope_out":  [
+                      "不得修改 `validate-control-plane.ps1`；该工作由单独工单负责。",
+                      "不得修改任何 `templates/*.json` 或 prompt 真源。",
+                      "不得新增新的控制面 action。"
+                  ],
+    "write_paths":  [
+                        "skills/global-task-orchestrator/scripts/ensure-work-order-fields.ps1",
+                        "skills/global-task-orchestrator/scripts/ensure-return-packet-fields.ps1",
+                        "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B35-HYDRATE-GATE-001.json"
+                    ],
+    "evidence_summary":  [
+                             "`ensure-work-order-fields.ps1` 当前会把 `dispatch_message_raw` 缺失回填成模糊占位文本，且默认 `required_return_fields` 仍偏旧。",
+                             "`ensure-return-packet-fields.ps1` 当前只兜底少量字段，尚未把 v2 回执字段完整兜底。",
+                             "Batch 3.5 需要最小闸门，但不要求在本工单新增 schema 字段或 action。"
+                         ],
+    "constraints":  [
+                        "默认中文输出可通过固定中文默认派发语句回填，但不得在脚本里凭空创造新字段名。",
+                        "去掉或替换模糊占位 `dispatch_message_raw auto-filled` / `goal=...` 风格回填，改为能表达 mandatory reads、中文输出、回执正文所有权的最小稳定文本。",
+                        "对 return packet 兜底时补全 v2 字段，但不要代写执行事实正文。"
+                    ],
+    "change_spec":  [
+                        {
+                            "path":  "skills/global-task-orchestrator/scripts/ensure-work-order-fields.ps1",
+                            "instructions":  [
+                                                 "把默认 `required_return_fields` 升级为 v2 列表。",
+                                                 "将 `dispatch_message_raw` 缺失时的回填改为固定中文最小派发语句，显式包含 mandatory reads、`evidence_summary` 仅导航、默认中文输出、回执正文所有权。"
+                                             ],
+                            "done_when":  [
+                                              "不再生成模糊占位 `dispatch_message_raw`，且默认 required_return_fields 与 v2 示例一致。"
+                                          ]
+                        },
+                        {
+                            "path":  "skills/global-task-orchestrator/scripts/ensure-return-packet-fields.ps1",
+                            "instructions":  [
+                                                 "补齐 `planned_files_not_changed`、`verification_commands`、`verification_result`、`deviations_from_dispatch`、`blocked_by`、`follow_up_needed` 等 v2 字段兜底。",
+                                                 "保留“不代写正文”的边界，只做结构性补齐。"
+                                             ],
+                            "done_when":  [
+                                              "return packet hydrate 能对齐 v2 兜底口径，而不伪装成执行子代理正文。"
+                                          ]
+                        }
+                    ],
+    "execution_steps":  [
+                            "阅读必读文件。",
+                            "先改 work_order hydrate，再改 return_packet hydrate。",
+                            "运行关键短语与默认列表检查。",
+                            "先写 `return_packet`，再回报。"
+                        ],
+    "acceptance_criteria":  [
+                                "`ensure-work-order-fields.ps1` 不再回填模糊占位 `dispatch_message_raw`。",
+                                "`ensure-work-order-fields.ps1` 默认 `required_return_fields` 与 v2 口径一致。",
+                                "`ensure-return-packet-fields.ps1` 能兜底 v2 回执字段，但不代写执行事实正文。"
+                            ],
+    "verification_steps":  [
+                               "Select-String -Path \u0027skills/global-task-orchestrator/scripts/ensure-work-order-fields.ps1\u0027 -Pattern \u0027read_paths_mandatory\u0027,\u0027evidence_summary\u0027,\u0027中文\u0027,\u0027主协调器不得代写\u0027,\u0027planned_files_not_changed\u0027,\u0027verification_commands\u0027 -SimpleMatch",
+                               "Select-String -Path \u0027skills/global-task-orchestrator/scripts/ensure-return-packet-fields.ps1\u0027 -Pattern \u0027planned_files_not_changed\u0027,\u0027verification_commands\u0027,\u0027verification_result\u0027,\u0027deviations_from_dispatch\u0027,\u0027blocked_by\u0027,\u0027follow_up_needed\u0027 -SimpleMatch"
+                           ],
+    "stop_conditions":  [
+                            "需要新增 action 或修改 `orchestrator_ctl.ps1` 才能继续。",
+                            "需要代写执行子代理正文才能达成目标。"
+                        ],
+    "dispatch_packet_path":  "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/dispatch_packets/DP-B35-HYDRATE-GATE-001.json",
+    "return_packet_path":  "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B35-HYDRATE-GATE-001.json",
+    "return_packet_required":  true,
+    "required_return_fields":  [
+                                   "work_order_id",
+                                   "status",
+                                   "summary",
+                                   "changed_files",
+                                   "planned_files_not_changed",
+                                   "verification_commands",
+                                   "verification_result",
+                                   "deviations_from_dispatch",
+                                   "blocked_by",
+                                   "risks",
+                                   "follow_up_needed",
+                                   "written_by",
+                                   "written_role"
+                               ],
+    "completion_gate":  "return_packet_written_and_accepted",
+    "state_owner":  "main-coordinator",
+    "dispatch_message_raw":  "你是 `hydrate-gate-hardener` 执行子代理。\n先完整阅读 `read_paths_mandatory`，`evidence_summary` 仅作导航，不能代替原文件阅读。\n说明性文本默认中文；字段名、路径、脚本参数、代码标识符保持原样。\n\n任务目标：\n- 补强 Batch 3.5 的最小字段兜底逻辑，去掉模糊占位回填，并把 v2 回执字段与最小合同约束写入 hydrate 脚本。\n\n必读上下文：\n- `docs/plans/contract-first-dispatch.md`\n- `docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json`\n- `docs/SUBAGENT_GOVERNANCE.md`\n- `skills/global-task-orchestrator/SKILL.md`\n- `skills/global-task-orchestrator/scripts/ensure-work-order-fields.ps1`\n- `skills/global-task-orchestrator/scripts/ensure-return-packet-fields.ps1`\n- `templates/work_order.example.json`\n- `templates/return_packet.example.json`\n\n导航摘要：\n- `ensure-work-order-fields.ps1` 当前会把 `dispatch_message_raw` 缺失回填成模糊占位文本，且默认 `required_return_fields` 仍偏旧。\n- `ensure-return-packet-fields.ps1` 当前只兜底少量字段，尚未把 v2 回执字段完整兜底。\n- Batch 3.5 需要最小闸门，但不要求在本工单新增 schema 字段或 action。\n\n唯一写入范围：\n- `skills/global-task-orchestrator/scripts/ensure-work-order-fields.ps1`\n- `skills/global-task-orchestrator/scripts/ensure-return-packet-fields.ps1`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B35-HYDRATE-GATE-001.json`\n\n禁改范围：\n- 不得修改 `validate-control-plane.ps1`；该工作由单独工单负责。\n- 不得修改任何 `templates/*.json` 或 prompt 真源。\n- 不得新增新的控制面 action。\n\n执行约束：\n- 默认中文输出可通过固定中文默认派发语句回填，但不得在脚本里凭空创造新字段名。\n- 去掉或替换模糊占位 `dispatch_message_raw auto-filled` / `goal=...` 风格回填，改为能表达 mandatory reads、中文输出、回执正文所有权的最小稳定文本。\n- 对 return packet 兜底时补全 v2 字段，但不要代写执行事实正文。\n\n逐文件改法：\n- `skills/global-task-orchestrator/scripts/ensure-work-order-fields.ps1`: 把默认 `required_return_fields` 升级为 v2 列表。；将 `dispatch_message_raw` 缺失时的回填改为固定中文最小派发语句，显式包含 mandatory reads、`evidence_summary` 仅导航、默认中文输出、回执正文所有权。\n- `skills/global-task-orchestrator/scripts/ensure-return-packet-fields.ps1`: 补齐 `planned_files_not_changed`、`verification_commands`、`verification_result`、`deviations_from_dispatch`、`blocked_by`、`follow_up_needed` 等 v2 字段兜底。；保留“不代写正文”的边界，只做结构性补齐。\n\n复杂任务施工图：\n先读后写：\n- `docs/plans/contract-first-dispatch.md`\n- `docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json`\n- `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json`\n- `docs/SUBAGENT_GOVERNANCE.md`\n- `skills/global-task-orchestrator/SKILL.md`\n- `skills/global-task-orchestrator/scripts/ensure-work-order-fields.ps1`\n- `skills/global-task-orchestrator/scripts/ensure-return-packet-fields.ps1`\n- `templates/work_order.example.json`\n- `templates/return_packet.example.json`\n\n执行顺序：\n- 更新 `ensure-work-order-fields.ps1`\n- 更新 `ensure-return-packet-fields.ps1`\n- 运行关键短语检查\n- 写入 return_packet\n\n不变量：\n- 不新增 action。\n- 不修改 validate 逻辑。\n- 不代写执行事实正文。\n\n禁改范围：\n- 不要修改 `validate-control-plane.ps1`。\n- 不要修改任何 `templates/*.json` 或 prompt 真源。\n- 不要修改 `orchestrator_ctl.ps1`。\n\n依赖说明：\n- 先稳定 work_order hydrate，再稳定 return_packet hydrate。\n- 默认兜底文本需要与 Batch 3.5 冻结规则一致。\n\n完成信号：\n- 两个 hydrate 脚本均更新完成。\n- 关键短语检查通过。\n- return_packet 已落盘。\n\n校验关注点：\n- 是否移除了模糊占位回填。\n- 是否补齐 v2 回执字段。\n- 是否保持结构性兜底边界。\n\n回退策略：\n- 若必须新增脚本 action，立即停止并回主协调器。\n- 若需要代写执行正文才能继续，立即停止。\n\n交接说明：\n- 审查时重点看默认回填文本与 required_return_fields 是否已达到 Batch 3.5 目标。\n- 回执中说明本次只补结构，不补执行事实。\n\n执行步骤：\n- 阅读必读文件。\n- 先改 work_order hydrate，再改 return_packet hydrate。\n- 运行关键短语与默认列表检查。\n- 先写 `return_packet`，再回报。\n\n验收标准：\n- `ensure-work-order-fields.ps1` 不再回填模糊占位 `dispatch_message_raw`。\n- `ensure-work-order-fields.ps1` 默认 `required_return_fields` 与 v2 口径一致。\n- `ensure-return-packet-fields.ps1` 能兜底 v2 回执字段，但不代写执行事实正文。\n\n验证步骤：\n- Select-String -Path \u0027skills/global-task-orchestrator/scripts/ensure-work-order-fields.ps1\u0027 -Pattern \u0027read_paths_mandatory\u0027,\u0027evidence_summary\u0027,\u0027中文\u0027,\u0027主协调器不得代写\u0027,\u0027planned_files_not_changed\u0027,\u0027verification_commands\u0027 -SimpleMatch\n- Select-String -Path \u0027skills/global-task-orchestrator/scripts/ensure-return-packet-fields.ps1\u0027 -Pattern \u0027planned_files_not_changed\u0027,\u0027verification_commands\u0027,\u0027verification_result\u0027,\u0027deviations_from_dispatch\u0027,\u0027blocked_by\u0027,\u0027follow_up_needed\u0027 -SimpleMatch\n\n停止条件：\n- 需要新增 action 或修改 `orchestrator_ctl.ps1` 才能继续。\n- 需要代写执行子代理正文才能达成目标。\n\n回执要求：\n- `return_packet` 正文必须由执行子代理本人填写，主协调器不得代写。\n- `return_packet_path`: `docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B35-HYDRATE-GATE-001.json`\n- `completion_gate`: `return_packet_written_and_accepted`\n- 若信息不足以安全实施，返回 `blocked`，不要猜测。\n- 完成前先写 `return_packet`，再声明完成。"
+}

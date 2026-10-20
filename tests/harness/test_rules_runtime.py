@@ -162,12 +162,12 @@ class RulesCliTests(unittest.TestCase):
                 (output_dir / "RULES_INDEX.json").read_text(encoding="utf-8")
             )
 
-        rule_id = "global.policy.缺失工具分层与依赖处理"
+        rule_id = "global.policy.WSL工具分层与缺失依赖处理"
         generated_rule = next(
             (rule for rule in generated_index["rules"] if rule["id"] == rule_id),
             None,
         )
-        self.assertIsNotNone(generated_rule, "missing environment-neutral tooling decision rule")
+        self.assertIsNotNone(generated_rule, "missing WSL tooling decision rule")
         self.assertEqual("global", generated_rule["scope"])
         self.assertEqual("policy", generated_rule["kind"])
         self.assertEqual("model_decision", generated_rule["activation"])
@@ -184,10 +184,10 @@ class RulesCliTests(unittest.TestCase):
         )
         self.assertEqual(rule_id, metadata["id"])
         for layer_terms in (
-            ("机器公共工具", "项目依赖", "可选服务/GUI", "运行环境"),
-            ("项目", "manifest/lock", "venv/node_modules", "不跨系统复用"),
-            ("Browser", "Windows", "WSL", "宿主实际能力", "app-managed"),
-            ("系统工具缺失", "已授权范围", "不静默提权", "等价证据"),
+            ("系统层", "发行版", "git", "jq"),
+            ("项目", "pyproject", "requirements", "lock", "venv", "node_modules"),
+            ("浏览器", "Windows", "WSL", "Playwright", "Chromium"),
+            ("sudo", "自动执行", "无需再次授权", "官方包", "当前 WSL 发行版", "仅安装缺失包"),
             ("第三方源", "广泛升级", "卸载", "发行版变更", "授权"),
         ):
             with self.subTest(layer_terms=layer_terms):

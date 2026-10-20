@@ -1,10 +1,10 @@
-﻿# project/.codex
+# project/.codex
 
 项目模板中的 Codex 适配层。
 
 用于放项目级说明或占位配置，并与项目根 `AGENTS.md`、`docs/ai/`、`config/ai/` 协同工作。
 
-子代理提示词与派发约定引用 `../../../skills/global-task-orchestrator/SKILL.md`，项目 `.codex/` 只补项目增量说明，不复制全局治理正文。
+仅显式 GTO 任务的子代理提示词与派发约定引用 `../../../skills/global-task-orchestrator/SKILL.md`，项目 `.codex/` 只补项目增量说明，不复制全局治理正文。
 
 约束：
 

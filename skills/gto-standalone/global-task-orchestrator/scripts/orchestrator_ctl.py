@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Portable control plane for long-running orchestrated tasks.
+"""Minimal WSL-native control plane for long-running orchestrated tasks.
 
 Codex owns semantic decisions.  This module only persists and validates an
 already structured contract and advances deterministic review state.
@@ -22,8 +22,6 @@ import tempfile
 from pathlib import Path
 from typing import Any, Iterator
 
-# Managed skill files must stay unchanged during ordinary CLI use.
-sys.dont_write_bytecode = True
 from jsonschema import Draft202012Validator, FormatChecker
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
@@ -31,7 +29,8 @@ if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 from runtime_evidence import freeze_tree, tree_manifest, verify_tree, acceptance_run_errors
-from capability_gate import capability_errors as _capability_errors, capability_receipt as _capability_receipt, capture_context as _capture_capability_context
+import acceptance_points as point_acceptance
+from capability_gate import capability_errors as _capability_errors, capability_receipt as _capability_receipt, capture_context as _capture_capability_context, scoped_declarations as _scoped_capabilities
 
 from acceptance_batches import (
     BatchEvidenceError,
@@ -581,8 +580,13 @@ def _derived_plan_errors(state, task, source, by_id):
         if len(matches) == 1:
             index, attempt = matches[0]
             template = by_id.get(attempt.get('template_subtask_id'), {})
+            original = next((by_id[a['subtask_id']] for a in attempts[:index]
+                             if a.get('template_subtask_id') == attempt.get('template_subtask_id')
+                             and by_id[a['subtask_id']].get('dispatch')), None)
+            owner = _identity(original['dispatch']) if original else None
             valid = (same_source(template) and assignment == source.get('assignment')
-                     and (task.get('dependencies') == template.get('dependencies') if index == 0
+                     and (not task.get('acceptance_owner') or task['acceptance_owner'] == owner)
+                     and (task.get('dependencies') == template.get('dependencies') if not task.get('acceptance_owner')
                           else len(deps) == 1 and prior_integrations and deps[0] == prior_integrations[-1]
                           and deps[0].get('status') == 'completed'))
     return [] if valid else [f'{ident}: derived task does not match an approved repair, review or acceptance contract']
@@ -903,7 +907,7 @@ def _validate_state(paths: dict[str, Path], state: dict[str, Any]) -> list[str]:
     # Repair mutations use _state_model_errors and can still create a new candidate.
     if state.get("workflow_revision") == 3 and state.get("status") != "completed":
         errors.extend(_candidate_staleness_errors(paths["state.json"].parents[4], state))
-    errors.extend(_current_run_errors(paths["state.json"].parents[4], state))
+    errors.extend(_current_run_errors(paths["state.json"].parents[4], state, integrity_only=True))
     errors.extend(_artifact_errors(paths, state))
     return errors
 
@@ -919,12 +923,6 @@ def _state_model_errors(
     errors.extend(_validate_contract(state))
     errors.extend(_semantic_errors(state))
     errors.extend(_subtask_state_errors(state, include_legacy_dependency_errors=include_legacy_dependency_errors))
-    blocker = state.get('coordinator_blocker', {})
-    recoveries = state.get('interruption_recoveries', [])
-    if not errors and blocker.get('recovery_coordinator_id'):
-        if (not recoveries or recoveries[-1]['request']['new_coordinator_id'] != blocker['recovery_coordinator_id']
-                or recoveries[-1]['previous_blocker']['result'] != blocker['result']):
-            errors.append('recovery coordinator must match the retained interruption recovery')
     if state.get("workflow_revision") == 3:
         inputs = state.get("acceptance_gate", {}).get("candidate_inputs", {})
         writer_targets = []
@@ -957,8 +955,8 @@ def _state_model_errors(
                     repo, state, receipt, require_current_candidate=False
                 )
             )
-        errors.extend(_batch_errors(repo, state, _candidate_records))
-        errors.extend(_coverage_errors(repo, state, _candidate_records))
+        errors.extend(_batch_errors(repo, state, _candidate_records, metadata_only=True))
+        errors.extend(_coverage_errors(repo, state, _candidate_records, metadata_only=True))
     if include_candidate_staleness and (state.get("workflow_revision") != 3 or state.get("status") == "completed"):
         errors.extend(_candidate_staleness_errors(repo, state))
     return errors
@@ -1064,6 +1062,10 @@ def _workflow_errors(state: dict[str, Any]) -> list[str]:
         return ["workflow_revision=3 requires one acceptance_gate"]
     blackbox_ids = gate.get("blackbox_acceptance_ids", [])
     acceptance_ids = {item.get("acceptance_id") for item in gate.get("acceptance_items", [])}
+    try:
+        point_acceptance.definitions(gate)
+    except (ValueError, KeyError, TypeError) as exc:
+        errors.append(str(exc))
     if len(blackbox_ids) != len(set(blackbox_ids)) or not set(blackbox_ids).issubset(acceptance_ids):
         errors.append("blackbox_acceptance_ids must be a unique subset of acceptance_items")
     subtasks = [item for item in state.get("subtasks", []) if isinstance(item, dict)]
@@ -1160,11 +1162,17 @@ def _workflow_errors(state: dict[str, Any]) -> list[str]:
         subtask_ids = [item.get("subtask_id") for item in attempts if isinstance(item, dict)]
         if len(attempt_ids) != len(set(attempt_ids)) or len(subtask_ids) != len(set(subtask_ids)):
             errors.append("expensive attempt identity must be unique")
-        if isinstance(maximum, int) and len(attempts) > maximum:
+        if isinstance(maximum, int) and sum(not a.get('withdrawal') for a in attempts) > maximum:
             errors.append("max_expensive_attempts exceeded")
         candidates = {item.get("candidate_id") for item in attempts if isinstance(item, dict)}
         approval_from = policy.get("approval_required_from_attempt", 3) if isinstance(policy, dict) else 3
         for number, attempt in enumerate(attempts, 1):
+            if attempt.get('withdrawal'):
+                source = by_id.get(attempt.get('subtask_id'), {})
+                if source.get('status') != 'cancelled' or source.get('dispatch') or source.get('result') or 'outcome' in attempt:
+                    errors.append('withdrawn acceptance must have no dispatch, outcome or result')
+                continue
+            number = sum(not a.get('withdrawal') for a in attempts[:number])
             if number >= approval_from:
                 approval = attempt.get("approval") if isinstance(attempt, dict) else None
                 if not isinstance(approval, dict) or not approval.get("approved_by") or not approval.get("reason"):
@@ -1194,7 +1202,7 @@ def _workflow_errors(state: dict[str, Any]) -> list[str]:
                 evidence_fields.update({'mode', 'scope_acceptance_ids', 'passed_acceptance_ids', 'closed_finding_ids',
                     'usage_evidence', 'impact', 'retained_evidence_by_acceptance_id',
                     'preparation', 'blackbox', 'invalid_observation', 'executed_unit_ids',
-                    'evidence_batch_ids'})
+                    'evidence_batch_ids', 'point_results', 'run_evidence', 'source_preparation_attempt_id'})
             if (
                 subtask.get("status") not in {"completed", "blocked"}
                 or not isinstance(evidence, dict)
@@ -1208,17 +1216,25 @@ def _workflow_errors(state: dict[str, Any]) -> list[str]:
                 and item.get("candidate_id") == candidate_id
                 and item.get("kind", "ordinary") == "ordinary"
                 and item.get("outcome") in {"pass", "product_failure"}
+                and not item.get('point_results')
             ]
             if len(full) > 1:
                 errors.append(f"full expensive acceptance repeated for candidate {candidate_id}")
-            environment_failures = sum(
-                item.get("outcome") == "environment_failure"
-                for item in attempts
-                if isinstance(item, dict) and item.get("candidate_id") == candidate_id
-            )
             retry_limit = policy.get("max_environment_retries_per_candidate", 1) if isinstance(policy, dict) else 1
-            if environment_failures > 1 + retry_limit:
-                errors.append(f"environment retry limit exceeded for candidate {candidate_id}")
+            failures_by_scope = {}
+            for item in attempts:
+                if item.get('candidate_id') != candidate_id or item.get('withdrawal'):
+                    continue
+                scopes = ['preparation'] if item.get('kind') == 'preparation' else item.get('scope_acceptance_ids', [])
+                approval = item.get('approval', {})
+                for scope in scopes:
+                    failures = failures_by_scope.get(scope, 0)
+                    if (failures >= 1 + retry_limit and not (
+                            approval.get('approved_by') == 'user'
+                            and isinstance(approval.get('reason'), str) and approval['reason'].strip())):
+                        errors.append(f"environment retry requires user authorization for candidate {candidate_id} scope {scope}")
+                    if item.get('outcome') == 'environment_failure':
+                        failures_by_scope[scope] = failures + 1
     return errors
 
 
@@ -1444,8 +1460,10 @@ def _acceptance_review_evidence_errors(
 
 def _observed_pre_final_evidence(repo: Path | None, state: dict[str, Any], required: set[str]) -> set[str]:
     observed: set[str] = set()
+    valid_points = (point_acceptance.coverage(repo, state, _candidate_records(repo, state))['points']
+                    if repo is not None and state.get('acceptance_gate') else None)
     for subtask in state.get("subtasks", []):
-        if not isinstance(subtask, dict) or subtask.get("status") != "completed" or subtask.get("role") == "reviewer":
+        if not isinstance(subtask, dict) or subtask.get("status") not in {"completed", "blocked"} or subtask.get("role") == "reviewer":
             continue
         evidence = subtask.get("result", {}).get("review_evidence", {})
         if isinstance(evidence, dict):
@@ -1453,6 +1471,14 @@ def _observed_pre_final_evidence(repo: Path | None, state: dict[str, Any], requi
                 _, attempt = _acceptance_source(state, subtask.get("subtask_id"))
                 current = state.get("acceptance_gate", {}).get("current_candidate", {})
                 terminal = subtask.get("result", {}).get("expensive_acceptance", {})
+                if attempt.get('point_results'):
+                    refs = {ref for row in attempt['point_results'] if row['status'] == 'pass'
+                            and (valid_points is None or (valid_points[row['acceptance_id']]['status'] == 'pass'
+                                and valid_points[row['acceptance_id']].get('source_attempt_id') == attempt['attempt_id']))
+                            for ref in row['evidence_refs']}
+                    observed.update(key for key, value in evidence.items() if key in required and value in refs
+                                    and not _verification_evidence_owner_errors(state, subtask['subtask_id'], key))
+                    continue
                 if (
                     attempt.get("kind", "ordinary") == "preparation"
                     or attempt.get("candidate_id") != current.get("candidate_id")
@@ -1471,7 +1497,7 @@ def _observed_pre_final_evidence(repo: Path | None, state: dict[str, Any], requi
                     and value in registered
                     and (repo is None or _evidence_file_error(repo, value) is None)
                 )
-            else:
+            elif subtask.get('status') == 'completed':
                 observed.update(key for key, value in evidence.items() if key in required and value)
     for receipt in state.get("verification_evidence_receipts", []):
         if repo is not None and not _verification_receipt_errors(repo, state, receipt):
@@ -1598,15 +1624,38 @@ def _review_target(repo: Path, state: dict[str, Any]) -> str:
     )
 
 
+def _effect_failures(state: dict[str, Any], scope=None) -> list[dict[str, Any]]:
+    gate = state.get('acceptance_gate', {})
+    attempts = gate.get('attempts', [])
+    _, dependencies = point_acceptance.definitions(gate)
+    requested = set().union(*(dependencies[ident] for ident in scope)) if scope is not None else set(dependencies)
+    active = []
+    for index, failure in enumerate(attempts):
+        if failure.get('kind') != 'blackbox' or failure.get('outcome') != 'effect_failure':
+            continue
+        failed = {r['acceptance_id'] for r in failure.get('point_results', []) if r['status'] == 'fail'}
+        failed = failed or set(failure.get('scope_acceptance_ids', gate.get('blackbox_acceptance_ids', [])))
+        resolved = set()
+        for later in attempts[index + 1:]:
+            if (not later.get('authorization_attempt_id') or later.get('source_preparation_attempt_id')
+                    or not any('next_round' in decision.get('allow', []) for decision in failure.get('decisions', []))):
+                continue
+            resolved.update(r['acceptance_id'] for r in later.get('point_results', []) if r['status'] == 'pass')
+            if later.get('outcome') == 'pass' and 'point_results' not in later:
+                resolved.update(later.get('scope_acceptance_ids', []))
+        if (failed - resolved) & requested:
+            active.append(failure)
+    return active
+
+
 def _latest_effect_failure(state: dict[str, Any]) -> dict[str, Any] | None:
-    latest = next((item for item in reversed(state.get('acceptance_gate', {}).get('attempts', []))
-                   if item.get('kind') == 'blackbox' and item.get('outcome') in {'effect_failure', 'pass'}), None)
-    return latest if latest and latest['outcome'] == 'effect_failure' else None
+    failures = _effect_failures(state)
+    return failures[-1] if failures else None
 
 
-def _effect_permission(state: dict[str, Any], permission: str) -> bool:
-    failure = _latest_effect_failure(state)
-    return failure is None or any(permission in decision.get('allow', []) for decision in failure.get('decisions', []))
+def _effect_permission(state: dict[str, Any], permission: str, scope=None) -> bool:
+    return all(any(permission in decision.get('allow', []) for decision in failure.get('decisions', []))
+               for failure in _effect_failures(state, scope))
 
 
 def _set_next(state: dict[str, Any], kind: str, target: dict[str, str] | None = None, **extra: Any) -> dict[str, Any]:
@@ -1810,6 +1859,16 @@ def _candidate_records(repo: Path, state: dict[str, Any]) -> dict[str, str]:
             for record in _candidate_path_records(repo, field, relative):
                 if record['path'] not in excluded:
                     records[record['path']] = _sha(record)
+    # Point dependencies are inputs too; projects need not repeat each path in
+    # the candidate declaration just to prevent an invisible dependency change.
+    for item in state['acceptance_gate']['acceptance_items']:
+        for raw in item.get('paths', []):
+            relative = _safe_relative_path(raw)
+            if relative is None:
+                raise ControlError(f'acceptance dependency path is unsafe: {raw}')
+            for record in _candidate_path_records(repo, 'acceptance_dependency', relative):
+                if record['path'] not in excluded:
+                    records.setdefault(record['path'], _sha(record))
     return records
 
 
@@ -1880,8 +1939,8 @@ def _usage_errors(evidence: Any, writer: str) -> list[str]:
             if tool not in {'CLI', 'API'} or not str(use.get('ui_not_applicable_reason', '')).strip():
                 errors.append('non-UI use requires actual CLI/API and explicit UI inapplicability reason')
         elif applicability == 'required':
-            if tool not in {'Browser', 'Computer Use'}:
-                errors.append('UI use requires Browser or Computer Use')
+            if tool not in {'Browser', 'Computer Use'} or (tool == 'Computer Use' and use.get('environment') != 'windows_native'):
+                errors.append('UI use requires Browser; Computer Use requires Windows native environment')
         else:
             errors.append('usage_evidence must explicitly state UI applicability')
     return errors
@@ -1957,15 +2016,15 @@ def _acceptor_errors(state: dict[str, Any], agent_id: str) -> list[str]:
 def _acceptance_started(state: dict[str, Any]) -> bool:
     """A terminal first attempt must descend from a controller-verified complete review."""
     gate = state.get('acceptance_gate', {})
-    attempts = gate.get('attempts', [])
+    attempts = [a for a in gate.get('attempts', []) if not a.get('withdrawal')]
     if not attempts:
         return False
     first = attempts[0]
     source = next((t for t in state['subtasks'] if t.get('subtask_id') == first.get('subtask_id')), {})
     baseline = first.get('review_baseline', {})
     reviews = [t for t in state['subtasks'] if t.get('stage') == 'pre_acceptance_review' and t.get('status') == 'completed']
-    return bool(first.get('outcome') in {'pass', 'product_failure', 'environment_failure'}
-                and first.get('mode') == 'full' and source.get('status') in {'completed', 'blocked'}
+    return bool(first.get('outcome') in {'pass', 'partial_pass', 'product_failure', 'environment_failure', 'effect_failure'}
+                and (first.get('mode') == 'full' or first.get('point_results')) and source.get('status') in {'completed', 'blocked'}
                 and source.get('result', {}).get('expensive_acceptance', {}).get('outcome') == first.get('outcome')
                 and baseline.get('candidate_id') == first.get('candidate_id')
                 and baseline.get('review_ids') == [t['subtask_id'] for t in reviews]
@@ -2177,7 +2236,7 @@ def _candidate_staleness_errors(repo: Path, state: dict[str, Any]) -> list[str]:
         root = repo / relative
         if not root.resolve().is_relative_to(repo.resolve()):
             return ['runtime snapshot escapes repository']
-        manifest = json.loads((root / '.snapshot.json').read_text(encoding="utf-8"))
+        manifest = json.loads((root / '.snapshot.json').read_text())
         if manifest.get('sha256') != snapshot['sha256']:
             return ['runtime snapshot binding changed']
         verify_tree(root, manifest)
@@ -2267,8 +2326,7 @@ def _pre_acceptance_errors(state: dict[str, Any]) -> list[str]:
         if not resolved:
             errors.append("pre_acceptance review findings require same-reviewer re_review/pass after closure")
     if any(item.get("status") != "closed" and not (
-            state.get('workflow_revision') == 3 and _acceptance_finding(state, item)
-            and item.get('status') in {'awaiting_re_review', 'awaiting_retest'} and item.get('fix_delta'))
+            state.get('workflow_revision') == 3 and _acceptance_finding(state, item))
            for item in state.get("findings", {}).values()):
         errors.append("open or blocking finding prevents expensive acceptance")
     return errors
@@ -2282,17 +2340,27 @@ def _current_candidate_errors(repo: Path, state: dict[str, Any]) -> list[str]:
     return _candidate_staleness_errors(repo, state)
 
 
-def _current_run_errors(repo: Path, state: dict[str, Any]) -> list[str]:
+def _current_run_errors(repo: Path, state: dict[str, Any], *, integrity_only: bool = False) -> list[str]:
     current = state.get('acceptance_gate', {}).get('current_candidate')
     if not isinstance(current, dict):
         return []
-    errors = []
-    for attempt in state.get('acceptance_gate', {}).get('attempts', []):
-        if attempt.get('candidate_id') != current.get('candidate_id') or 'outcome' not in attempt:
-            continue
-        subtask = _find_subtask(state, attempt['subtask_id'])
-        errors.extend(acceptance_run_errors(repo, state, subtask, subtask.get('result', {})))
+    projected = point_acceptance.coverage(repo, state, _candidate_records(repo, state))
+    errors = [ident + ': ' + item['reason'] for ident, item in projected['points'].items()
+              if item['status'] == 'invalid' and not (integrity_only and item.get('invalidation_kind') in {
+                  'inputs_changed', 'dependency_not_passing', 'later_failure'})]
     return errors
+
+
+def _session_summary(repo: Path, state: dict[str, Any]) -> dict[str, Any]:
+    acceptance = point_acceptance.coverage(repo, state, _candidate_records(repo, state))
+    points = acceptance['points']
+    passed = sum(item['status'] == 'pass' for item in points.values())
+    return {'acceptance': acceptance,
+            'capability_checks': {t['subtask_id']: _capability_errors(repo, state, t)
+                                  for t in state['subtasks'] if t.get('status') in {'ready', 'in_progress'}},
+            'summary': f'{passed}/{len(points)} acceptance points currently pass; '
+                       f'{len(acceptance["rerun_acceptance_ids"])} require execution. '
+                       f'{sum(f.get("status") != "closed" for f in state.get("findings", {}).values())} open findings.'}
 
 
 def _current_acceptance_pass_errors(repo: Path, state: dict[str, Any]) -> list[str]:
@@ -2303,6 +2371,11 @@ def _current_acceptance_pass_errors(repo: Path, state: dict[str, Any]) -> list[s
     if errors:
         return errors
     gate = state["acceptance_gate"]
+    projected = point_acceptance.coverage(repo, state, _candidate_records(repo, state))
+    if state.get('workflow_revision') == 3:
+        if projected['rerun_acceptance_ids']:
+            return ['current acceptance points require execution: ' + ', '.join(projected['rerun_acceptance_ids'])]
+        return []
     candidate_id = gate["current_candidate"]["candidate_id"]
     for kind in ('ordinary', 'blackbox'):
         required = _attempt_acceptance_ids(gate, kind)
@@ -2395,44 +2468,58 @@ def _create_subtask_attempt(
     attempts = gate.get("attempts", [])
     policy = gate.get("attempt_policy", {})
     maximum = policy.get("max_expensive_attempts", 4)
-    if len(attempts) >= maximum:
+    if sum(not a.get('withdrawal') for a in attempts) >= maximum:
         raise ControlError("max_expensive_attempts has been reached")
     errors = _current_candidate_errors(repo, state)
     if errors:
         raise ControlError(*errors)
     current_id = gate["current_candidate"]["candidate_id"]
     kind = getattr(args, "AttemptKind", "ordinary")
-    if kind == 'blackbox' and not _effect_permission(state, 'next_round'):
-        raise ControlError('effect failure stop requires an explicit user next_round decision')
-    effect_failure = _latest_effect_failure(state)
-    if kind == 'blackbox' and effect_failure and effect_failure.get('candidate_id') == current_id:
-        raise ControlError('authorized next blackbox round requires a new candidate and its preparation')
     same_candidate = [item for item in attempts if isinstance(item, dict) and item.get("candidate_id") == current_id]
     preparations = [item for item in same_candidate if item.get("kind") == "preparation" and item.get("outcome") == "pass"]
     if kind == "blackbox" and not preparations:
         raise ControlError("blackbox requires a completed preparation for the same candidate")
-    if any("outcome" not in item for item in attempts if isinstance(item, dict)):
-        raise ControlError("an expensive acceptance attempt is already pending")
-    if kind != 'preparation' and any(item.get("outcome") in {"pass", "product_failure"} and item.get("kind", "ordinary") == kind for item in same_candidate):
-        raise ControlError("full expensive acceptance already exists for current candidate")
-    environment_failures = sum(item.get("outcome") == "environment_failure" for item in same_candidate)
-    if environment_failures >= 2:
-        raise ControlError("environment retry limit reached for current candidate")
+    required_ids = _attempt_acceptance_ids(gate, kind)
+    selection = _json_file_arg(args.ResultJsonFile, 'ResultJsonFile') if args.ResultJsonFile else {}
+    if not isinstance(selection, dict) or set(selection) - {'scope_acceptance_ids'}:
+        raise ControlError('attempt selection only accepts scope_acceptance_ids')
+    current_points = point_acceptance.coverage(repo, state, _candidate_records(repo, state))
+    scope = selection.get('scope_acceptance_ids', sorted(required_ids & set(current_points['rerun_acceptance_ids'])))
+    if not isinstance(scope, list) or len(scope) != len(set(scope)) or not set(scope) <= required_ids:
+        raise ControlError('attempt scope is invalid')
+    if kind != 'preparation' and not scope:
+        raise ControlError('all requested acceptance points already have valid evidence')
+    effect_failures = _effect_failures(state, scope) if kind == 'blackbox' else []
+    effect_failure = effect_failures[-1] if effect_failures else None
+    if kind == 'blackbox' and not _effect_permission(state, 'next_round', scope):
+        raise ControlError('effect failure stop requires an explicit user next_round decision for this scope')
+    if any(failure.get('candidate_id') == current_id for failure in effect_failures):
+        raise ControlError('authorized next blackbox round requires a new candidate and its preparation')
+    if any('outcome' not in a and not a.get('withdrawal') and
+           (set(a.get('scope_acceptance_ids', [])) & set(scope) or
+            kind == a.get('kind') == 'preparation') for a in attempts):
+        raise ControlError('an overlapping acceptance scope is already pending')
+    failures_by_scope = [sum(item.get('outcome') == 'environment_failure' and
+        ((kind == item.get('kind') == 'preparation') if ident == 'preparation'
+         else ident in item.get('scope_acceptance_ids', []) and item.get('kind') != 'preparation')
+        for item in same_candidate) for ident in (['preparation'] if kind == 'preparation' else scope)]
+    if (any(count >= 1 + policy.get('max_environment_retries_per_candidate', 1) for count in failures_by_scope)
+            and not (args.ApprovalBy == 'user' and isinstance(args.ApprovalReason, str) and args.ApprovalReason.strip())):
+        raise ControlError("environment retry requires explicit user authorization and a nonempty reason")
     previous_product_failures = [
         item for item in attempts
         if isinstance(item, dict) and item.get("outcome") == "product_failure"
+        and set(item.get('scope_acceptance_ids', [])) & set(scope)
     ]
     if previous_product_failures:
         latest = previous_product_failures[-1]
-        if latest.get("candidate_id") == current_id:
-            raise ControlError("full expensive acceptance already exists for current candidate")
         errors = _product_failure_retry_errors(state, latest)
         if errors:
             raise ControlError(*errors)
     errors = _pre_acceptance_errors(state)
     if errors:
         raise ControlError(*errors)
-    number = len(attempts) + 1
+    number = sum(not a.get('withdrawal') for a in attempts) + 1
     if number >= policy.get("approval_required_from_attempt", 3):
         if not (args.ApprovalBy and args.ApprovalReason):
             raise ControlError("human approval and approval reason are required for this attempt")
@@ -2446,6 +2533,8 @@ def _create_subtask_attempt(
         "candidate_id": current_id,
         "runtime_sha256": gate["current_candidate"]["runtime_snapshot"]["sha256"],
         "kind": kind,
+        "scope_acceptance_ids": scope,
+        "point_snapshots": point_acceptance.snapshots(gate, _candidate_records(repo, state)),
     }
     if kind == "blackbox":
         attempt["preparation_attempt_id"] = preparations[-1]["attempt_id"]
@@ -2462,16 +2551,52 @@ def _create_subtask_attempt(
     created.pop("dispatch", None)
     created.pop("result", None)
     if state.get('workflow_revision') == 3 and attempts:
-        original = _find_subtask(state, attempts[0]['subtask_id'])
+        previous = next((a for a in attempts if a.get('template_subtask_id') == args.SubtaskId and
+                         _find_subtask(state, a['subtask_id']).get('dispatch')), None)
+        original = _find_subtask(state, previous['subtask_id']) if previous else {}
         if original.get('dispatch'):
             created['acceptance_owner'] = _identity(original['dispatch'])
-        integrations = [t for t in state['subtasks'] if t.get('stage') == 'integration']
-        created['dependencies'] = [integrations[-1]['subtask_id']]
+        if created.get('acceptance_owner'):
+            integrations = [t for t in state['subtasks'] if t.get('stage') == 'integration']
+            created['dependencies'] = [integrations[-1]['subtask_id']]
     state["subtasks"].append(created)
     attempts.append(attempt)
     _write_state(paths, state)
     _append_event(paths["events.jsonl"], args.TaskId, "expensive_attempt_created", attempt_id=attempt_id, subtask_id=subtask_id)
     return {"ok": True, "attempt": attempt, "subtask_id": subtask_id}
+
+
+def _withdraw_attempt(args, paths, state):
+    task = _find_subtask(state, args.SubtaskId)
+    attempt = next((a for a in state['acceptance_gate']['attempts'] if a['subtask_id'] == args.SubtaskId), None)
+    payload = _json_file_arg(args.ResultJsonFile, 'ResultJsonFile')
+    if (not isinstance(payload, dict) or set(payload) != {'written_by', 'written_role', 'reason'}
+            or payload.get('written_role') != 'coordinator' or not str(payload.get('written_by', '')).strip()
+            or not str(payload.get('reason', '')).strip()):
+        raise ControlError('withdrawal requires coordinator identity and reason')
+    if not attempt or task.get('dispatch') or task.get('result') or 'outcome' in attempt or task.get('status') != 'ready':
+        raise ControlError('only an unbound, unexecuted acceptance arrangement can be withdrawn')
+    attempt['withdrawal'] = {**payload, 'recorded_at': _now()}
+    task['status'] = 'cancelled'
+    _write_state(paths, state)
+    _append_event(paths['events.jsonl'], args.TaskId, 'acceptance_attempt_withdrawn',
+                  attempt_id=attempt['attempt_id'], **payload)
+    return {'ok': True, 'attempt_id': attempt['attempt_id'], 'status': 'withdrawn'}
+
+
+def _close_point_findings(state, subtask, evidence, attempt):
+    writer = _identity(subtask['dispatch'])
+    passed = set(evidence['passed_acceptance_ids'])
+    for finding in state['findings'].values():
+        if _finding_observed_in(finding, subtask['subtask_id']) and passed & set(finding.get('acceptance_ids', [])):
+            raise ControlError('failed acceptance items cannot be recorded as passed')
+    for ident in evidence.get('closed_finding_ids', []):
+        finding = state['findings'].get(ident, {})
+        if (not _acceptance_finding(state, finding) or finding.get('discovered_by') != writer
+                or finding.get('status') not in {'awaiting_re_review', 'awaiting_retest'} or not finding.get('fix_delta')
+                or not set(finding.get('acceptance_ids', [])).issubset(passed)):
+            raise ControlError('only original acceptor actual passing points can close a fixed finding')
+        finding.update(status='closed', closed_at=_now(), closed_by_attempt_id=attempt['attempt_id'])
 
 
 def _extend_acceptance_budget(
@@ -2509,94 +2634,16 @@ def _extend_acceptance_budget(
     }
 
 
-def _acceptance_scope(state: dict[str, Any], subtask: dict[str, Any], evidence: dict[str, Any], attempt: dict[str, Any]) -> None:
-    gate = state['acceptance_gate']
-    required = _attempt_acceptance_ids(gate, attempt.get('kind', 'ordinary'))
-    scope = evidence.get('scope_acceptance_ids')
-    mode = evidence.get('mode')
-    mapping = evidence['evidence_by_acceptance_id']
-    previous = [item for item in gate['attempts'][:gate['attempts'].index(attempt)]
-                if item.get('kind', 'ordinary') == attempt.get('kind', 'ordinary')]
-    if attempt.get('kind') == 'preparation':
-        preparation = evidence.get('preparation', {})
-        checks = preparation.get('checks', {})
-        if (mapping or scope or not preparation.get('business_input_refs') or
-                any(not checks.get(key) for key in ('deployment', 'version', 'environment', 'input_and_session', 'evidence_capture'))):
-            raise ControlError('preparation requires five evidence checks and business input references without business acceptance claims')
-        evidence['passed_acceptance_ids'] = []
-        return
-    if (mode not in {'full', 'scoped'} or not isinstance(scope, list) or not scope
-            or len(scope) != len(set(scope)) or not set(scope).issubset(required)
-            or not set(mapping).issubset(required) or any(not refs for refs in mapping.values())):
-        raise ControlError('acceptance requires full/scoped mode, valid scope_acceptance_ids and actual passing mapping')
-    if (not previous or mode == 'full') and (mode != 'full' or set(scope) != required):
-        raise ControlError('first acceptance must be full and cover every acceptance item')
-    writer = _identity(subtask['dispatch'])
-    retained = evidence.get('retained_evidence_by_acceptance_id', {})
-    if mode == 'full' and retained:
-        raise ControlError('full acceptance cannot inherit prior evidence')
-    if mode == 'scoped':
-        impact = evidence.get('impact')
-        if (not isinstance(impact, dict) or not str(impact.get('reason', '')).strip()
-                or not isinstance(impact.get('changed_paths'), list)
-                or not isinstance(impact.get('affected_acceptance_ids'), list)
-                or not set(impact['affected_acceptance_ids']).issubset(set(scope))):
-            raise ControlError('scoped acceptance requires justified impact and reruns of every affected item')
-        last = previous[-1]
-        # Production attempts have controller-captured manifests; lightweight function callers
-        # still receive identity, pass/run lineage and declared impact validation below.
-        if 'candidate_inputs' in gate:
-            before, after = last.get('coverage_snapshot'), attempt.get('coverage_snapshot')
-            if (not isinstance(before, dict) or not isinstance(after, dict)
-                    or last.get('coverage_inputs_sha256') != attempt.get('coverage_inputs_sha256')):
-                raise ControlError('scoped acceptance has no comparable candidate/input baseline; run full')
-            changed = {p for p in set(before) | set(after) if before.get(p) != after.get(p)}
-            if changed != set(impact['changed_paths']):
-                raise ControlError('impact.changed_paths must match actual candidate delta including deleted paths')
-            affected = set()
-            for path in changed:
-                matching = {a['acceptance_id'] for a in gate['acceptance_items'] if any(
-                    _paths_overlap(path, p) for p in a.get('paths', []))}
-                if not matching:
-                    raise ControlError('candidate delta lacks acceptance dependency paths; run full')
-                affected.update(matching)
-            if not affected.issubset(impact['affected_acceptance_ids']):
-                raise ControlError('impact hides affected acceptance dependencies')
-        if set(retained) != (set(mapping) - set(scope)):
-            raise ControlError('every item outside rerun scope requires retained evidence lineage')
-        for ident, record in retained.items():
-            source = next((a for a in previous if a.get('attempt_id') == record.get('source_attempt_id')), {})
-            source_task = next((t for t in state['subtasks'] if t.get('subtask_id') == source.get('subtask_id')), {})
-            if (not source or source != previous[-1] or source_task.get('dispatch') is None
-                    or _identity(source_task['dispatch']) != writer
-                    or ident not in source.get('passed_acceptance_ids', [])
-                    or not source.get('evidence_by_acceptance_id', {}).get(ident)
-                    or source['evidence_by_acceptance_id'][ident] != record.get('evidence_refs')
-                    or mapping.get(ident) != record.get('evidence_refs') or not str(record.get('reason', '')).strip()):
-                raise ControlError('retained evidence must be the same acceptor latest proven passing item; failed/unexecuted items cannot be inherited')
-    elif set(mapping) - set(scope):
-        raise ControlError('acceptance evidence is outside actual run scope')
-    current_findings = [f for f in state['findings'].values() if _finding_observed_in(f, subtask['subtask_id'])]
-    for finding in current_findings:
-        failed_ids = set(finding.get('acceptance_ids', []))
-        if failed_ids & set(mapping):
-            raise ControlError('failed acceptance items cannot be recorded as passed')
-    closed = evidence.get('closed_finding_ids', [])
-    pending = [f for f in state['findings'].values() if _acceptance_finding(state, f) and f.get('status') != 'closed'
-               and not _finding_observed_in(f, subtask['subtask_id'])]
-    if evidence['outcome'] == 'pass' and {f['finding_id'] for f in pending} != set(closed):
-        raise ControlError('passing retest must close every pending stable acceptance finding')
-    for ident in closed:
-        finding = state['findings'].get(ident, {})
-        if (not _acceptance_finding(state, finding) or finding.get('discovered_by') != writer
-                or finding.get('status') not in {'awaiting_re_review', 'awaiting_retest'} or not finding.get('fix_delta')
-                or evidence['outcome'] != 'pass' or not set(finding.get('acceptance_ids', [])).issubset(set(scope) & set(mapping))):
-            raise ControlError('only the original acceptor actual passing retest may close a fixed acceptance finding')
-    evidence['passed_acceptance_ids'] = sorted(mapping)
-    for ident in closed:
-        state['findings'][ident]['status'] = 'closed'
-        state['findings'][ident]['closed_at'] = _now()
-        state['findings'][ident]['closed_by_attempt_id'] = attempt['attempt_id']
+def _acceptance_scope(state, subtask, evidence, attempt):
+    """Preparation validates prerequisites; formal observations use point coverage."""
+    preparation = evidence.get('preparation', {})
+    checks = preparation.get('checks', {})
+    if (evidence.get('evidence_by_acceptance_id') or evidence.get('scope_acceptance_ids')
+            or not preparation.get('business_input_refs')
+            or any(not checks.get(key) for key in
+                   ('deployment', 'version', 'environment', 'input_and_session', 'evidence_capture'))):
+        raise ControlError('preparation requires five evidence checks and business input references without business acceptance claims')
+    evidence['passed_acceptance_ids'] = []
 
 
 def _document_delta(repo: Path, state: dict[str, Any], passed: dict[str, Any]) -> set[str] | None:
@@ -2698,8 +2745,6 @@ def _record_expensive_attempt(
                     or not invalid.get('evidence_refs') or not str(invalid.get('summary', '')).strip()):
                 raise ControlError('invalid_observation requires a supported reason, evidence and summary')
     required_ids = _attempt_acceptance_ids(gate, kind)
-    if outcome == "pass" and any(not mapping.get(item) for item in required_ids):
-        raise ControlError("passing expensive acceptance must map evidence for every acceptance item")
     if state.get("workflow_revision") == 3 and outcome == "product_failure":
         finding = state["findings"].get(evidence.get("finding_id"), {})
         if not _finding_observed_in(finding, subtask["subtask_id"]) or finding.get("discovered_by") != _identity(subtask["dispatch"]):
@@ -2727,7 +2772,11 @@ def _record_expensive_attempt(
         errors = _usage_errors(evidence.get('usage_evidence'), subtask['dispatch']['platform_agent_id'])
         if errors:
             raise ControlError(*errors)
-        if outcome == "partial_pass":
+        if kind == 'preparation':
+            if evidence.get('point_results'):
+                raise ControlError('preparation facts cannot claim formal point results; adopt actual observations explicitly')
+            _acceptance_scope(state, subtask, evidence, attempt)
+        elif evidence.get('evidence_batch_ids') and 'point_results' not in evidence:
             if repo is None:
                 raise ControlError("partial acceptance validation requires the consumer repository")
             try:
@@ -2735,7 +2784,14 @@ def _record_expensive_attempt(
             except BatchEvidenceError as exc:
                 raise ControlError(str(exc)) from exc
         else:
-            _acceptance_scope(state, subtask, evidence, attempt)
+            try:
+                point_acceptance.normalize(gate, attempt, evidence, state['findings'])
+                if repo is None:
+                    raise ValueError('point evidence validation requires the consumer repository')
+                point_acceptance.seal(repo, attempt, evidence)
+            except (ValueError, OSError) as exc:
+                raise ControlError(str(exc)) from exc
+            _close_point_findings(state, subtask, evidence, attempt)
     attempt.update(copy.deepcopy(evidence))
 
 
@@ -2760,7 +2816,8 @@ def _freeze_candidate(
     }
     if state.get('workflow_revision') == 3:
         if _acceptance_started(state):
-            current['review_baseline'] = copy.deepcopy(state['acceptance_gate']['attempts'][0]['review_baseline'])
+            first = next(a for a in state['acceptance_gate']['attempts'] if not a.get('withdrawal'))
+            current['review_baseline'] = copy.deepcopy(first['review_baseline'])
         else:
             reviews = [t for t in state['subtasks'] if t.get('stage') == 'pre_acceptance_review' and t.get('status') == 'completed']
             current['review_baseline'] = {'candidate_id': current['candidate_id'],
@@ -2799,9 +2856,9 @@ def _freeze_candidate(
     archive.mkdir(parents=True, exist_ok=True)
     manifest_path = archive / 'manifest.json'
     manifest_text = json.dumps(inventory, ensure_ascii=False, sort_keys=True, indent=2) + '\n'
-    if manifest_path.exists() and manifest_path.read_text(encoding="utf-8") != manifest_text:
+    if manifest_path.exists() and manifest_path.read_text() != manifest_text:
         raise ControlError('retained candidate manifest changed')
-    manifest_path.write_text(manifest_text, encoding="utf-8")
+    manifest_path.write_text(manifest_text)
     current['candidate_archive'] = {'path': manifest_path.relative_to(repo).as_posix(),
                                     'sha256': _sha(manifest_path.read_bytes())}
     if _candidate_fingerprint(repo, state) != fingerprint:
@@ -2832,11 +2889,7 @@ def _verified_brief_path(repo: Path, raw: Any, expected_sha256: str) -> str:
 
 def _bind(args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
     subtask = _find_subtask(state, args.SubtaskId)
-    recovery = next((r for r in reversed(state.get('interruption_recoveries', []))
-                     if r['request']['subtask_id'] == args.SubtaskId), None)
-    if recovery and args.PlatformAgentId != recovery['request']['new_platform_agent_id']:
-        raise ControlError('interrupted dispatch must bind the authorized replacement identity')
-    errors = _capability_errors(paths["state.json"].parents[4], state, subtask)
+    errors = _capability_errors(paths["state.json"].parents[4], state, subtask, args.PlatformAgentId)
     if errors:
         raise ControlError(*errors)
     errors = _execution_plan_errors(state)
@@ -2909,7 +2962,8 @@ def _bind(args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any
 
 
 def _record_subtask_result(
-    args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any], *, persist: bool = True
+    args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any], *, persist: bool = True,
+    result: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     subtask = _find_subtask(state, args.SubtaskId)
     dispatch = subtask.get("dispatch")
@@ -2917,7 +2971,8 @@ def _record_subtask_result(
         raise ControlError("subtask result requires an active bound dispatch")
     if state.get("workflow_revision") == 3 and subtask.get("role") == "reviewer":
         raise ControlError("reviewer results require record-review-result")
-    result = _json_file_arg(args.ResultJsonFile, "ResultJsonFile")
+    if result is None:
+        result = _json_file_arg(args.ResultJsonFile, "ResultJsonFile")
     errors = _result_input_errors('record-subtask-result', result)
     if errors:
         raise ControlError('subtask result is incomplete or invalid', *errors)
@@ -3405,8 +3460,6 @@ def _git_output(repo: Path, *arguments: str, binary: bool = False) -> str | byte
         capture_output=True,
         check=False,
         text=not binary,
-        encoding=None if binary else 'utf-8',
-        errors=None if binary else 'surrogateescape',
     )
     if completed.returncode != 0:
         stderr = completed.stderr
@@ -3563,72 +3616,6 @@ def _prepare_workspace(
     return {"ok": True, "task_id": args.TaskId, "decision": decision, "workspace": candidate["workspace"]}
 
 
-def _recover_interrupted_dispatch(args: argparse.Namespace, repo: Path, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
-    request = _json_file_arg(args.ResultJsonFile, 'ResultJsonFile')
-    errors = _canonical_schema_errors(request, definition='interruptionRecoveryRequest')
-    if errors:
-        raise ControlError(*errors)
-    blocker = state.get('coordinator_blocker')
-    if any(not request['approval'][key].strip() for key in ('authorization_source', 'reason')):
-        raise ControlError('identity recovery requires explicit nonempty user authorization')
-    gate = state.get('acceptance_gate', {})
-    if (state.get('status') != 'blocked' or not blocker
-            or blocker['previous_phase'] not in {'doc_sync', 'test_sync'}
-            or gate.get('current_candidate') or gate.get('attempts') or state.get('findings')
-            or any(t.get('result') for t in state['subtasks'])):
-        raise ControlError('identity recovery requires a blocked initial task without delivery results, candidates, attempts or findings')
-    coordinator = blocker.get('recovery_coordinator_id', blocker['result']['written_by'])
-    task = _find_subtask(state, request['subtask_id'])
-    dispatch = task.get('dispatch')
-    if (request['previous_coordinator_id'] != coordinator
-            or task.get('status') != 'in_progress' or not dispatch
-            or request['previous_platform_agent_id'] != dispatch['platform_agent_id']):
-        raise ControlError('identity recovery must match the current coordinator and active dispatch')
-    if (request['new_coordinator_id'] == coordinator
-            or request['new_platform_agent_id'] in {dispatch['platform_agent_id'], request['new_coordinator_id']}
-            or any(t is not task and t.get('dispatch') for t in state['subtasks'])):
-        raise ControlError('identity recovery requires new independent identities and a single initial dispatch')
-    excluded = _workspace_control_paths(state)
-    targets = [p for t in state['subtasks'] for p in t['write_paths']]
-    targets += [p for field in ('code_paths', 'config_paths', 'runtime_input_paths', 'document_paths')
-                for p in gate['candidate_inputs'].get(field, [])]
-    for raw in targets:
-        relative = _safe_relative_path(raw)
-        if relative is None:
-            raise ControlError('identity recovery delivery path must be repository relative')
-        path = repo / relative
-        if any(p.is_symlink() for p in [path, *path.parents] if p.is_relative_to(repo)):
-            raise ControlError('identity recovery delivery paths cannot use symlinks')
-        if path.is_dir() and any(p.is_symlink() for p in path.rglob('*')):
-            raise ControlError('identity recovery delivery paths cannot contain symlinks')
-        for record in _candidate_path_records(repo, 'recovery', relative):
-            if record['path'] not in excluded and record['sha256'] not in {'missing', 'directory'}:
-                raise ControlError('identity recovery cannot replace an author after delivery files exist')
-    evidence = request['approval']['evidence']
-    relative = _safe_relative_path(evidence['path'])
-    if relative is None or not relative.startswith('.artifacts/'):
-        raise ControlError('identity recovery authorization evidence must be retained in .artifacts')
-    evidence_path = repo / relative
-    if (any(p.is_symlink() for p in [evidence_path, *evidence_path.parents] if p != repo.parent)
-            or not evidence_path.resolve().is_relative_to(repo.resolve())
-            or not evidence_path.is_file() or _sha(evidence_path.read_bytes()) != evidence['sha256']):
-        raise ControlError('identity recovery authorization evidence is missing, unsafe or changed')
-    candidate = copy.deepcopy(state)
-    target = _find_subtask(candidate, request['subtask_id'])
-    record = {'request': request, 'recorded_at': _now(), 'previous_blocker': copy.deepcopy(blocker),
-              'previous_dispatch': target.pop('dispatch'),
-              'runtime_sha256': tree_manifest(SCRIPT_DIRECTORY.parent)['sha256']}
-    candidate.setdefault('interruption_recoveries', []).append(record)
-    candidate['coordinator_blocker']['recovery_coordinator_id'] = request['new_coordinator_id']
-    target['status'] = 'ready'
-    errors = _state_model_errors(repo, candidate)
-    if errors:
-        raise ControlError(*errors)
-    _write_state(paths, candidate)
-    _append_event(paths['events.jsonl'], args.TaskId, 'interrupted_dispatch_recovered', recovery=record)
-    return {'ok': True, 'task_id': args.TaskId, 'status': 'blocked', 'recovery': record}
-
-
 def _set_phase(args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
     order = ("planning", "doc_sync", "test_sync", "code_impl", "review")
     current = state.get("current_phase")
@@ -3646,7 +3633,7 @@ def _set_phase(args: argparse.Namespace, paths: dict[str, Path], state: dict[str
         if result["written_role"] != "coordinator" or not result["summary"].strip() or not result["verification"]["commands"] or not result["verification"]["result"].strip():
             raise ControlError("coordinator block/resume requires coordinator identity and explicit verification")
         if blocker:
-            if result["status"] != "completed" or result["blocked_by"] or result["written_by"] != blocker.get('recovery_coordinator_id', blocker["result"]["written_by"]):
+            if result["status"] != "completed" or result["blocked_by"] or result["written_by"] != blocker["result"]["written_by"]:
                 raise ControlError("resume requires completed result, empty blocked_by and the same coordinator")
             errors = _checks_errors(result.get("checks"), {"regression"})
             if errors:
@@ -3710,7 +3697,7 @@ def _finalize(repo: Path, paths: dict[str, Path], state: dict[str, Any]) -> dict
         state["status"] = "completed"
         _set_next(state, "none")
         _write_state(paths, state)
-        return {"ok": True, "status": "completed"}
+        return {"ok": True, "status": "completed", **_session_summary(repo, state)}
 
 def _record_blackbox_decision(args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
     decision = _json_file_arg(args.ResultJsonFile, "ResultJsonFile")
@@ -3842,6 +3829,72 @@ def _validate_result(args: argparse.Namespace, repo: Path, paths: dict[str, Path
             'note': 'Formal recording rechecks current state, candidate and evidence.'}
 
 
+def _prepare_result(args: argparse.Namespace, repo: Path, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
+    from result_preparation import acceptance_result
+    try:
+        result = acceptance_result(repo, state, _find_subtask(state, args.SubtaskId),
+                                   args.RunManifest, args.ObservationFile)
+        _record_subtask_result(args, paths, copy.deepcopy(state), persist=False, result=copy.deepcopy(result))
+        relative = _safe_relative_path(args.OutputFile)
+        if relative is None or not relative.startswith('.tmp/'):
+            raise ValueError('generated result output must be a relative path inside repository .tmp')
+        target = repo / relative
+        if (not target.resolve().is_relative_to(repo) or
+                any(p.is_symlink() for p in (target, *target.parents))):
+            raise ValueError('generated result output must not traverse symlinks or escape repository')
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # Publish only a fully checked draft. Failed preparation preserves an old draft.
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=target.parent,
+                                         prefix='.receipt-', delete=False) as stream:
+            temporary = Path(stream.name)
+            try:
+                json.dump(result, stream, ensure_ascii=False, indent=2)
+                stream.write('\n')
+            except BaseException:
+                temporary.unlink(missing_ok=True)
+                raise
+        try:
+            os.replace(temporary, target)
+        finally:
+            temporary.unlink(missing_ok=True)
+    except (ValueError, OSError, KeyError, TypeError, StopIteration) as exc:
+        raise ControlError('cannot prepare result: ' + str(exc)) from exc
+    return {'ok': True, 'result_file': relative, 'ready_for_record': True,
+            'business_executed': False, 'state_changed': False}
+
+
+def _complete_task(args: argparse.Namespace, repo: Path, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
+    from result_preparation import base_result
+    subtask = _find_subtask(state, args.SubtaskId)
+    if subtask.get('stage') != 'final_documentation':
+        raise ControlError('complete-task requires the bound final_documentation subtask')
+    errors = _validate_state(paths, state) + _current_acceptance_pass_errors(repo, state)
+    if errors:
+        raise ControlError(*errors)
+    # This shortcut only reports already accepted bytes, never judges document semantics.
+    current_records = _candidate_records(repo, state)
+    current = state['acceptance_gate']['current_candidate']
+    if _candidate_fingerprint(repo, state) != current['fingerprint']:
+        raise ControlError('complete-task requires unchanged accepted candidate and formal documentation')
+    try:
+        result = base_result(subtask, _session_summary(repo, state)['summary'],
+                             ['validate captured evidence and current acceptance coverage'])
+    except ValueError as exc:
+        raise ControlError(str(exc)) from exc
+    result['documentation_sync'] = {
+        'checked_paths': sorted(p for p in current_records if any(point_acceptance.overlap(p, d)
+            for d in state['acceptance_gate']['candidate_inputs'].get('document_paths', []))),
+        'changed_paths': [], 'behavior_changed': False, 'contract_changed': False,
+        'configuration_changed': False,
+        'reason': 'Automated byte equality check against the accepted candidate; no semantic changes asserted.'}
+    _record_subtask_result(args, paths, state, persist=False, result=result)
+    # _finalize rechecks independent review, integration, finding closure, evidence
+    # and artifacts before its single write. Failures leave the original state intact.
+    completed = _finalize(repo, paths, state)
+    _append_event(paths['events.jsonl'], args.TaskId, 'facts_closeout_completed', subtask_id=args.SubtaskId)
+    return completed
+
+
 def _run(args: argparse.Namespace) -> dict[str, Any]:
     if not args.Action:
         raise ControlError("Action is required")
@@ -3851,6 +3904,11 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         raise ControlError("RepoRoot and TaskId are required for this Action")
     repo = Path(args.RepoRoot).resolve()
     paths = _task_paths(repo, args.TaskId)
+    if args.Action == 'acceptance-status':
+        state = _load_state(paths)
+        if state.get('task_id') != args.TaskId or state.get('checkout_binding') != _sha(str(repo)):
+            raise ControlError('acceptance status task/checkout binding mismatch')
+        return point_acceptance.coverage(repo, state, _candidate_records(repo, state))
     if args.Action == 'validate-result':
         return _validate_result(args, repo, paths)
     if args.Action == "init-task":
@@ -3877,26 +3935,25 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             errors = _validate_state(paths, state)
             if errors:
                 raise ControlError(*errors)
-            return {"ok": True, "task_id": args.TaskId, "status": state["status"], "current_phase": state["current_phase"], "next_action": state["next_action"]}
+            return {"ok": True, "task_id": args.TaskId, "status": state["status"], "current_phase": state["current_phase"], "next_action": state["next_action"], **_session_summary(repo, state)}
         if args.Action != "build-review-brief":
             errors = _state_model_errors(
                 repo,
                 state,
                 include_candidate_staleness=args.Action not in {
-                    "freeze-candidate",
+                    "freeze-candidate", "record-acceptance-impact",
                 },
             )
             if errors:
                 raise ControlError(*errors)
         if state.get("coordinator_blocker") and args.Action not in {
-            "recover-interrupted-dispatch",
             "set-phase", "build-review-brief", "accept-artifact-update", "record-subtask-result", "record-review-result",
             "record-acceptance-findings", "record-finding-fix", "record-blackbox-decision", "extend-acceptance-budget",
             "record-verification-evidence", "record-capability-probe", "capture-capability-context",
         }:
             raise ControlError("coordinator block prevents new execution, candidate/attempt creation and finalization; explicitly resume first")
         if _latest_effect_failure(state):
-            if args.Action == 'finalize-task':
+            if args.Action in {'finalize-task', 'complete-task'}:
                 raise ControlError('effect failure stop prevents finalization until authorized acceptance passes')
             if args.Action in {'create-integration-subtask', 'dispatch-finding-fix'} and not _effect_permission(state, 'repair'):
                 raise ControlError('effect failure stop requires an explicit user repair decision')
@@ -3906,13 +3963,20 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
                 original = next((t.get('dispatch') for t in state['subtasks'] if t.get('stage') == 'integration' and t.get('dispatch')), {})
                 if args.PlatformAgentId != original.get('platform_agent_id') or args.AgentKey != original.get('agent_key'):
                     raise ControlError('effect repair must retain the original integration identity')
+        if args.Action == 'prepare-result':
+            return _prepare_result(args, repo, paths, state)
+        if args.Action == 'complete-task':
+            return _complete_task(args, repo, paths, state)
         if args.Action == "accept-artifact-update":
             return _accept_artifact_update(args, paths, state)
         if args.Action == "capture-capability-context":
             task = _find_subtask(state, args.SubtaskId)
+            declarations = _scoped_capabilities(state, task)
+            if declarations and not args.PlatformAgentId:
+                raise ControlError('capability capture requires actual executor --platform-agent-id')
             return {'ok': True, 'captures': {
-                d['capability_id']: _capture_capability_context(repo, d)
-                for d in task.get('assignment', {}).get('required_capabilities', [])}}
+                d['capability_id']: _capture_capability_context(repo, d, args.PlatformAgentId)
+                for d in declarations}}
         if args.Action == "record-capability-probe":
             task = _find_subtask(state, args.SubtaskId)
             payload = _json_file_arg(args.ResultJsonFile, "ResultJsonFile")
@@ -3945,6 +4009,16 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             return _record_verification_evidence(args, repo, paths, state)
         if args.Action == "record-acceptance-evidence-batch":
             return _record_acceptance_evidence_batch(args, repo, paths, state)
+        if args.Action == 'record-acceptance-impact':
+            try:
+                receipt = point_acceptance.record_impact(repo, state,
+                    _json_file_arg(args.ResultJsonFile, 'ResultJsonFile'), _candidate_records(repo, state))
+            except (ValueError, OSError, KeyError, TypeError, StopIteration) as exc:
+                raise ControlError('acceptance impact: ' + str(exc)) from exc
+            _write_state(paths, state)
+            _append_event(paths['events.jsonl'], args.TaskId, 'acceptance_impact_recorded',
+                          source_attempt_id=receipt['source_attempt_id'], point_ids=receipt['point_ids'])
+            return {'ok': True, 'receipt': receipt}
         if args.Action == "record-acceptance-coverage":
             return _record_acceptance_coverage(args, repo, paths, state)
         if args.Action == "record-acceptance-findings":
@@ -3965,12 +4039,12 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             return _prepare_workspace(args, repo, paths, state)
         if args.Action == "set-phase":
             return _set_phase(args, paths, state)
-        if args.Action == "recover-interrupted-dispatch":
-            return _recover_interrupted_dispatch(args, repo, paths, state)
         if args.Action == "freeze-candidate":
             return _freeze_candidate(args, repo, paths, state)
         if args.Action == "create-subtask-attempt":
             return _create_subtask_attempt(args, repo, paths, state)
+        if args.Action == 'withdraw-subtask-attempt':
+            return _withdraw_attempt(args, paths, state)
         if args.Action == "finalize-task":
             return _finalize(repo, paths, state)
         raise ControlError(f"unsupported Action: {args.Action}")
@@ -3987,6 +4061,7 @@ def _parser() -> argparse.ArgumentParser:
             "validate",
             "preflight",
             "validate-result",
+            "prepare-result", "complete-task",
             "accept-artifact-update",
             "bind-dispatch",
             "record-subtask-result",
@@ -4003,9 +4078,9 @@ def _parser() -> argparse.ArgumentParser:
             "build-review-brief",
             "prepare-workspace",
             "set-phase",
-            "recover-interrupted-dispatch",
             "freeze-candidate",
             "create-subtask-attempt",
+            "acceptance-status", "withdraw-subtask-attempt", "record-acceptance-impact",
             "finalize-task",
         ),
         help=(
@@ -4024,6 +4099,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--attempt-kind", dest="AttemptKind", choices=("ordinary", "preparation", "blackbox"), default="ordinary")
     parser.add_argument("--finding-id", dest="FindingId")
     parser.add_argument("--result-json-file", dest="ResultJsonFile")
+    parser.add_argument('--run-manifest', dest='RunManifest', help='Captured manifest path relative to repo-root.')
+    parser.add_argument('--observation-file', dest='ObservationFile', help='Observation summary sealed by the same run.')
+    parser.add_argument('--output-file', dest='OutputFile', help='Generated receipt path inside repository .tmp.')
     parser.add_argument("--contract-json-file", dest="ContractJsonFile")
     parser.add_argument("--title", dest="Title")
     parser.add_argument("--owner", dest="Owner")
@@ -4057,7 +4135,7 @@ def main() -> int:
     except Exception as exc:  # Keep the CLI's stdout contract even for defects.
         payload = {"ok": False, "errors": [f"internal error: {type(exc).__name__}: {exc}"]}
         code = 3
-    sys.stdout.write(json.dumps(payload, ensure_ascii=True, separators=(",", ":")) + "\n")
+    sys.stdout.write(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n")
     return code
 
 

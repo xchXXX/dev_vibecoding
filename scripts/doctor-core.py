@@ -297,22 +297,20 @@ def _bootstrap_audit(repo_root: Path, codex_home: Path) -> dict[str, Any]:
 
 
 def _hook_audit(repo_root: Path, codex_home: Path) -> dict[str, Any]:
-    # User hooks are observable configuration, not receipt-owned harness assets.
-    observations: list[dict[str, str]] = []
+    issues: list[dict[str, str]] = []
     hooks_path = codex_home / "hooks.json"
     payload, hooks_error = _read_json_object(hooks_path)
     if hooks_error and hooks_error != "missing":
-        observations.append({"type": "hooks_json_invalid", "path": str(hooks_path), "error": hooks_error})
+        issues.append({"type": "hooks_json_invalid", "path": str(hooks_path), "error": hooks_error})
     if payload is not None and payload.get("hooks") not in (None, {}):
-        observations.append({"type": "hook_configuration_present", "path": str(hooks_path), "location": "root.hooks"})
+        issues.append({"type": "hook_configuration_present", "path": str(hooks_path), "location": "root.hooks"})
     for config_path in (codex_home / "config.toml", repo_root / ".codex/config.toml"):
         if not config_path.is_file():
             continue
         source = config_path.read_text(encoding="utf-8-sig").replace("\\", "/")
         if HOOK_CONFIG_PATTERN.search(source):
-            observations.append({"type": "hook_configuration_present", "path": str(config_path), "location": "text"})
-    return {"hooks_path": str(hooks_path), "managed": False,
-            "observations": observations, "issues": [], "ok": True}
+            issues.append({"type": "hook_configuration_present", "path": str(config_path), "location": "text"})
+    return {"hooks_path": str(hooks_path), "issues": issues, "ok": not issues}
 
 
 def _wsl_runtime_audit(repo_root: Path, codex_home: Path, receipt: dict[str, Any] | None) -> list[dict[str, str]]:

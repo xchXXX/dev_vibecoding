@@ -1,0 +1,55 @@
+﻿{
+    "return_packet_id":  "RP-P6-VALIDATION-GOVERNANCE-001",
+    "task_id":  "codex-fixed-subagent-delegation-20260407-145034-kewd",
+    "work_order_id":  "WO-P6-VALIDATION-GOVERNANCE-001",
+    "status":  "completed",
+    "summary":  "已完成阶段6验证与治理收口：validate 新增 role-map 有效性与 manifest 一致性门禁；harness 新增 role-map bad/happy path；治理与兼容文档同步更新。",
+    "changed_files":  [
+                          "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+                          "tests/harness/control-plane.integration.ps1",
+                          "tests/harness/README.md",
+                          "docs/SUBAGENT_GOVERNANCE.md",
+                          "docs/CODEX_COMPAT.md"
+                      ],
+    "planned_files_not_changed":  [
+
+                                  ],
+    "verification_commands":  [
+                                  "powershell -ExecutionPolicy Bypass -File tests/harness/control-plane.integration.ps1",
+                                  "powershell -ExecutionPolicy Bypass -File skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 -Action validate -RepoRoot \"C:/Users/72385/dev/ai-harness\" -TaskId \"codex-fixed-subagent-delegation-20260407-145034-kewd\" -Json"
+                              ],
+    "verification_result":  {
+                                "control_plane_integration":  {
+                                                                  "ok":  true,
+                                                                  "total_pass":  12,
+                                                                  "includes_new_role_map_bad_paths":  true,
+                                                                  "includes_role_map_manifest_happy_path":  true
+                                                              },
+                                "task_validate":  {
+                                                      "ok":  true,
+                                                      "plans_checked":  1,
+                                                      "work_orders_checked":  6,
+                                                      "return_packets_checked":  6,
+                                                      "warnings":  [
+                                                                       "未找到 repo_doctor.ps1，已跳过 repo_doctor 严格校验。"
+                                                                   ]
+                                                  }
+                            },
+    "deviations_from_dispatch":  [
+
+                                 ],
+    "blocked_by":  [
+
+                   ],
+    "risks":  [
+                  "仓库当前缺少 repo_doctor.ps1，严格 doctor 校验在 validate 中被跳过。",
+                  "当前目录不可用 git status（无 .git），无法通过 git 命令自动枚举越界修改；本次仅按工单 write_paths 与回执路径执行。"
+              ],
+    "follow_up_needed":  [
+                             "可在后续阶段补充 role-map 与 manifest 差异的自动修复建议（仅建议，不自动改写）。",
+                             "若后续引入新角色，需要同步更新 validate 中必需角色集合与对应治理文档。"
+                         ],
+    "written_by":  "test-verifier",
+    "written_role":  "test-verifier",
+    "written_at":  "2026-04-07T18:15:00+08:00"
+}

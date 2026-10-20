@@ -166,9 +166,6 @@
               }
             }
           ]
-        },
-        "recovery_coordinator_id": {
-          "$ref": "#/$defs/platformAgentId"
         }
       },
       "additionalProperties": false
@@ -190,13 +187,6 @@
     "checkout_binding": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
-    },
-    "interruption_recoveries": {
-      "type": "array",
-      "maxItems": 20,
-      "items": {
-        "$ref": "#/$defs/interruptionRecovery"
-      }
     }
   },
   "additionalProperties": false,
@@ -984,6 +974,23 @@
         },
         "paths": {
           "$ref": "#/$defs/nonEmptyRelativePathList"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "uniqueItems": true
+        },
+        "entry": {
+          "$ref": "#/$defs/shortText"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false
@@ -1184,8 +1191,7 @@
         "written_by",
         "written_role",
         "contract",
-        "units",
-        "applicability_review"
+        "units"
       ],
       "properties": {
         "batch_id": {
@@ -1445,6 +1451,15 @@
         },
         "run_evidence": {
           "$ref": "#/$defs/acceptanceFileRef"
+        },
+        "point_results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pointResult"
+          }
+        },
+        "source_preparation_attempt_id": {
+          "$ref": "#/$defs/identifier"
         }
       },
       "additionalProperties": false,
@@ -1660,6 +1675,52 @@
         },
         "runtime_sha256": {
           "$ref": "#/$defs/sha256"
+        },
+        "point_results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pointResult"
+          }
+        },
+        "point_snapshots": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "point_evidence_hashes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/sha256"
+          }
+        },
+        "withdrawal": {
+          "type": "object",
+          "required": [
+            "written_by",
+            "written_role",
+            "reason",
+            "recorded_at"
+          ],
+          "properties": {
+            "written_by": {
+              "$ref": "#/$defs/writerIdentity"
+            },
+            "written_role": {
+              "const": "coordinator"
+            },
+            "reason": {
+              "$ref": "#/$defs/summary"
+            },
+            "recorded_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "additionalProperties": false
+        },
+        "source_preparation_attempt_id": {
+          "$ref": "#/$defs/identifier"
         }
       },
       "additionalProperties": false,
@@ -1752,6 +1813,18 @@
           },
           "additionalProperties": false
         },
+        "batch_targets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["candidate_id", "payload_sha256"],
+            "properties": {
+              "candidate_id": {"type": "string", "minLength": 1},
+              "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            },
+            "additionalProperties": false
+          }
+        },
         "evidence_batches": {
           "type": "array",
           "items": {
@@ -1808,6 +1881,12 @@
             "$ref": "#/$defs/identifier"
           },
           "uniqueItems": true
+        },
+        "impact_receipts": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
         }
       },
       "additionalProperties": false
@@ -2616,9 +2695,11 @@
             "$ref": "#/$defs/writerIdentity"
           },
           "environment": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "\\S"
+            "enum": [
+              "wsl",
+              "windows_native",
+              "other"
+            ]
           },
           "tool": {
             "enum": [
@@ -2950,6 +3031,9 @@
                 "type": "string",
                 "pattern": "^[a-f0-9]{64}$"
               }
+            },
+            "executor_id": {
+              "$ref": "#/$defs/writerIdentity"
             }
           },
           "required": [
@@ -3002,134 +3086,30 @@
       ],
       "additionalProperties": false
     },
-    "interruptionRecoveryRequest": {
+    "pointResult": {
       "type": "object",
       "required": [
-        "approval",
-        "previous_coordinator_id",
-        "new_coordinator_id",
-        "subtask_id",
-        "previous_platform_agent_id",
-        "new_platform_agent_id"
+        "acceptance_id",
+        "status",
+        "evidence_refs"
       ],
       "properties": {
-        "approval": {
-          "type": "object",
-          "required": [
-            "approved_by",
-            "authorization_source",
-            "reason",
-            "evidence"
-          ],
-          "properties": {
-            "approved_by": {
-              "const": "user"
-            },
-            "authorization_source": {
-              "$ref": "#/$defs/shortText"
-            },
-            "reason": {
-              "$ref": "#/$defs/shortText"
-            },
-            "evidence": {
-              "type": "object",
-              "required": [
-                "path",
-                "sha256"
-              ],
-              "properties": {
-                "path": {
-                  "$ref": "#/$defs/relativePath"
-                },
-                "sha256": {
-                  "$ref": "#/$defs/sha256"
-                }
-              },
-              "additionalProperties": false
-            }
-          },
-          "additionalProperties": false
-        },
-        "previous_coordinator_id": {
-          "$ref": "#/$defs/platformAgentId"
-        },
-        "new_coordinator_id": {
-          "$ref": "#/$defs/platformAgentId"
-        },
-        "subtask_id": {
+        "acceptance_id": {
           "$ref": "#/$defs/identifier"
         },
-        "previous_platform_agent_id": {
-          "$ref": "#/$defs/platformAgentId"
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "not_run",
+            "blocked"
+          ]
         },
-        "new_platform_agent_id": {
-          "$ref": "#/$defs/platformAgentId"
-        }
-      },
-      "additionalProperties": false
-    },
-    "interruptionRecovery": {
-      "type": "object",
-      "required": [
-        "request",
-        "recorded_at",
-        "previous_blocker",
-        "previous_dispatch",
-        "runtime_sha256"
-      ],
-      "properties": {
-        "request": {
-          "$ref": "#/$defs/interruptionRecoveryRequest"
+        "evidence_refs": {
+          "$ref": "#/$defs/shortTextList"
         },
-        "recorded_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "previous_blocker": {
-          "type": "object",
-          "required": [
-            "previous_phase",
-            "result"
-          ],
-          "properties": {
-            "previous_phase": {
-              "type": "string",
-              "enum": [
-                "planning",
-                "doc_sync",
-                "test_sync",
-                "code_impl",
-                "review"
-              ]
-            },
-            "result": {
-              "allOf": [
-                {
-                  "$ref": "#/$defs/result"
-                },
-                {
-                  "properties": {
-                    "status": {
-                      "const": "blocked"
-                    },
-                    "written_role": {
-                      "const": "coordinator"
-                    }
-                  }
-                }
-              ]
-            },
-            "recovery_coordinator_id": {
-              "$ref": "#/$defs/platformAgentId"
-            }
-          },
-          "additionalProperties": false
-        },
-        "previous_dispatch": {
-          "$ref": "#/$defs/dispatch"
-        },
-        "runtime_sha256": {
-          "$ref": "#/$defs/sha256"
+        "reason": {
+          "$ref": "#/$defs/summary"
         }
       },
       "additionalProperties": false

@@ -17,7 +17,7 @@ Git 工作流入口见 `docs/modules/git-workflow/delivery/engineering/README.md
 - `bootstrap-local.py`
 - `sync-codex.py`
 - `doctor-core.py`
-- `start_session.py`
+- `skills/global-task-orchestrator/scripts/start_session.py`
 - `rules_index.py`
 - `generate_rules_index.py`
 - `validate_rules.py`
@@ -158,3 +158,5 @@ python3 "$harness_root/scripts/validate_doc_routing.py" --repo-root "$repo_root"
 bootstrap/doctor 不修改原生插件配置。一次性迁移在私有备份和定点核对后删除旧 WSL GUI 桥配置、代码与技能；完成后不保留旧运行或发现入口。Windows 调用 WSL 时使用 `wsl.exe -d <distro> --cd <project> --exec python3 <script>`；复杂内容先写脚本文件，避免默认 shell 解释反引号、重定向或变量。
 
 - `configure-skill-policy.py`：按 `config/ai/skill-policy.json` 的唯一声明写入受支持的 `[[skills.config]] path` 开关；显式传入已核实的 `--codex-home` 和当前 `--plugin-skills-root`。`--check` 只检查磁盘，不证明运行时加载。保留其他设置与方法技能，不修改插件缓存；升级后重新应用并验证新会话。
+
+项目接入与最小使用示例见 [接入与检查](../docs/harness-usage-examples.md)。版本与诊断新增输出的合同及实施状态见 [简化合同](../skills/global-task-orchestrator/references/streamlined-execution.md)，不另建版本库或自动修复入口。

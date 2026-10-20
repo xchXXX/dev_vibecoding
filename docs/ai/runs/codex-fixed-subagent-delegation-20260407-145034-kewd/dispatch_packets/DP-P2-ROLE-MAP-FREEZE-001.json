@@ -1,0 +1,91 @@
+{
+  "task_id": "codex-fixed-subagent-delegation-20260407-145034-kewd",
+  "dispatch_packet_id": "DP-P2-ROLE-MAP-FREEZE-001",
+  "work_order_id": "WO-P2-ROLE-MAP-FREEZE-001",
+  "instruction_source": "docs/plans/codex-fixed-subagent-delegation.md",
+  "read_before_write": [
+    "docs/plans/codex-fixed-subagent-delegation.md",
+    "docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/plan.json",
+    "docs/ai/runs/codex-fixed-subagent-delegation-20260407-145034-kewd/return_packets/RP-P1-ROLE-NORMALIZATION-001.json",
+    "agents/README.md",
+    "agents/manifest.json",
+    "docs/CODEX_COMPAT.md",
+    "docs/SUBAGENT_GOVERNANCE.md"
+  ],
+  "execution_order": [
+    "先创建并校准 agents/codex-role-map.json。",
+    "再更新 agents/README.md 的映射层说明。",
+    "再同步 docs/CODEX_COMPAT.md 与 docs/SUBAGENT_GOVERNANCE.md。",
+    "完成后执行完整性检查并写入 return_packet。"
+  ],
+  "change_spec": [
+    {
+      "path": "agents/codex-role-map.json",
+      "change_type": "create",
+      "instructions": [
+        "写入版本信息与映射数组。",
+        "覆盖 8 个角色并指定 agent_type/model/reasoning_effort/allow_write/allow_shell。"
+      ],
+      "done_when": [
+        "角色映射可直接用于调度选型。"
+      ]
+    },
+    {
+      "path": "agents/README.md",
+      "change_type": "update",
+      "instructions": [
+        "增加映射层章节，明确查询顺序与边界。",
+        "避免把映射层写成平台类型注册。"
+      ]
+    },
+    {
+      "path": "docs/CODEX_COMPAT.md",
+      "change_type": "update",
+      "instructions": [
+        "补充固定底层类型限制与角色映射桥接关系。"
+      ]
+    },
+    {
+      "path": "docs/SUBAGENT_GOVERNANCE.md",
+      "change_type": "update",
+      "instructions": [
+        "补充 role-map 变更治理与审查触发条件。"
+      ]
+    }
+  ],
+  "invariants": [
+    "底层类型仍仅允许 default/explorer/worker。",
+    "角色语义真源在 agents/*.md，映射真源在 agents/codex-role-map.json。",
+    "本阶段不得改模板/schema/脚本。"
+  ],
+  "forbidden_changes": [
+    "不得修改 templates/*.json 与 schemas/*.json。",
+    "不得修改 skills/global-task-orchestrator/scripts/*。",
+    "不得修改阶段1已冻结的角色结构章节。",
+    "不得由主协调器代写 return_packet 正文。"
+  ],
+  "dependency_notes": [
+    "阶段2必须基于阶段1已验收结果。",
+    "若映射口径与冻结方案冲突，立即 blocked 回退。"
+  ],
+  "done_signals": [
+    "codex-role-map 完成并覆盖 8 个角色。",
+    "三份文档口径一致。",
+    "return_packet 由执行子代理本人写入。"
+  ],
+  "verification_focus": [
+    "映射角色是否完整。",
+    "agent_type 是否仅使用 default/explorer/worker。",
+    "文档是否明确先选角色再映射。",
+    "无越界写入。"
+  ],
+  "fallback_strategy": [
+    "若发现阶段边界冲突，返回 blocked。",
+    "若需要修改 scope_out 文件，返回 blocked 并说明原因。"
+  ],
+  "handoff_notes": [
+    "必须提交 required_return_fields 全量字段。",
+    "deviations_from_dispatch/blocked_by/risks/follow_up_needed 字段不可省略。",
+    "written_by 与 written_role 必须体现执行子代理本人。"
+  ]
+}

@@ -16,11 +16,8 @@ class UsagePlatformTest(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('usage_platform_controller', legacy.CONTROLLER)
         controller = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(controller)
-        # Environment labels are declarations, not proof that a GUI tool was used.
         for tool, environment, accepted in [('Browser', 'wsl', True), ('Computer Use', 'windows_native', True),
-                ('Computer Use', 'wsl', True), ('Computer Use', 'linux', True),
-                ('Computer Use', 'remote-desktop', True), ('Computer Use', '', False),
-                ('CLI', 'wsl', False), ('API', 'linux', False)]:
+                ('Computer Use', 'wsl', False), ('CLI', 'wsl', False)]:
             with self.subTest(tool=tool, environment=environment):
                 evidence = workflow.usage('review-001', 'review')
                 evidence[0].update(tool=tool, environment=environment, entry='http://localhost/form',

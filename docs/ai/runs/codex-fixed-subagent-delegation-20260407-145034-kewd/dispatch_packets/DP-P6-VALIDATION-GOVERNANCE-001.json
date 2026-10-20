@@ -1,0 +1,92 @@
+﻿{
+  "task_id": "codex-fixed-subagent-delegation-20260407-145034-kewd",
+  "dispatch_packet_id": "DP-P6-VALIDATION-GOVERNANCE-001",
+  "work_order_id": "WO-P6-VALIDATION-GOVERNANCE-001",
+  "instruction_source": "docs/plans/codex-fixed-subagent-delegation.md",
+  "read_before_write": [
+    "agents/codex-role-map.json",
+    "agents/manifest.json",
+    "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+    "tests/harness/control-plane.integration.ps1",
+    "tests/harness/README.md",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "docs/CODEX_COMPAT.md"
+  ],
+  "execution_order": [
+    "先实现 validate role-map 校验。",
+    "再补 tests/harness 场景与 README。",
+    "再同步治理与兼容文档。",
+    "执行验证并写 return_packet。"
+  ],
+  "change_spec": [
+    {
+      "path": "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+      "change_type": "update",
+      "instructions": [
+        "新增 role-map 完整性与枚举校验。",
+        "新增 role-map 与 manifest 一致性校验。"
+      ]
+    },
+    {
+      "path": "tests/harness/control-plane.integration.ps1",
+      "change_type": "update",
+      "instructions": [
+        "新增 role-map bad/happy path 用例。"
+      ]
+    },
+    {
+      "path": "tests/harness/README.md",
+      "change_type": "update",
+      "instructions": [
+        "补充新增测试覆盖点。"
+      ]
+    },
+    {
+      "path": "docs/SUBAGENT_GOVERNANCE.md",
+      "change_type": "update",
+      "instructions": [
+        "补充阶段6治理门禁条目。"
+      ]
+    },
+    {
+      "path": "docs/CODEX_COMPAT.md",
+      "change_type": "update",
+      "instructions": [
+        "补充阶段6验证能力收口说明。"
+      ]
+    }
+  ],
+  "invariants": [
+    "不修改阶段7项目入口文件。",
+    "不修改 templates/schema。",
+    "不改动 reader/reviewer 路由文档逻辑。"
+  ],
+  "forbidden_changes": [
+    "不得修改 agents/*.md 与 agents/codex-role-map.json。",
+    "不得修改 skills/global-task-orchestrator/SKILL.md 与 references/*。",
+    "不得由主协调器代写 return_packet 正文。"
+  ],
+  "dependency_notes": [
+    "role-map 校验必须兼容现有任务，不得误伤通过路径。"
+  ],
+  "done_signals": [
+    "validate 新增 role-map 校验并可触发失败。",
+    "tests/harness 覆盖新增场景。",
+    "return_packet 由执行子代理本人写入。"
+  ],
+  "verification_focus": [
+    "非法 agent_type 能被拦截。",
+    "缺失必需角色能被拦截。",
+    "manifest/role-map 不一致能被提示。",
+    "当前 task validate 仍通过。"
+  ],
+  "fallback_strategy": [
+    "若校验导致大量误报，先降级为 warning 并回退说明。",
+    "若需跨阶段改动，返回 blocked。"
+  ],
+  "handoff_notes": [
+    "required_return_fields 全量必填。",
+    "验证命令与结果需要可复核。",
+    "written_by/written_role 必须标注执行子代理本人。"
+  ]
+}

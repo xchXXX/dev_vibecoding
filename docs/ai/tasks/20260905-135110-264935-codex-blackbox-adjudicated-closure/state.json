@@ -1,0 +1,546 @@
+{
+  "six_points": {
+    "do": "在用户明确人工授权后，以一个受管跟进任务关闭原黑盒任务达到三轮上限后仍开放的 F003、F004、F005、F007 四个边界，并在同一审查人通过后继续冻结候选和真实 Codex 黑盒验收。",
+    "do_not": [
+      "不篡改或重开原任务 20260905-121534-602895-codex-environment-blackbox 的 blocked 状态和历史事件。",
+      "不修改 WSL 系统配置、安装依赖、联网获取包、提交推送或清理用户工作区。",
+      "安全复审通过和候选冻结前不启动真实 Codex。",
+      "不删除原任务关键证据、跟进任务证据或 .artifacts 下真实验收证据。"
+    ],
+    "change_areas": [
+      "tests/benchmarks/codex_environment_autocompliance.py",
+      "tests/harness/test_codex_environment_autocompliance.py",
+      "docs/ai/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure",
+      "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure",
+      ".artifacts/wsl-environment-blackbox"
+    ],
+    "implementation": "继承原任务已通过的 49 项基线，只为四个最终复审反例补充确定性测试和最小实现：所有 EvidenceFormatError 保留已完成命令；所有已识别命令生命周期事件的字符串输出参与敏感环境预扫描；reap 内再次 BaseException 也保留原中断并传播 unreaped；未回收时拒绝 remover。",
+    "acceptance": [
+      "四个审查反例在修改前稳定 Red，且失败是目标断言而非环境错误。",
+      "修改后新增反例和完整 focused module 全绿，无真实 Codex、网络或安装命令。",
+      "同一 reviewer /root/blackbox_security_review 对当前哈希关闭四项 finding。",
+      "49 项以上 focused module 与 61 项 WSL 环境回归重新通过，然后冻结候选。",
+      "实际 CODEX_HOME、配置默认模型、ephemeral JSON read-only 模式下执行黑盒；机器预检失败则以 INFRASTRUCTURE_BLOCKED 留证，不伪装 PASS。",
+      "只清理精确的 /tmp/codex-env-blackbox-* 测试夹具；关键证据持续保留。"
+    ],
+    "risks": [
+      "四项边界涉及解析增量证据、敏感输出和多重中断，过宽修复可能误接受畸形事件或误杀合法输出。",
+      "当前实际 CODEX_HOME 可能仍缺受管 runtime 或继承 Windows TEMP，真实验收可能在零模型调用时被机器预检阻塞。",
+      "未回收子进程时必须保留隔离夹具，此时清理失败是正确结果，不能强删。",
+      "任何新高风险发现或范围扩张都停止并重新请求用户裁决。"
+    ]
+  },
+  "objective": "在用户明确人工授权后，以一个受管跟进任务关闭原黑盒任务达到三轮上限后仍开放的 F003、F004、F005、F007 四个边界，并在同一审查人通过后继续冻结候选和真实 Codex 黑盒验收。",
+  "scope_in": [
+    "tests/benchmarks/codex_environment_autocompliance.py",
+    "tests/harness/test_codex_environment_autocompliance.py",
+    "docs/ai/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure",
+    "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure",
+    ".artifacts/wsl-environment-blackbox"
+  ],
+  "scope_out": [
+    "不篡改或重开原任务 20260905-121534-602895-codex-environment-blackbox 的 blocked 状态和历史事件。",
+    "不修改 WSL 系统配置、安装依赖、联网获取包、提交推送或清理用户工作区。",
+    "安全复审通过和候选冻结前不启动真实 Codex。",
+    "不删除原任务关键证据、跟进任务证据或 .artifacts 下真实验收证据。"
+  ],
+  "acceptance": [
+    "四个审查反例在修改前稳定 Red，且失败是目标断言而非环境错误。",
+    "修改后新增反例和完整 focused module 全绿，无真实 Codex、网络或安装命令。",
+    "同一 reviewer /root/blackbox_security_review 对当前哈希关闭四项 finding。",
+    "49 项以上 focused module 与 61 项 WSL 环境回归重新通过，然后冻结候选。",
+    "实际 CODEX_HOME、配置默认模型、ephemeral JSON read-only 模式下执行黑盒；机器预检失败则以 INFRASTRUCTURE_BLOCKED 留证，不伪装 PASS。",
+    "只清理精确的 /tmp/codex-env-blackbox-* 测试夹具；关键证据持续保留。"
+  ],
+  "stop_conditions": [
+    "四项边界涉及解析增量证据、敏感输出和多重中断，过宽修复可能误接受畸形事件或误杀合法输出。",
+    "当前实际 CODEX_HOME 可能仍缺受管 runtime 或继承 Windows TEMP，真实验收可能在零模型调用时被机器预检阻塞。",
+    "未回收子进程时必须保留隔离夹具，此时清理失败是正确结果，不能强删。",
+    "任何新高风险发现或范围扩张都停止并重新请求用户裁决。"
+  ],
+  "decisions": [
+    "继承原任务已通过的 49 项基线，只为四个最终复审反例补充确定性测试和最小实现：所有 EvidenceFormatError 保留已完成命令；所有已识别命令生命周期事件的字符串输出参与敏感环境预扫描；reap 内再次 BaseException 也保留原中断并传播 unreaped；未回收时拒绝 remover。",
+    "用户于 2026-09-05 明确回复授权，批准在不篡改原任务的前提下建立一次人工裁决跟进任务。",
+    "原任务 20260905-121534-602895-codex-environment-blackbox 保持 blocked，作为三轮上限与人工裁决的不可变审计记录。",
+    "跟进任务仅承接 F003、F004、F005、F007 的最终复审反例，修复后仍回到同一 reviewer。",
+    "真实验收使用实际 CODEX_HOME、配置默认模型和 codex exec --ephemeral --json --sandbox read-only。"
+  ],
+  "approval": {
+    "status": "approved",
+    "approved_by": "user",
+    "contract_sha256": "367955e65409cd9bbdc0cce529e71d38f3827d1ceb6535e5a262571db0fed0cf",
+    "approved_at": "2026-09-05T06:09:39.626953Z"
+  },
+  "verification_contract": {
+    "minimal_repro": "复现四个最终审查反例：合法空对象等畸形事件清空前序 npm install；item.updated 的 JSON 转义 PATH/HOME/LANG/SHELL 被写盘；reap 阶段第二个 BaseException 逃逸并丢失 unreaped；原中断被替换且夹具被误删。",
+    "hit_proof": "新增测试直接走 parse_codex_jsonl/_codex_result、_persist_real_run、_run_process/_terminate_and_reap 和 execute_with_cleanup 的真实控制链，并断言命令保留、原子拒写、原中断 identity、unreaped 隔离和 remover 零调用。",
+    "diagnostic_checks": [
+      "只运行新增最小测试并确认修改前为目标断言 Red。",
+      "检查任何失败后 /tmp 下无测试自身夹具残留。",
+      "对敏感拒写验证 refusal audit 不含环境原值。"
+    ],
+    "acceptance_checks": [
+      "运行完整 tests.harness.test_codex_environment_autocompliance。",
+      "运行 tests.harness.test_wsl_environment、test_wsl_tools、test_wsl_runtime。",
+      "由同一安全 reviewer 复查最新两文件哈希。",
+      "冻结候选后运行一次受控真实黑盒验收。",
+      "核对 .artifacts 证据哈希、调用次数、状态和精确清理结果。"
+    ],
+    "non_goals": [
+      "不编写通用 shell、JSON 或进程监管框架。",
+      "不自动修复实际 CODEX_HOME、TEMP、runtime 或 receipt。",
+      "不以 49 项旧测试通过替代四个新增反例的直接命中证明。"
+    ],
+    "review_evidence": [
+      "repro_before_fix",
+      "pass_after_fix",
+      "hit_proof_observed",
+      "relevant_regression_ok",
+      "cleanup_proof",
+      "independent_final_review"
+    ]
+  },
+  "workflow_revision": 2,
+  "acceptance_gate": {
+    "candidate_inputs": {
+      "code_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "config_paths": [],
+      "runtime_input_paths": [
+        "templates/codex/AGENTS.global.md",
+        "scripts/doctor-core.py",
+        "scripts/project-env-doctor.py",
+        "config/ai/wsl-tool-baseline.json",
+        "schemas/project-environment.schema.json"
+      ],
+      "runtime_inputs": {
+        "codex_mode": "exec-ephemeral-json-read-only",
+        "model": "configured-default",
+        "behavior_runs_per_scenario": 3,
+        "evidence_retention": "retain-until-explicit-user-delete"
+      }
+    },
+    "current_candidate": null,
+    "acceptance_items": [
+      {
+        "acceptance_id": "LOAD-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "ORDER-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "HEALTHY-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "BROKEN-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "WINDOWS-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "SAFETY-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "CLEANUP-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "EVIDENCE-001",
+        "evidence_refs": []
+      }
+    ],
+    "attempt_policy": {
+      "max_expensive_attempts": 4,
+      "max_full_attempts_per_candidate": 1,
+      "max_environment_retries_per_candidate": 1,
+      "approval_required_from_attempt": 3
+    },
+    "attempts": []
+  },
+  "subtasks": [
+    {
+      "subtask_id": "DOC-ADJ-001",
+      "title": "Freeze adjudicated follow-up contract and lineage",
+      "role": "doc-curator",
+      "stage": "work",
+      "status": "completed",
+      "dependencies": [],
+      "read_paths": [
+        "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox",
+        ".tmp/20260905-121534-602895-codex-environment-blackbox/security-rereview-3-result.json"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Confirm the user authorization, parent blocked task lineage, four bounded findings, and no-real-Codex-before-review boundary.",
+        "must_include": [
+          "Parent task remains blocked",
+          "Only F003 F004 F005 F007 continue",
+          "Critical evidence retention remains in force"
+        ],
+        "verification": [
+          "Return the frozen lineage and authorization summary without source changes"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "doc-curator",
+        "platform_agent_id": "root",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "61a24f6f4479813beb903f1cd652b9ee2086a9604f6223bd25182f83c10945c7",
+        "brief_path": ".tmp/gto/20260905-135110-264935-codex-blackbox-adjudicated-closure/doc-brief.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Frozen the user-authorized follow-up lineage without modifying the parent task: only F003, F004, F005 and F007 continue; real Codex remains gated behind review and candidate freeze; critical evidence retention remains in force.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "jq parent state blocked findings and follow-up contract",
+            "validate follow-up contract through successful GTO init-task"
+          ],
+          "result": "Parent task remains blocked with four findings at fix_round=3; follow-up task initialized under the user's explicit authorization; no real Codex was launched and no evidence was deleted."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "The actual CODEX_HOME may still fail machine preflight after code review; that outcome must remain INFRASTRUCTURE_BLOCKED rather than be normalized away."
+        ],
+        "follow_up": [
+          "TEST-ADJ-001 must prove all four adjudicated counterexamples Red before implementation changes."
+        ],
+        "written_by": "root",
+        "written_role": "doc-curator",
+        "review_evidence": {
+          "repro_before_fix": "The parent final re-review preserved exact reproducible counterexamples for F003, F004, F005 and F007 and the parent state remains blocked for audit integrity."
+        }
+      }
+    },
+    {
+      "subtask_id": "TEST-ADJ-001",
+      "title": "Add adjudicated boundary regression tests",
+      "role": "tester",
+      "stage": "work",
+      "status": "pending",
+      "dependencies": [
+        "DOC-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "write_paths": [
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "assignment": {
+        "goal": "Add deterministic Red tests for the four exact final-review counterexamples.",
+        "must_include": [
+          "All EvidenceFormatError branches preserve partial completed commands",
+          "updated event escaped environment refusal",
+          "repeated BaseException during reap",
+          "original interruption identity and unreaped quarantine"
+        ],
+        "verification": [
+          "Run only new tests and prove target assertion failures with zero environment errors"
+        ]
+      }
+    },
+    {
+      "subtask_id": "IMPL-ADJ-001",
+      "title": "Implement adjudicated boundary closure",
+      "role": "backend-implementer",
+      "stage": "work",
+      "status": "pending",
+      "dependencies": [
+        "TEST-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "write_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py"
+      ],
+      "assignment": {
+        "goal": "Make the four new regression tests Green with minimal scoped changes.",
+        "must_include": [
+          "incremental evidence on every parser format failure",
+          "lifecycle output pre-scan",
+          "BaseException-safe reap",
+          "unreaped deletion quarantine"
+        ],
+        "verification": [
+          "Run new tests and full focused module without real Codex"
+        ]
+      }
+    },
+    {
+      "subtask_id": "VERIFY-ADJ-001",
+      "title": "Run focused and WSL regression verification",
+      "role": "test-verifier",
+      "stage": "cheap_check",
+      "status": "pending",
+      "dependencies": [
+        "IMPL-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py",
+        "tests/harness/test_wsl_environment.py",
+        "tests/harness/test_wsl_tools.py",
+        "tests/harness/test_wsl_runtime.py"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Independently verify hit proof, full focused suite, WSL regressions and cleanup.",
+        "must_include": [
+          "direct hit proof",
+          "focused module",
+          "61 WSL regressions",
+          "no fixture residue"
+        ],
+        "verification": [
+          "Return exact commands, counts, duration and evidence slots"
+        ]
+      }
+    },
+    {
+      "subtask_id": "REVIEW-SEC-ADJ-001",
+      "title": "Review adjudicated security boundaries",
+      "role": "reviewer",
+      "stage": "pre_acceptance_review",
+      "status": "pending",
+      "dependencies": [
+        "VERIFY-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py",
+        "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "The same original reviewer replays the four adjudicated counterexamples and checks adjacent bypasses on the latest hashes.",
+        "must_include": [
+          "F003",
+          "F004",
+          "F005",
+          "F007",
+          "No real Codex before pass"
+        ],
+        "verification": [
+          "Return schema-exact task review bound to the latest source manifest"
+        ]
+      }
+    },
+    {
+      "subtask_id": "EXPENSIVE-001",
+      "title": "Run real fresh-Codex black-box acceptance",
+      "role": "test-verifier",
+      "stage": "expensive_acceptance",
+      "status": "pending",
+      "dependencies": [
+        "REVIEW-SEC-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "templates/codex/AGENTS.global.md",
+        "scripts/doctor-core.py",
+        "scripts/project-env-doctor.py"
+      ],
+      "write_paths": [
+        ".artifacts/wsl-environment-blackbox"
+      ],
+      "assignment": {
+        "goal": "After review pass and candidate freeze, run the approved actual CODEX_HOME/default-model black box and retain all evidence.",
+        "must_include": [
+          "actual CODEX_HOME",
+          "configured default model",
+          "ephemeral JSON read-only",
+          "maximum ten fresh calls",
+          "exact fixture cleanup",
+          "persistent evidence"
+        ],
+        "verification": [
+          "Report outcome classification, real call count, duration, failed stage and evidence per acceptance id"
+        ]
+      }
+    },
+    {
+      "subtask_id": "FINAL-DOC-001",
+      "title": "Finalize adjudicated black-box evidence documentation",
+      "role": "doc-curator",
+      "stage": "final_documentation",
+      "status": "pending",
+      "dependencies": [
+        "EXPENSIVE-001"
+      ],
+      "read_paths": [
+        ".artifacts/wsl-environment-blackbox",
+        "docs/ai/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure"
+      ],
+      "write_paths": [
+        "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/execution.md",
+        "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/acceptance.md"
+      ],
+      "assignment": {
+        "goal": "Record the actual acceptance outcome, retained evidence and cleanup result without overstating an infrastructure-blocked run.",
+        "must_include": [
+          "real call count",
+          "outcome status",
+          "evidence path and hashes",
+          "fixture cleanup",
+          "remaining risk"
+        ],
+        "verification": [
+          "Task documents match the frozen candidate and persistent evidence"
+        ]
+      }
+    },
+    {
+      "subtask_id": "FINAL-REVIEW-001",
+      "title": "Perform independent final review of adjudicated closure",
+      "role": "reviewer",
+      "stage": "final_review",
+      "status": "pending",
+      "dependencies": [
+        "FINAL-DOC-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py",
+        ".artifacts/wsl-environment-blackbox",
+        "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Independently verify the latest candidate, acceptance classification, retained evidence and cleanup proof before finalization.",
+        "must_include": [
+          "candidate hash",
+          "review closure",
+          "acceptance evidence",
+          "cleanup evidence",
+          "no overclaim"
+        ],
+        "verification": [
+          "Return schema-exact final review bound to the latest candidate"
+        ]
+      }
+    }
+  ],
+  "task_id": "20260905-135110-264935-codex-blackbox-adjudicated-closure",
+  "title": "Codex environment black-box adjudicated boundary closure",
+  "owner": "root",
+  "status": "active",
+  "current_phase": "test_sync",
+  "version": 3,
+  "workspace": {
+    "repo_root": "<repo-root>",
+    "checkout_kind": "primary",
+    "branch": "main",
+    "head": "c79d58cb0345a0cb879b2be06073a1ef04962c36",
+    "dirty_paths": [
+      "config/ai/wsl-tool-baseline.json",
+      "docs/ARCHITECTURE.md",
+      "docs/CODEX_COMPAT.md",
+      "docs/INSTALL.md",
+      "docs/SUBAGENT_GOVERNANCE.md",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/events.jsonl",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/task.md",
+      "docs/ai/tasks/20260905-030055-424575-wsl-environment-unification/events.jsonl",
+      "docs/ai/tasks/20260905-030055-424575-wsl-environment-unification/state.json",
+      "docs/ai/tasks/20260905-030055-424575-wsl-environment-unification/task.md",
+      "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox/events.jsonl",
+      "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox/state.json",
+      "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox/task.md",
+      "docs/modules/wsl-environment/contract/layered-environment-contract.md",
+      "docs/modules/wsl-environment/delivery/code-map/wsl-environment-code-map.md",
+      "docs/modules/wsl-environment/delivery/engineering/wsl-environment-delivery.md",
+      "docs/modules/wsl-environment/design/doctor-and-startup-boundaries.md",
+      "docs/modules/wsl-environment/design/windows-attachment-path-bridge.md",
+      "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/execution.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/plan.md",
+      "docs/tasks/20260905-030055-424575-wsl-environment-unification/acceptance.md",
+      "docs/tasks/20260905-030055-424575-wsl-environment-unification/execution.md",
+      "docs/tasks/20260905-030055-424575-wsl-environment-unification/plan.md",
+      "docs/tasks/20260905-121534-602895-codex-environment-blackbox/acceptance.md",
+      "docs/tasks/20260905-121534-602895-codex-environment-blackbox/execution.md",
+      "docs/tasks/20260905-121534-602895-codex-environment-blackbox/plan.md",
+      "rules/items/policy/窗口系统附件路径桥接.md",
+      "rules/items/policy/缺失工具分层与依赖处理.md",
+      "rules/items/policy/脚本运行基线.md",
+      "rules/items/workflow/复杂任务全局编排.md",
+      "rules/items/workflow/长任务实施顺序.md",
+      "rules/registry/RULES_INDEX.json",
+      "rules/registry/RULES_INDEX.md",
+      "schemas/orchestrator-task-state.schema.json",
+      "schemas/project-environment.schema.json",
+      "schemas/task-event.schema.json",
+      "schemas/wsl-tool-baseline.schema.json",
+      "scripts/README.md",
+      "scripts/bootstrap-local.py",
+      "scripts/doctor-core.py",
+      "scripts/project-env-doctor.py",
+      "scripts/provision-wsl.py",
+      "scripts/resolve-wsl-path.py",
+      "scripts/runtime_common.py",
+      "skills/global-task-orchestrator/SKILL.md",
+      "skills/global-task-orchestrator/references/governance-essentials.md",
+      "skills/global-task-orchestrator/references/state-schema.md",
+      "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+      "templates/codex/AGENTS.global.md",
+      "templates/project/config/ai/environment.example.json",
+      "tests/benchmarks/codex_environment_autocompliance.py",
+      "tests/fixtures/wsl-environment/README.md",
+      "tests/fixtures/wsl-environment/baseline.invalid.json",
+      "tests/fixtures/wsl-environment/baseline.valid.json",
+      "tests/fixtures/wsl-environment/project-valid/config/ai/environment.json",
+      "tests/fixtures/wsl-environment/project-valid/package.json",
+      "tests/fixtures/wsl-environment/project-valid/requirements.txt",
+      "tests/harness/test_codex_environment_autocompliance.py",
+      "tests/harness/test_control_plane.py",
+      "tests/harness/test_wsl_environment.py",
+      "tests/harness/test_wsl_runtime.py",
+      "tests/harness/test_wsl_tools.py"
+    ],
+    "write_overlap": [
+      "tests/benchmarks/codex_environment_autocompliance.py",
+      "tests/harness/test_codex_environment_autocompliance.py"
+    ],
+    "overlap_decision": {
+      "status": "resolved",
+      "summary": "User explicitly authorized the adjudicated follow-up. The only two overlapping paths are inherited outputs of parent task 20260905-121534-602895-codex-environment-blackbox; preserve their current hashes as baseline and modify only the four reviewed boundaries. Do not clean or overwrite any unrelated dirty path.",
+      "baseline_hashes": {
+        "tests/benchmarks/codex_environment_autocompliance.py": "9176ffe24bca3e7ccbac736173565461cffa8ddfd17017c03b44626e95c039d6",
+        "tests/harness/test_codex_environment_autocompliance.py": "6d837a91d978f1c2712299df367d89c7923678ae37783edca12420c03e4a5014"
+      }
+    }
+  },
+  "review_policy": {
+    "max_fix_rounds": 3,
+    "require_independent_final_review": true,
+    "scope_expansion_requires_escalation": true
+  },
+  "findings": {},
+  "next_action": {
+    "kind": "dispatch_ready_subtask"
+  },
+  "artifact_sha256": {
+    "task.md": "b1cbdaa07f9264022d9e2c0c56196e5916ca3daf622fdd8f07d5fb49edd8b6d2",
+    "plan.md": "958c2848f8ffcd0d623ec984e61cf07dd172189957b6d13af73584f6c5cae421",
+    "execution.md": "c6f8c8ca7474bfbf980615b0a130721240a3f392763ba9241084c8f001926258",
+    "acceptance.md": "26c693cff78c915f4cc804666c75cf8c7eabdc2023aa504b315958f9d64bd485"
+  },
+  "updated_at": "2026-09-05T06:12:45.855149Z"
+}

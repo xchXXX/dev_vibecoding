@@ -1,0 +1,178 @@
+{
+  "task_id": "20260402-batch2-schema-template-upgrade",
+  "work_order_id": "WO-B2-SCHEMA-TEMPLATE-001",
+  "plan_id": "PLAN-CONTRACT-FIRST-DISPATCH-BATCH2",
+  "role": "schema-template-implementer",
+  "task_goal": "Upgrade the Batch 2 contract schemas and example templates to the frozen v2 field set.",
+  "instruction_source": "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+  "read_paths_mandatory": [
+    "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "rules/common/SUBAGENT_RULES.md",
+    "schemas/work_order.schema.json",
+    "schemas/dispatch_packet.schema.json",
+    "schemas/return_packet.schema.json",
+    "templates/work_order.example.json",
+    "templates/dispatch_packet.example.json",
+    "templates/return_packet.example.json"
+  ],
+  "read_paths_optional": [
+    "schemas/README.md",
+    "docs/PHASE2_MIGRATION.md",
+    "templates/README.md"
+  ],
+  "context_paths": [
+    "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "rules/common/SUBAGENT_RULES.md",
+    "docs/ai/runs/20260402-batch2-schema-template-upgrade/work_orders/WO-B2-SCHEMA-TEMPLATE-001.json",
+    "docs/ai/runs/20260402-batch2-schema-template-upgrade/dispatch_packets/DP-B2-SCHEMA-TEMPLATE-001.json"
+  ],
+  "scope_in": [
+    "schemas/work_order.schema.json",
+    "schemas/dispatch_packet.schema.json",
+    "schemas/return_packet.schema.json",
+    "templates/work_order.example.json",
+    "templates/dispatch_packet.example.json",
+    "templates/return_packet.example.json"
+  ],
+  "scope_out": [
+    "Do not modify prompts, scripts, skills, rules, or governance docs.",
+    "Do not expand into Batch 3 or Batch 4.",
+    "Do not change install, sync, or doctor runtime behavior.",
+    "Do not add unrelated fields or extra example files."
+  ],
+  "write_paths": [
+    "schemas/work_order.schema.json",
+    "schemas/dispatch_packet.schema.json",
+    "schemas/return_packet.schema.json",
+    "templates/work_order.example.json",
+    "templates/dispatch_packet.example.json",
+    "templates/return_packet.example.json"
+  ],
+  "evidence_summary": [
+    "The frozen plan marks Batch 1 complete and Batch 2 ready to start.",
+    "The current work_order schema still centers goal, read, write, and acceptance instead of the v2 contract fields.",
+    "The current dispatch_packet schema does not yet include execution_order, read_before_write, invariants, forbidden_changes, dependency_notes, done_signals, verification_focus, fallback_strategy, or handoff_notes.",
+    "The current return_packet schema does not yet include planned_files_not_changed, verification_commands, verification_result, deviations_from_dispatch, blocked_by, or follow_up_needed.",
+    "Governance requires explicit read_paths_mandatory and evidence_summary in execution work orders, dispatch_packet for complex tasks, and return_packet as the completion gate."
+  ],
+  "constraints": [
+    "Read every path in read_paths_mandatory before editing write_paths.",
+    "Treat evidence_summary as navigation only, not as a substitute for reading the source files.",
+    "Use v2 fields as the canonical contract surface.",
+    "If legacy fields are kept, keep them only as optional compatibility aliases.",
+    "Keep schema and example files synchronized.",
+    "If the mandatory reads are still insufficient, return instead of guessing."
+  ],
+  "change_spec": [
+    {
+      "path": "schemas/work_order.schema.json",
+      "instructions": [
+        "Promote task_goal, scope_in, scope_out, read_paths_mandatory, read_paths_optional, write_paths, context_paths, evidence_summary, and acceptance_criteria as canonical v2 fields.",
+        "Keep change_spec, execution_steps, verification_steps, dispatch_message_raw, return_packet_path, return_packet_required, required_return_fields, completion_gate, and state_owner available.",
+        "Do not let legacy fields remain the primary example surface."
+      ],
+      "done_when": [
+        "The schema can validate a v2 work_order example."
+      ]
+    },
+    {
+      "path": "schemas/dispatch_packet.schema.json",
+      "instructions": [
+        "Add the v2 packet fields execution_order, read_before_write, invariants, forbidden_changes, dependency_notes, done_signals, verification_focus, fallback_strategy, and handoff_notes.",
+        "Keep change_spec as the per-file implementation map."
+      ],
+      "done_when": [
+        "The schema can validate a v2 dispatch_packet example."
+      ]
+    },
+    {
+      "path": "schemas/return_packet.schema.json",
+      "instructions": [
+        "Add v2 receipt fields planned_files_not_changed, verification_commands, verification_result, deviations_from_dispatch, blocked_by, and follow_up_needed.",
+        "Preserve clear status handling for completed, partial, and blocked."
+      ],
+      "done_when": [
+        "The schema can validate a v2 return_packet example."
+      ]
+    },
+    {
+      "path": "templates/work_order.example.json",
+      "instructions": [
+        "Use v2 fields as the canonical example surface.",
+        "Show read_paths_mandatory, evidence_summary, scope_out, acceptance_criteria, and return_packet_path explicitly."
+      ],
+      "done_when": [
+        "The example directly guides a worker through reads, edits, verification, and return packet writing."
+      ]
+    },
+    {
+      "path": "templates/dispatch_packet.example.json",
+      "instructions": [
+        "Show execution_order, read_before_write, invariants, forbidden_changes, verification_focus, fallback_strategy, and handoff_notes.",
+        "Keep change_spec aligned with the work_order write scope."
+      ],
+      "done_when": [
+        "The example works as a practical complex-task packet."
+      ]
+    },
+    {
+      "path": "templates/return_packet.example.json",
+      "instructions": [
+        "Show planned_files_not_changed, verification_commands, verification_result, deviations_from_dispatch, blocked_by, and follow_up_needed.",
+        "Make verification facts, skipped work, deviations, and residual risk explicit."
+      ],
+      "done_when": [
+        "The example works as a v2 receipt template."
+      ]
+    }
+  ],
+  "execution_steps": [
+    "Confirm the v2 target fields from the frozen plan and governance docs.",
+    "Upgrade the three schemas first.",
+    "Update the three example templates to match the schema changes.",
+    "Run schema validation for all three example files.",
+    "Write the return packet before declaring completion."
+  ],
+  "acceptance_criteria": [
+    "All three schemas cover the Batch 2 frozen v2 field set.",
+    "All three examples validate against their schemas.",
+    "The work_order example explicitly includes read_paths_mandatory, evidence_summary, scope_out, and return_packet_path.",
+    "The dispatch_packet example explicitly includes execution_order, read_before_write, invariants, forbidden_changes, verification_focus, fallback_strategy, and handoff_notes.",
+    "The return_packet example explicitly includes planned_files_not_changed, verification_commands, verification_result, deviations_from_dispatch, blocked_by, and follow_up_needed.",
+    "No files outside scope_in are modified."
+  ],
+  "verification_steps": [
+    "Run Test-Json for templates/work_order.example.json against schemas/work_order.schema.json.",
+    "Run Test-Json for templates/dispatch_packet.example.json against schemas/dispatch_packet.schema.json.",
+    "Run Test-Json for templates/return_packet.example.json against schemas/return_packet.schema.json.",
+    "Manually confirm that the examples use the frozen v2 contract semantics."
+  ],
+  "stop_conditions": [
+    "The frozen plan and governance docs disagree on required field semantics.",
+    "The task requires changing prompts, scripts, skills, rules, or governance docs.",
+    "The mandatory reads are still insufficient to choose a safe compatibility strategy."
+  ],
+  "dispatch_packet_path": "docs/ai/runs/20260402-batch2-schema-template-upgrade/dispatch_packets/DP-B2-SCHEMA-TEMPLATE-001.json",
+  "return_packet_path": "docs/ai/runs/20260402-batch2-schema-template-upgrade/return_packets/RP-B2-SCHEMA-TEMPLATE-001.json",
+  "return_packet_required": true,
+  "required_return_fields": [
+    "work_order_id",
+    "status",
+    "summary",
+    "changed_files",
+    "planned_files_not_changed",
+    "verification_commands",
+    "verification_result",
+    "deviations_from_dispatch",
+    "blocked_by",
+    "risks",
+    "follow_up_needed",
+    "written_by",
+    "written_role"
+  ],
+  "completion_gate": "return_packet_written_and_accepted",
+  "state_owner": "main-coordinator",
+  "dispatch_message_raw": "You are the Batch 2 execution worker. Read every file in read_paths_mandatory before making any edits. evidence_summary is navigation only and cannot replace source reading. Your only write scope is schemas/work_order.schema.json, schemas/dispatch_packet.schema.json, schemas/return_packet.schema.json, templates/work_order.example.json, templates/dispatch_packet.example.json, templates/return_packet.example.json, and docs/ai/runs/20260402-batch2-schema-template-upgrade/return_packets/RP-B2-SCHEMA-TEMPLATE-001.json. Do not modify prompts, scripts, skills, rules, or governance docs. If the mandatory reads are still insufficient, return instead of guessing. Write the return_packet before declaring completion."
+}

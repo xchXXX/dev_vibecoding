@@ -31,8 +31,11 @@ def _context(repo, declaration):
                              for p in declaration['binding_paths']}}
 
 
-def capture_context(repo, declaration):
-    return {'context': _context(repo, declaration), 'observed_at': datetime.now(timezone.utc).isoformat(),
+def capture_context(repo, declaration, executor_id=None):
+    context = _context(repo, declaration)
+    if executor_id:
+        context['executor_id'] = executor_id
+    return {'context': context, 'observed_at': datetime.now(timezone.utc).isoformat(),
             'declaration_sha256': digest(declaration)}
 
 
@@ -68,6 +71,10 @@ def capability_receipt(repo, task, payload):
     if declaration is None:
         raise ValueError('capability is not declared in the approved assignment')
     context = _context(repo, declaration)
+    proof_data = json.loads(_file(repo, payload.get('evidence', {}).get('path', '')).read_text())
+    executor = proof_data.get('context', {}).get('executor_id')
+    if executor:
+        context['executor_id'] = executor
     proof = _proof(repo, declaration, payload.get('evidence'), context)
     return {'subtask_id': task['subtask_id'], 'capability_id': declaration['capability_id'],
             'declaration_sha256': digest(declaration), 'context': context,
@@ -75,9 +82,29 @@ def capability_receipt(repo, task, payload):
             'recorded_at': proof['observed_at']}
 
 
-def capability_errors(repo, state, task):
+def scoped_declarations(state, task):
+    declarations = task.get('assignment', {}).get('required_capabilities', [])
+    gate = state.get('acceptance_gate', {})
+    attempt = next((a for a in gate.get('attempts', []) if a['subtask_id'] == task['subtask_id']), None)
+    if attempt is None or attempt.get('kind') == 'preparation':
+        return declarations
+    from acceptance_points import definitions
+    items, closures = definitions(gate)
+    selected = {dep for ident in attempt.get('scope_acceptance_ids', []) for dep in closures[ident]}
+    declared = {d['capability_id'] for d in declarations}
+    needed = {cap for ident in selected for cap in items[ident].get('capabilities', declared)}
+    if needed - declared:
+        raise ValueError('point capability has no execution declaration: ' + ', '.join(sorted(needed - declared)))
+    return [d for d in declarations if d['capability_id'] in needed]
+
+
+def capability_errors(repo, state, task, executor_id=None):
     errors = []
-    for declaration in task.get('assignment', {}).get('required_capabilities', []):
+    try:
+        declarations = scoped_declarations(state, task)
+    except (ValueError, KeyError) as exc:
+        return [str(exc)]
+    for declaration in declarations:
         ident = declaration['capability_id']
         try:
             receipt = next((r for r in reversed(state.get('capability_receipts', []))
@@ -85,6 +112,12 @@ def capability_errors(repo, state, task):
             if receipt is None:
                 raise ValueError('probe evidence missing')
             context = _context(repo, declaration)
+            expected_executor = executor_id or task.get('dispatch', {}).get('platform_agent_id')
+            recorded_executor = receipt.get('context', {}).get('executor_id')
+            if expected_executor and expected_executor != recorded_executor:
+                raise ValueError('probe executor identity does not match the actual bound agent')
+            if recorded_executor:
+                context['executor_id'] = recorded_executor
             if receipt['declaration_sha256'] != digest(declaration) or receipt['context'] != context:
                 raise ValueError('host/session/tool/interpreter/dependency binding changed')
             age = (datetime.now(timezone.utc) - datetime.fromisoformat(receipt['recorded_at'])).total_seconds()

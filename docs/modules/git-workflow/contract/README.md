@@ -2,6 +2,8 @@
 
 规范正文唯一见 `rules/items/workflow/分支与发布管理.md`。本页定义配置和检查器接口，不复制工作流。
 
+接入条件见 [项目接入检查点](../../../PROJECT_TEMPLATE.md#项目接入检查点)。检查器继续对缺失/损坏配置返回 CONFIG_INVALID，不新增跳过检查或伪造通过的分支。
+
 项目 `config/ai/git-policy.json` 必填 `schema_version: 1`、`remote`、`main_branch`、`task_prefixes`、`reserved_branches`（分支到负责人）、`release_tag_pattern`（完整匹配）、`merge_method: merge`、`cleanup_mode: report-only`。不支持自动删除或 squash；若以后支持 squash，须有可信合并记录，不能仅以祖先关系判断。保留分支不授予当前任务使用权。
 
 `scripts/check_git_workflow.py --repo-root PATH --phase start|push|merge|release|cleanup|ci [--branch NAME] [--release-tag TAG] --json` 是只读检查入口，不 fetch、不修改 refs、不读取凭据、不提交、不删除。
@@ -17,6 +19,6 @@
 
 输出包括 `ok`、`phase`、`branch`、`head`、`errors`、`warnings` 和对应检查事实。规则失败 exit 1，配置/Git失败 exit 2。不把脚本通过等同于完成验收或获得授权。
 
-接收者使用已安装规则根中的 `scripts/check_git_workflow.py`；项目配置由项目维护，不由安装器创建或覆盖。可选的项目离线副本仅由源码维护者在 harness 源码仓库执行 `scripts/sync_git_workflow.py --project-root PATH` 生成，目标为 `modules/tooling/check_git_workflow.py`，来源 SHA-256 写在文件头；`--check` 比较精确字节，不覆盖手写文件或已漂移生成物。该源码生成器不是 portable 包的接入依赖。
+项目离线副本由 `scripts/sync_git_workflow.py --project-root PATH` 生成在 `modules/tooling/check_git_workflow.py`，来源 SHA-256 写在文件头；`--check` 比较精确字节，不覆盖手写文件或已漂移生成物。项目配置由项目维护，生成器不覆盖它。
 
-portable 接收者通过固定包的 `scripts/harness.py install` 或 `update` 管理基础模块及对应 receipt；单独更新基础模块可用 `--modules base`，目标参数保持原安装配置。旧源码维护入口 `bootstrap-local.py --git-workflow-only` 仅用于旧 receipt 安装，不用于 portable 生命周期，也不进入接收者主流程。更新后须在新会话验证规则加载和实际选择，不能用静态字符串检查替代。
+本机发布使用 `bootstrap-local.py --git-workflow-only`，仅更新受管全局入口、本检查器及对应回执；保护其他 skills、环境、插件配置与回执字段，遵守迁移 hold 和共享发布锁。发布后须用新代理运行验证规则加载和实际选择，不能用静态字符串检查替代。

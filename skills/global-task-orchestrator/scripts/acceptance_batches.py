@@ -17,6 +17,10 @@ class BatchEvidenceError(ValueError):
     """A batch or coverage payload does not satisfy the frozen contract."""
 
 
+class BatchScopeChanged(BatchEvidenceError):
+    """Intact historical evidence needs a current impact judgment or retest."""
+
+
 def canonical(value: Any) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
@@ -61,9 +65,9 @@ def _file(repo: Path, ref: Any, *, pointer: bool, json_required: bool = True) ->
         resolved = path.resolve(strict=True)
         resolved.relative_to(repo.resolve())
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
-        raise BatchEvidenceError("batch reference is missing or outside the repository") from exc
+        raise BatchEvidenceError(f"batch reference is missing or outside the repository: {relative}") from exc
     if not resolved.is_file() or digest(resolved.read_bytes()) != expected:
-        raise BatchEvidenceError("batch reference file hash does not match")
+        raise BatchEvidenceError(f"batch reference file hash does not match: {relative}")
     if not json_required:
         return resolved, None
     try:
@@ -287,6 +291,16 @@ def _delta(before: dict[str, Any], after: dict[str, Any]) -> list[dict[str, Any]
     ]
 
 
+def registered_target(state, batch):
+    receipt = state['acceptance_gate'].get('batch_targets', {}).get(batch['batch_id'])
+    if (not isinstance(receipt, dict)
+            or set(receipt) != {'candidate_id', 'payload_sha256'}
+            or receipt['payload_sha256'] != digest(batch)
+            or not isinstance(receipt['candidate_id'], str) or not receipt['candidate_id']):
+        raise BatchEvidenceError('registered batch target receipt is missing or does not match')
+    return receipt['candidate_id']
+
+
 def validate_batch(
     repo: Path,
     state: dict[str, Any],
@@ -294,18 +308,17 @@ def validate_batch(
     current_records: Callable[[Path, dict[str, Any]], dict[str, str]],
     *,
     require_current_applicability: bool = True,
+    selected_acceptance_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     required = {
         "batch_id", "source_attempt_id", "written_by", "written_role",
-        "contract", "units", "applicability_review",
+        "contract", "units",
     }
-    if not isinstance(batch, dict) or set(batch) != required:
+    if not isinstance(batch, dict) or not required <= set(batch) or set(batch) - required - {'applicability_review'}:
         raise BatchEvidenceError("acceptance evidence batch fields are invalid")
     if not isinstance(batch.get("batch_id"), str) or not batch["batch_id"]:
         raise BatchEvidenceError("acceptance evidence batch_id is invalid")
     attempt, source = _attempt(state, batch.get("source_attempt_id"))
-    if attempt.get("outcome") in {"product_failure", "effect_failure"}:
-        raise BatchEvidenceError("failed product or effect attempts cannot contribute reusable batch evidence")
     dispatch = source["dispatch"]
     result = source.get("result")
     if (
@@ -335,6 +348,7 @@ def validate_batch(
         for refs in source_evidence.get("evidence_by_acceptance_id", {}).values():
             if isinstance(refs, list):
                 historical_refs.update(ref for ref in refs if isinstance(ref, str))
+    projection_changed = False
     for unit in units:
         if not isinstance(unit, dict) or set(unit) != {"unit_id", "acceptance_id", "raw", "input", "score"}:
             raise BatchEvidenceError("acceptance evidence unit fields are invalid")
@@ -342,9 +356,13 @@ def validate_batch(
         expected = contract_units.get(unit_id)
         if expected is None or unit.get("acceptance_id") != expected.get("acceptance_id") or unit_id in unit_ids:
             raise BatchEvidenceError("acceptance evidence unit does not match the frozen contract")
+        unit_ids.append(unit_id)
         raw_ref = unit.get("raw")
         if not isinstance(raw_ref, dict) or set(raw_ref) not in ({"path", "sha256"}, {"path", "sha256", "pointer"}):
             raise BatchEvidenceError("raw evidence reference must be a fileRef or valueRef")
+        raw_identities.append((_relative(raw_ref['path']), raw_ref.get('pointer', '')))
+        if selected_acceptance_ids is not None and unit['acceptance_id'] not in selected_acceptance_ids:
+            continue
         selectors = expected["raw_selectors"]
         if "pointer" in raw_ref:
             raw_path, raw_document = _file(repo, raw_ref, pointer=True)
@@ -383,18 +401,45 @@ def validate_batch(
         current_projection = _projection(
             fixture_units[unit_id], expected["current_input"]["pointers"]
         )
-        if digest(projection) != digest(current_projection):
-            raise BatchEvidenceError("archived input projection does not match the current fixture")
+        if require_current_applicability and digest(projection) != digest(current_projection):
+            projection_changed = True
         _score(repo, unit.get("score"), unit_id, digest(projection), batch["written_by"])
         _, normalized = _value(repo, unit["score"])
         if normalized.get("raw_sha256") != unit["raw"]["sha256"]:
             raise BatchEvidenceError("normalized score raw hash does not match")
-        resolved_raw = raw_path.relative_to(repo.resolve()).as_posix()
-        raw_identities.append((resolved_raw, raw_ref.get("pointer", "")))
-        unit_ids.append(unit_id)
     if len(raw_identities) != len(set(raw_identities)):
         raise BatchEvidenceError("acceptance evidence batch repeats a raw source")
+    if selected_acceptance_ids == set():
+        # Historical structure is retained; unused optional proof bytes are
+        # diagnostics, not a gate on independent current observations.
+        return {'kind': contract['kind'], 'target_candidate_id': registered_target(state, batch),
+                'unit_ids': unit_ids, 'raw_identities': raw_identities}
+    if projection_changed:
+        raise BatchScopeChanged("archived input projection does not match the current fixture")
+    if 'applicability_review' not in batch:
+        if require_current_applicability:
+            from acceptance_points import snapshots
+            before = snapshots(state['acceptance_gate'], attempt.get('coverage_snapshot', {}))
+            after = snapshots(state['acceptance_gate'], current_records(repo, state))
+            if any(before[u['acceptance_id']] != after[u['acceptance_id']] for u in units
+                   if selected_acceptance_ids is None or u['acceptance_id'] in selected_acceptance_ids):
+                raise BatchScopeChanged('changed batch dependencies require an original acceptor impact judgment')
+        return {'kind': contract['kind'], 'target_candidate_id': (state['acceptance_gate']['current_candidate']['candidate_id']
+                if require_current_applicability else attempt['candidate_id']),
+                'unit_ids': unit_ids, 'raw_identities': raw_identities}
     _, review = _file(repo, batch.get("applicability_review"), pointer=False)
+    if (require_current_applicability and isinstance(review, dict)
+            and review.get('current_candidate_id') != state['acceptance_gate']['current_candidate']['candidate_id']
+            and batch in state['acceptance_gate'].get('evidence_batches', [])):
+        from acceptance_points import snapshots
+        before = snapshots(state['acceptance_gate'], attempt.get('coverage_snapshot', {}))
+        after = snapshots(state['acceptance_gate'], current_records(repo, state))
+        if all(before[u['acceptance_id']] == after[u['acceptance_id']] for u in units
+               if selected_acceptance_ids is None or u['acceptance_id'] in selected_acceptance_ids):
+            details = validate_batch(repo, state, batch, current_records, require_current_applicability=False,
+                                     selected_acceptance_ids=selected_acceptance_ids)
+            details['target_candidate_id'] = state['acceptance_gate']['current_candidate']['candidate_id']
+            return details
     review_fields = {
         "written_by", "written_role", "source_attempt_id", "source_candidate_id",
         "current_candidate_id", "source_coverage_sha256", "current_coverage_sha256",
@@ -403,13 +448,22 @@ def validate_batch(
     }
     if not isinstance(review, dict) or set(review) != review_fields:
         raise BatchEvidenceError("applicability review fields are invalid")
-    _reviewer(state, review.get("written_by"), batch["written_by"])
+    # An optional historical review remains readable. A semantic delta belongs
+    # to the original observer, never to a newly inserted review stage.
+    author = (review.get('written_by'), review.get('written_role'))
+    original = (dispatch.get('platform_agent_id'), dispatch.get('agent_key'))
+    if author != original:
+        if review.get('changed_paths'):
+            raise BatchEvidenceError('changed batch dependencies require the original acceptor identity')
+        _reviewer(state, review.get('written_by'), batch['written_by'])
+        if review.get('written_role') != 'reviewer':
+            raise BatchEvidenceError('historical optional review identity is invalid')
     current = state.get("acceptance_gate", {}).get("current_candidate", {})
     source_records = attempt.get("coverage_snapshot")
     review_candidate_id = review.get("current_candidate_id")
     historical = review_candidate_id != current.get("candidate_id")
     if require_current_applicability and historical:
-        raise BatchEvidenceError("applicability review does not target the current candidate")
+        raise BatchScopeChanged("applicability review does not target the current candidate")
     expected_review = {
         "source_attempt_id": attempt.get("attempt_id"),
         "source_candidate_id": attempt.get("candidate_id"),
@@ -435,7 +489,7 @@ def validate_batch(
         or not isinstance(review.get("changed_paths"), list)
     ):
         raise BatchEvidenceError("historical applicability review binding is malformed")
-    if review.get("written_role") != "reviewer" or review.get("input_projection_complete") is not True or review.get("compatible") is not True or not str(review.get("reason", "")).strip():
+    if review.get("input_projection_complete") is not True or review.get("compatible") is not True or not str(review.get("reason", "")).strip():
         raise BatchEvidenceError("applicability review must explicitly approve complete compatible input projections")
     refs = review.get("evidence_refs")
     if not isinstance(refs, list) or not refs:
@@ -454,6 +508,7 @@ def validate_all_batches(
     repo: Path,
     state: dict[str, Any],
     current_records: Callable[[Path, dict[str, Any]], dict[str, str]],
+    *, metadata_only: bool = False,
 ) -> list[str]:
     errors: list[str] = []
     seen_ids: dict[str, Any] = {}
@@ -466,7 +521,8 @@ def validate_all_batches(
     for index, batch in enumerate(batches, 1):
         try:
             details = validate_batch(
-                repo, state, batch, current_records, require_current_applicability=False
+                repo, state, batch, current_records, require_current_applicability=False,
+                selected_acceptance_ids=set() if metadata_only else None,
             )
             batch_id = batch["batch_id"]
             if batch_id in seen_ids and seen_ids[batch_id] != batch:
@@ -506,15 +562,18 @@ def add_batch(
     details = validate_batch(repo, state, payload, current_records)
     for existing in batches:
         other = validate_batch(
-            repo, state, existing, current_records, require_current_applicability=False
+            repo, state, existing, current_records, require_current_applicability=False,
+            selected_acceptance_ids=set(),
         )
-        if details["target_candidate_id"] != other["target_candidate_id"]:
+        if details["target_candidate_id"] != registered_target(state, existing):
             continue
         if set(details["unit_ids"]) & set(other["unit_ids"]):
             raise BatchEvidenceError("acceptance evidence unit is repeated across batches")
         if set(details["raw_identities"]) & set(other["raw_identities"]):
             raise BatchEvidenceError("raw acceptance evidence is repeated across batches")
     gate.setdefault("batch_contracts", {})[details["kind"]] = deepcopy(payload["contract"])
+    gate.setdefault('batch_targets', {})[payload['batch_id']] = {
+        'candidate_id': details['target_candidate_id'], 'payload_sha256': digest(payload)}
     batches.append(deepcopy(payload))
     return False, payload
 
@@ -567,6 +626,7 @@ def _coverage_validation(
     *,
     allow_historical: bool = False,
     enforce_latest: bool = True,
+    metadata_only: bool = False,
 ) -> dict[str, Any]:
     required = {"coverage_id", "kind", "candidate_id", "contract_sha256", "batch_ids", "written_by", "written_role"}
     if not isinstance(payload, dict) or not required.issubset(payload):
@@ -577,9 +637,7 @@ def _coverage_validation(
     current = state.get("acceptance_gate", {}).get("current_candidate", {})
     if not allow_historical and payload.get("candidate_id") != current.get("candidate_id"):
         raise BatchEvidenceError("acceptance coverage candidate is not current")
-    require_current_applicability = (
-        not allow_historical or payload.get("candidate_id") == current.get("candidate_id")
-    )
+    require_current_applicability = not allow_historical
     batch_ids = payload.get("batch_ids")
     if not isinstance(batch_ids, list) or not batch_ids or len(batch_ids) != len(set(batch_ids)):
         raise BatchEvidenceError("acceptance coverage batch_ids must be non-empty and unique")
@@ -601,6 +659,7 @@ def _coverage_validation(
             batch,
             current_records,
             require_current_applicability=require_current_applicability,
+            selected_acceptance_ids=set() if metadata_only else None,
         )
         if details["target_candidate_id"] != payload.get("candidate_id"):
             raise BatchEvidenceError("acceptance coverage batch applicability targets another candidate")
@@ -616,13 +675,12 @@ def _coverage_validation(
             sources[unit["unit_id"]] = attempt["attempt_id"]
     if set(units) != set(contract_units):
         raise BatchEvidenceError("acceptance coverage does not cover the complete contract unit set")
-    candidate_attempts = [
-        item for item in state["acceptance_gate"].get("attempts", [])
-        if item.get("candidate_id") == current.get("candidate_id") and item.get("kind", "ordinary") == kind
-    ]
-    latest = candidate_attempts[-1] if candidate_attempts else None
-    if enforce_latest and (latest is None or latest.get("outcome") in {"product_failure", "environment_failure", "effect_failure"} and latest.get("attempt_id") not in set(sources.values())):
-        raise BatchEvidenceError("later acceptance failure invalidates prior coverage")
+    if enforce_latest:
+        from acceptance_points import failure_barrier
+        for unit_id, unit in units.items():
+            attempt, _ = _attempt(state, sources[unit_id])
+            if failure_barrier(repo, state, attempt, unit['acceptance_id'], verified_batch_unit=True):
+                raise BatchEvidenceError('later actual acceptance failure invalidates prior coverage')
     return {
         **{key: deepcopy(payload[key]) for key in required},
         "request_sha256": digest({key: payload[key] for key in required}),
@@ -664,6 +722,7 @@ def validate_coverages(
     repo: Path,
     state: dict[str, Any],
     current_records: Callable[[Path, dict[str, Any]], dict[str, str]],
+    *, metadata_only: bool = False,
 ) -> list[str]:
     errors: list[str] = []
     receipts = state.get("acceptance_gate", {}).get("coverage_receipts", [])
@@ -682,6 +741,7 @@ def validate_coverages(
                 current_records,
                 allow_historical=True,
                 enforce_latest=False,
+                metadata_only=metadata_only,
             )
             if receipt != expected:
                 raise BatchEvidenceError("acceptance coverage derived fields do not match")
@@ -701,18 +761,86 @@ def current_coverage(
         return None
     current_id = candidate.get("candidate_id")
     for receipt in reversed(state.get("acceptance_gate", {}).get("coverage_receipts", [])):
-        if receipt.get("kind") != kind or receipt.get("candidate_id") != current_id:
+        if receipt.get("kind") != kind:
             continue
         payload = {
             key: receipt[key]
             for key in ("coverage_id", "kind", "candidate_id", "contract_sha256", "batch_ids", "written_by", "written_role")
         }
         try:
-            expected = _coverage_validation(repo, state, payload, current_records)
+            # Validate immutable receipt provenance, then project its units onto
+            # the current inputs. The stored history is never rewritten.
+            historical = _coverage_validation(repo, state, payload, current_records,
+                                              allow_historical=True, enforce_latest=False)
+            if historical != receipt:
+                continue
+            payload['candidate_id'] = current_id
+            return _coverage_validation(repo, state, payload, current_records)
         except (BatchEvidenceError, KeyError, TypeError):
-            return None
-        return receipt if receipt == expected else None
+            continue
     return None
+
+
+def point_coverage(repo, state, ident, current_records):
+    """Adopt complete units for one point, independently of kind-wide receipts."""
+    from acceptance_points import run_manifest, failure_barrier
+    gate = state['acceptance_gate']
+    kind = 'blackbox' if ident in gate.get('blackbox_acceptance_ids', []) else 'ordinary'
+    contract_ref = gate.get('batch_contracts', {}).get(kind)
+    if contract_ref is None:
+        return None
+    try:
+        _, required, _ = _contract(repo, contract_ref, state)
+        expected = {key for key, unit in required.items() if unit['acceptance_id'] == ident}
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        return {'status': 'invalid', 'reason': str(exc), 'invalidation_kind': 'evidence_invalid'}
+    found, errors, invalidation_kinds = {}, [], []
+    candidates = []
+    for batch in gate.get('evidence_batches', []):
+        if batch['contract'] != contract_ref or not any(u['acceptance_id'] == ident for u in batch['units']):
+            continue
+        try:
+            attempt, source = _attempt(state, batch['source_attempt_id'])
+            if source.get('status') not in {'completed', 'blocked'} or 'outcome' not in attempt:
+                continue
+            candidates.append((batch, attempt))
+        except (ValueError, OSError, KeyError, TypeError, StopIteration) as exc:
+            errors.append(str(exc))
+            invalidation_kinds.append('evidence_invalid')
+    for batch, attempt in reversed(candidates):
+        try:
+            # Verify the historical bytes and bindings before classifying a
+            # legitimate applicability change. A stale scope cannot hide damage.
+            validate_batch(repo, state, batch, current_records, require_current_applicability=False,
+                           selected_acceptance_ids={ident})
+            manifest = run_manifest(repo, state, attempt)
+            for unit in batch['units']:
+                if unit['acceptance_id'] != ident:
+                    continue
+                for key in ('raw', 'input'):
+                    ref = unit[key]
+                    if manifest.get('evidence_files', {}).get(ref['path']) != ref['sha256']:
+                        raise BatchEvidenceError('adopted batch evidence is absent from the original run: ' + ref['path'])
+            if failure_barrier(repo, state, attempt, ident, verified_batch_unit=True):
+                errors.append('later actual acceptance failure invalidates prior coverage')
+                invalidation_kinds.append('later_failure')
+                continue
+            validate_batch(repo, state, batch, current_records, selected_acceptance_ids={ident})
+            for unit in batch['units']:
+                if unit['acceptance_id'] == ident:
+                    found.setdefault(unit['unit_id'], {'unit_id': unit['unit_id'], 'acceptance_id': ident,
+                        'source_attempt_id': attempt['attempt_id'], 'batch_id': batch['batch_id']})
+        except (ValueError, OSError, KeyError, TypeError, StopIteration) as exc:
+            errors.append(str(exc))
+            invalidation_kinds.append('inputs_changed' if isinstance(exc, BatchScopeChanged) else 'evidence_invalid')
+    if expected and set(found) == expected:
+        sources = list(dict.fromkeys(unit['source_attempt_id'] for unit in found.values()))
+        return {'status': 'pass', 'source_attempt_id': sources[0], 'source_attempt_ids': sources,
+                'unit_sources': list(found.values()), 'reason': 'Complete valid unit evidence.'}
+    return {'status': 'invalid' if errors else 'not_run',
+            'invalidation_kind': ('evidence_invalid' if 'evidence_invalid' in invalidation_kinds
+                                  else invalidation_kinds[0] if invalidation_kinds else None),
+            'reason': '; '.join(dict.fromkeys(errors)) if errors else 'Incomplete required units for this point.'}
 
 
 def coverage_evidence_sources(
@@ -722,12 +850,16 @@ def coverage_evidence_sources(
     current_records: Callable[[Path, dict[str, Any]], dict[str, str]],
 ) -> list[tuple[str, str, str]]:
     sources: list[tuple[str, str, str]] = []
-    for kind in ("ordinary", "blackbox"):
-        receipt = current_coverage(repo, state, kind, current_records)
-        if receipt is None:
+    used = set()
+    for item in state['acceptance_gate']['acceptance_items']:
+        receipt = point_coverage(repo, state, item['acceptance_id'], current_records)
+        if receipt is None or receipt['status'] != 'pass':
             continue
         by_id = {item["batch_id"]: item for item in state["acceptance_gate"].get("evidence_batches", [])}
-        for batch_id in receipt["batch_ids"]:
+        for batch_id in dict.fromkeys(unit['batch_id'] for unit in receipt['unit_sources']):
+            if batch_id in used:
+                continue
+            used.add(batch_id)
             batch = by_id[batch_id]
             _, source = _attempt(state, batch["source_attempt_id"])
             evidence = source.get("result", {}).get("review_evidence", {})

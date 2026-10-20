@@ -131,10 +131,6 @@ class RunnerEnvironmentReviewTest(unittest.TestCase):
             schema = 'skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json'
             (source / schema).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / schema, source / schema)
-            # The real doctor derives its input from the packaged canonical example.
-            contract = 'skills/global-task-orchestrator/references/revision-3-contract.example.json'
-            (source / contract).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(ROOT / contract, source / contract)
             shutil.copytree(source / 'skills', installed / 'skills')
             for path in (installed / 'skills').rglob('*'):
                 if path.is_file():

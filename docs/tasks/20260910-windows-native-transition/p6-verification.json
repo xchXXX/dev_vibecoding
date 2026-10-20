@@ -1,0 +1,35 @@
+{
+  "backup_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/backups/windows-native-transition-20260910-p6-085320",
+  "backup_file_count": 16,
+  "isolated_formal_entries": [
+    {
+      "attempt": 1,
+      "entry": "bootstrap-local.py --environment-only",
+      "ok": true,
+      "changed": true
+    },
+    {
+      "attempt": 1,
+      "entry": "sync-codex.py --retire-legacy-gui",
+      "ok": true,
+      "changed": true
+    },
+    {
+      "attempt": 2,
+      "entry": "bootstrap-local.py --environment-only",
+      "ok": true,
+      "changed": false
+    },
+    {
+      "attempt": 2,
+      "entry": "sync-codex.py --retire-legacy-gui",
+      "ok": true,
+      "changed": false
+    }
+  ],
+  "restore_bytes_files": 16,
+  "isolated_fixture_cleaned": true,
+  "live_config_and_agents_unchanged": true,
+  "live_hold_present": true,
+  "live_publication": "not_started"
+}

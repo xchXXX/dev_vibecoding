@@ -1,0 +1,199 @@
+{
+  "task_id": "20260402-batch25-plan-dual-track-upgrade",
+  "work_order_id": "WO-B25-PLAN-DUAL-001",
+  "plan_id": "PLAN-CONTRACT-FIRST-DISPATCH-BATCH25",
+  "role": "plan-contract-script-implementer",
+  "task_goal": "Implement the Batch 2.5 dual-artifact plan contract in the plan schema, examples, and minimum related scripts.",
+  "instruction_source": "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+  "read_paths_mandatory": [
+    "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "rules/common/SUBAGENT_RULES.md",
+    "schemas/plan.schema.json",
+    "templates/plan.example.json",
+    "templates/progress.session.example.md",
+    "skills/global-task-orchestrator/scripts/bootstrap-task.ps1",
+    "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+    "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+    "scripts/start_session.ps1",
+    "docs/ai/runs/contract-first-batch2-schema-template-upgrade-20260402-135245-hf9t/plan.json"
+  ],
+  "read_paths_optional": [
+    "templates/README.md",
+    "schemas/README.md",
+    "skills/global-task-orchestrator/references/control-plane-objects.md",
+    "templates/task_plan.session.example.md",
+    "templates/findings.session.example.md"
+  ],
+  "context_paths": [
+    "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "rules/common/SUBAGENT_RULES.md",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/work_orders/WO-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/dispatch_packets/DP-B25-PLAN-DUAL-001.json"
+  ],
+  "scope_in": [
+    "schemas/plan.schema.json",
+    "templates/plan.example.json",
+    "templates/progress.session.example.md",
+    "skills/global-task-orchestrator/scripts/bootstrap-task.ps1",
+    "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+    "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+    "scripts/start_session.ps1"
+  ],
+  "scope_out": [
+    "Do not expand work_order, dispatch_packet, or return_packet again.",
+    "Do not modify prompts, review strategy, Batch 3 files, or Batch 4 files.",
+    "Do not perform broad runtime refactoring.",
+    "Do not change scripts unrelated to the dual-artifact plan flow."
+  ],
+  "write_paths": [
+    "schemas/plan.schema.json",
+    "templates/plan.example.json",
+    "templates/progress.session.example.md",
+    "skills/global-task-orchestrator/scripts/bootstrap-task.ps1",
+    "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+    "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+    "scripts/start_session.ps1"
+  ],
+  "evidence_summary": [
+    "Batch 2.5 freezes the plan.md semantic source and plan.json structured projection model.",
+    "The current plan.schema.json still uses the old goal plus scope shape and lacks source_plan_doc and related dual-artifact fields.",
+    "The current plan.example.json still shows the old shape and does not show source_plan_doc.",
+    "bootstrap-task.ps1 still emits a long-lived placeholder plan.json.",
+    "start_session.ps1 still points at config/ai/templates, which does not exist in this repo.",
+    "validate-control-plane.ps1 does not validate source_plan_doc and still depends on a missing repo_doctor.ps1 path."
+  ],
+  "constraints": [
+    "Read every path in read_paths_mandatory before editing write_paths.",
+    "Use evidence_summary only as navigation.",
+    "Keep plan.md as the semantic source and plan.json as the projection.",
+    "Prefer minimum necessary changes.",
+    "If legacy plan fields remain, keep them only as optional compatibility fields.",
+    "If the task needs files outside scope_in, stop and return instead of guessing."
+  ],
+  "change_spec": [
+    {
+      "path": "schemas/plan.schema.json",
+      "instructions": [
+        "Define the minimum plan.json projection fields for the dual-artifact model.",
+        "Make source_plan_doc part of the canonical schema surface.",
+        "Represent status, scope_in, scope_out, acceptance, and stop_conditions in the canonical shape."
+      ],
+      "done_when": [
+        "The schema validates the updated plan example."
+      ]
+    },
+    {
+      "path": "templates/plan.example.json",
+      "instructions": [
+        "Show plan.json as the structured projection of plan.md.",
+        "Include source_plan_doc explicitly.",
+        "Use the dual-artifact field shape rather than the old goal and scope-only shape."
+      ],
+      "done_when": [
+        "The example matches the canonical Batch 2.5 plan contract."
+      ]
+    },
+    {
+      "path": "templates/progress.session.example.md",
+      "instructions": [
+        "Stop treating plan.json as the only plan entry point.",
+        "Show that plan.md is the semantic source and plan.json is a projection."
+      ],
+      "done_when": [
+        "The progress example reflects the frozen reading priority."
+      ]
+    },
+    {
+      "path": "skills/global-task-orchestrator/scripts/bootstrap-task.ps1",
+      "instructions": [
+        "Stop creating only an old placeholder plan.json.",
+        "Write minimum dual-artifact fields into the generated plan.json.",
+        "Set source_plan_doc and a reasonable draft-oriented initial state."
+      ],
+      "done_when": [
+        "bootstrap produces a usable draft projection instead of only a placeholder."
+      ]
+    },
+    {
+      "path": "scripts/start_session.ps1",
+      "instructions": [
+        "Point template loading at the current global template source in this repo.",
+        "Keep session bootstrap working with the current repository layout."
+      ],
+      "done_when": [
+        "The bootstrap chain can initialize session files without config/ai/templates."
+      ]
+    },
+    {
+      "path": "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+      "instructions": [
+        "Add minimum plan.json validation for source_plan_doc and related dual-artifact fields.",
+        "Avoid hard dependency on the missing repo_doctor.ps1 path in this repo."
+      ],
+      "done_when": [
+        "validate performs the minimum Batch 2.5 checks."
+      ]
+    },
+    {
+      "path": "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+      "instructions": [
+        "Keep the control entrypoints aligned with the updated bootstrap and validate helpers.",
+        "Only make the smallest routing adjustment if needed."
+      ],
+      "done_when": [
+        "The ctl entrypoint still routes bootstrap and validate cleanly."
+      ]
+    }
+  ],
+  "execution_steps": [
+    "Confirm the Batch 2.5 canonical plan fields.",
+    "Upgrade the plan schema and plan example.",
+    "Update the progress example to reflect Markdown-first plan reading.",
+    "Patch bootstrap-task.ps1 and start_session.ps1 for the minimum usable bootstrap flow.",
+    "Patch validate-control-plane.ps1 and orchestrator_ctl.ps1 for the minimum validation flow.",
+    "Run schema and script validations.",
+    "Write the return packet before declaring completion."
+  ],
+  "acceptance_criteria": [
+    "plan.schema.json expresses the minimum dual-artifact plan projection.",
+    "plan.example.json includes source_plan_doc and the canonical dual-artifact fields.",
+    "progress.session.example.md no longer treats plan.json as the only entry point.",
+    "bootstrap-task.ps1 no longer emits only the old placeholder plan.json.",
+    "validate-control-plane.ps1 can check plan.json and source_plan_doc at a minimum.",
+    "All changes stay within scope_in."
+  ],
+  "verification_steps": [
+    "Validate templates/plan.example.json against schemas/plan.schema.json.",
+    "Run bootstrap-task.ps1 or orchestrator_ctl.ps1 bootstrap for a temporary task and inspect the generated plan.json and session files.",
+    "Run validate-control-plane.ps1 or orchestrator_ctl.ps1 validate and confirm the minimum dual-artifact checks work.",
+    "Record the exact commands and results in the return packet."
+  ],
+  "stop_conditions": [
+    "The frozen plan and governance docs disagree on the dual-artifact plan semantics.",
+    "The required work expands beyond the listed files.",
+    "The minimum plan projection shape is still unclear after the mandatory reads."
+  ],
+  "dispatch_packet_path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/dispatch_packets/DP-B25-PLAN-DUAL-001.json",
+  "return_packet_path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+  "return_packet_required": true,
+  "required_return_fields": [
+    "work_order_id",
+    "status",
+    "summary",
+    "changed_files",
+    "planned_files_not_changed",
+    "verification_commands",
+    "verification_result",
+    "deviations_from_dispatch",
+    "blocked_by",
+    "risks",
+    "follow_up_needed",
+    "written_by",
+    "written_role"
+  ],
+  "completion_gate": "return_packet_written_and_accepted",
+  "state_owner": "main-coordinator",
+  "dispatch_message_raw": "You are the Batch 2.5 execution worker. Read every file in read_paths_mandatory before editing anything. evidence_summary is navigation only. You may modify only the listed scope_in and write_paths files. Do not expand work_order, dispatch_packet, or return_packet contracts again. Do not touch prompts, review strategy, or broader runtime areas. If the mandatory reads are still insufficient, return instead of guessing. Write the return packet before declaring completion."
+}

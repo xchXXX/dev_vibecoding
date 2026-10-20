@@ -1,0 +1,25 @@
+{
+    "schema_version":  "1.0",
+    "case_id":  "CASE-65dc7be34fdc37d3",
+    "signature":  "65dc7be34fdc37d3ba1ab015dc8ac23438819368236f7cfdaddfeb0cb697c0cb",
+    "command_signature":  "orchestrator_ctl.ps1 -action status",
+    "error_signature":  "unsupported action: status",
+    "command_excerpt":  "orchestrator_ctl.ps1 -Action status",
+    "error_excerpt":  "Unsupported action: status",
+    "scope_kind":  "candidate_project",
+    "scope_confidence":  0.6,
+    "scope_reason":  "This controller exposes get-task-view and validate, not status.",
+    "projects_seen":  [
+                          "ai-harness"
+                      ],
+    "solution":  "Read state.json directly for status and use the controller source action list before selecting a controller action.",
+    "stats":  {
+                  "hit_count":  0,
+                  "verify_count":  1,
+                  "incident_count":  1
+              },
+    "created_at":  "2026-08-28T17:52:12.0376587+08:00",
+    "updated_at":  "2026-08-28T17:52:12.0376587+08:00",
+    "last_verified_at":  "2026-08-28T17:52:12.0376587+08:00",
+    "last_hit_at":  ""
+}

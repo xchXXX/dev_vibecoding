@@ -1,0 +1,2 @@
+# This project intentionally has no Codex hook wiring.
+# Mechanical guardrails run through the WSL Python validation entrypoints.

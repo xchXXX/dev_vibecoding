@@ -8,10 +8,7 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 
-if __package__:
-    from . import test_control_plane as legacy
-else:
-    import test_control_plane as legacy
+import test_control_plane as legacy
 
 
 def workflow_contract():

@@ -113,31 +113,25 @@ class WslNativeEntrypointTests(unittest.TestCase):
 
 class PreDevBenchmarkEntrypointTests(unittest.TestCase):
     def test_skill_example_runs_real_repo_root_python3_entrypoint(self) -> None:
-        # Keep the fixed doctor's public test ID, but exercise the portable
-        # command from a consumer directory with a separately installed skill.
+        # Break caught: the copied example points at a nonexistent short path or
+        # uses PowerShell syntax that cannot be pasted from the repository root.
         skill_path = REPO_ROOT / "skills/pre-dev-benchmark/SKILL.md"
         source = skill_path.read_text(encoding="utf-8")
-        expected_prefix = 'python "<实际技能目录>/scripts/scaffold_benchmark.py"'
+        expected_prefix = "python3 skills/pre-dev-benchmark/scripts/scaffold_benchmark.py"
         documentation_violations = []
         if expected_prefix not in source:
-            documentation_violations.append(f"missing self-contained skill command: {expected_prefix}")
+            documentation_violations.append(f"missing repository-root command: {expected_prefix}")
         if "```powershell" in source.casefold():
             documentation_violations.append("example still uses a PowerShell code fence")
         if re.search(r"(?m)^\s*python\s+scripts/scaffold_benchmark\.py\b", source):
             documentation_violations.append("example still points at scripts/scaffold_benchmark.py")
 
-        scratch = REPO_ROOT / ".tmp/portable-harness"
-        scratch.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix="ai-harness-benchmark-", dir=scratch) as raw:
-            installed = Path(raw) / "installed-skills/pre-dev-benchmark"
-            shutil.copytree(skill_path.parent, installed, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-            consumer = Path(raw) / "consumer"
-            consumer.mkdir()
-            output = consumer / ".tmp/sample"
+        with tempfile.TemporaryDirectory(prefix="ai-harness-benchmark-") as raw:
+            output = Path(raw) / "sample"
             completed = subprocess.run(
                 [
-                    sys.executable,
-                    str(installed / "scripts/scaffold_benchmark.py"),
+                    "python3",
+                    "skills/pre-dev-benchmark/scripts/scaffold_benchmark.py",
                     "--output",
                     str(output),
                     "--slug",
@@ -145,7 +139,7 @@ class PreDevBenchmarkEntrypointTests(unittest.TestCase):
                     "--title",
                     "Root command",
                 ],
-                cwd=consumer,
+                cwd=REPO_ROOT,
                 text=True,
                 capture_output=True,
                 check=False,
@@ -155,8 +149,6 @@ class PreDevBenchmarkEntrypointTests(unittest.TestCase):
                 {"benchmark-plan.md", "fixture-matrix.md", "runbook.md"},
                 {path.name for path in output.iterdir()},
             )
-            for path in output.iterdir():
-                self.assertIn("Root command", path.read_text(encoding="utf-8"))
         self.assertEqual([], documentation_violations, documentation_violations)
 
 
@@ -334,37 +326,16 @@ class BootstrapDoctorRuntimeTests(unittest.TestCase):
         self.assertTrue(installed_payload["ok"], installed_payload)
 
     def test_bootstrap_reports_restart_when_managed_runtime_content_changes(self) -> None:
-        scratch = REPO_ROOT / ".tmp/portable-harness"
-        scratch.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix="ai-harness-restart-required-", dir=scratch) as raw:
+        with tempfile.TemporaryDirectory(prefix="ai-harness-restart-required-", dir="/tmp") as raw:
             environment = linux_tool_environment(Path(raw))
             codex_home = Path(raw) / "codex"
-            source_root = Path(raw) / "source"
-            for relative in ("skills", "config/ai", "schemas"):
-                shutil.copytree(REPO_ROOT / relative, source_root / relative,
-                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-            for relative in ("templates/codex/AGENTS.global.md", "rules/registry/RULES_ENTRY.md",
-                             "scripts/provision-wsl.py", "scripts/project-env-doctor.py",
-                             "scripts/resolve-wsl-path.py", "scripts/doctor-core.py", "scripts/runtime_common.py"):
-                target = source_root / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(REPO_ROOT / relative, target)
-            schema_relative = "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
-            schema_source = source_root / schema_relative
-            current_schema = schema_source.read_bytes()
-            previous_schema = json.loads(current_schema)
-            previous_schema["$comment"] = "Synthetic previous managed release with the same valid schema."
-            schema_source.write_text(json.dumps(previous_schema), encoding="utf-8")
-            skill_source = source_root / "skills/global-task-orchestrator/SKILL.md"
-            current_skill = skill_source.read_bytes()
-            skill_source.write_bytes(current_skill + b"\n<!-- Synthetic previous managed release. -->\n")
 
             def bootstrap() -> dict[str, object]:
                 completed = subprocess.run(
                     [
                         sys.executable,
                         str(SCRIPTS_ROOT / "bootstrap-local.py"),
-                        "--harness-root", str(source_root), "--codex-home", str(codex_home),
+                        "--harness-root", str(REPO_ROOT), "--codex-home", str(codex_home),
                         "--skip-rules", "--skip-doctor", "--json",
                     ],
                     text=True,
@@ -394,49 +365,20 @@ class BootstrapDoctorRuntimeTests(unittest.TestCase):
             self.assertEqual(["managed_global_agents_changed"], agents_changed["restart_reasons"])
 
             schema_target = codex_home / "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json"
-            self.assertEqual(schema_source.read_bytes(), schema_target.read_bytes())
-            schema_source.write_bytes(current_schema)
+            schema_target.write_text("{}\n", encoding="utf-8")
             schema_changed = bootstrap()
             self.assertTrue(schema_changed["restart_required"], schema_changed)
             self.assertEqual(["managed_skill_runtime_changed"], schema_changed["restart_reasons"])
             self.assertEqual(
-                current_schema,
+                (REPO_ROOT / "skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json").read_bytes(),
                 schema_target.read_bytes(),
             )
 
             skill_target = codex_home / "skills/global-task-orchestrator/SKILL.md"
-            self.assertEqual(skill_source.read_bytes(), skill_target.read_bytes())
-            skill_source.write_bytes(current_skill)
+            skill_target.write_text("stale skill\n", encoding="utf-8")
             skill_changed = bootstrap()
             self.assertTrue(skill_changed["restart_required"], skill_changed)
             self.assertEqual(["managed_skill_runtime_changed"], skill_changed["restart_reasons"])
-            self.assertEqual(current_skill, skill_target.read_bytes())
-
-    def test_bootstrap_rejects_tampered_managed_schema_and_skill_without_overwrite(self) -> None:
-        scratch = REPO_ROOT / ".tmp/portable-harness"
-        scratch.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix="ai-harness-tamper-", dir=scratch) as raw:
-            environment = linux_tool_environment(Path(raw))
-            codex_home = Path(raw) / "codex"
-            command = [sys.executable, str(SCRIPTS_ROOT / "bootstrap-local.py"),
-                       "--harness-root", str(REPO_ROOT), "--codex-home", str(codex_home),
-                       "--skip-rules", "--skip-doctor", "--json"]
-            initial = subprocess.run(command, capture_output=True, text=True, env=environment)
-            self.assertEqual(initial.returncode, 0, initial.stdout + initial.stderr)
-            for relative, changed in (("schemas/orchestrator-task-state.schema.json", b"{}\n"),
-                                      ("SKILL.md", b"User-modified skill\n")):
-                with self.subTest(relative=relative):
-                    target = codex_home / "skills/global-task-orchestrator" / relative
-                    original = target.read_bytes()
-                    target.write_bytes(changed)
-                    before = {str(path.relative_to(codex_home)): path.read_bytes()
-                              for path in codex_home.rglob("*") if path.is_file()}
-                    result = subprocess.run(command, capture_output=True, text=True, env=environment)
-                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-                    self.assertIn("managed drift", result.stdout)
-                    self.assertEqual({str(path.relative_to(codex_home)): path.read_bytes()
-                                      for path in codex_home.rglob("*") if path.is_file()}, before)
-                    target.write_bytes(original)
 
     def test_strict_doctor_runs_the_fixed_non_recursive_contract_gate(self) -> None:
         # Break caught: strict doctor reports only runtime/tool health and lets
@@ -507,7 +449,7 @@ class BootstrapDoctorRuntimeTests(unittest.TestCase):
         self.assertTrue(installed_gto["ok"], installed_gto)
         self.assertEqual("validate", installed_gto["action"])
 
-    def test_bootstrap_preserves_hooks_and_supported_notify_config(self) -> None:
+    def test_bootstrap_clears_hooks_and_preserves_supported_notify_config(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ai-harness-bootstrap-", dir="/tmp") as raw:
             environment = linux_tool_environment(Path(raw))
             codex_home = Path(raw) / "codex"
@@ -525,7 +467,6 @@ class BootstrapDoctorRuntimeTests(unittest.TestCase):
                 ) + "\n",
                 encoding="utf-8",
             )
-            original_hooks = hooks_path.read_bytes()
             config_path = codex_home / "config.toml"
             config_path.write_text(
                 'model = "keep-model"\n'
@@ -554,12 +495,12 @@ class BootstrapDoctorRuntimeTests(unittest.TestCase):
             self.assertEqual(0, completed.returncode, completed.stderr or completed.stdout)
             payload = json.loads(completed.stdout)
             self.assertTrue(payload["ok"], payload)
-            self.assertNotIn("hook_cleanup", payload["completed_steps"])
+            self.assertIn("hook_cleanup", payload["completed_steps"])
             self.assertIn("hooks_cleared", payload)
-            self.assertFalse(payload["hooks_cleared"])
+            self.assertTrue(payload["hooks_cleared"])
             remaining = json.loads(hooks_path.read_text(encoding="utf-8"))
             self.assertEqual({"preserve": True}, remaining["custom_top_level"])
-            self.assertEqual(original_hooks, hooks_path.read_bytes())
+            self.assertEqual({}, remaining["hooks"])
             remaining_config = config_path.read_text(encoding="utf-8")
             self.assertIn('notify = ["/missing/legacy_notify", "turn-ended"]', remaining_config)
             self.assertIn('model = "keep-model"', remaining_config)
@@ -612,10 +553,8 @@ class BootstrapDoctorRuntimeTests(unittest.TestCase):
         self.assertNotIn("hook_configuration_present", audit["errors"])
         self.assertTrue(audit["codex_audit"]["hooks"]["ok"], audit)
 
-    def test_strict_doctor_preserves_and_observes_hooks_in_user_config(self) -> None:
-        scratch = REPO_ROOT / ".tmp/portable-harness"
-        scratch.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix="ai-harness-doctor-", dir=scratch) as raw:
+    def test_strict_doctor_rejects_any_hook_in_user_config(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ai-harness-doctor-") as raw:
             codex_home = Path(raw) / "codex"
             bootstrap = subprocess.run(
                 [sys.executable, str(SCRIPTS_ROOT / "bootstrap-local.py"), "--harness-root", str(REPO_ROOT), "--codex-home", str(codex_home), "--skip-rules", "--skip-doctor", "--json"],
@@ -628,24 +567,18 @@ class BootstrapDoctorRuntimeTests(unittest.TestCase):
                 'post_completion_hook = "/usr/local/bin/user-callback"\n', encoding="utf-8"
             )
             configure_native_plugins(codex_home)
-            config_before = (codex_home / "config.toml").read_bytes()
             doctor = subprocess.run(
                 [sys.executable, str(SCRIPTS_ROOT / "doctor-core.py"), "--root", str(REPO_ROOT), "--codex-home", str(codex_home), "--strict", "--json"],
                 text=True,
                 capture_output=True,
                 check=False,
             )
+            self.assertNotEqual(0, doctor.returncode, doctor.stdout)
             audit = json.loads(doctor.stdout)
-            self.assertEqual((codex_home / "config.toml").read_bytes(), config_before)
-            self.assertNotIn("hook_configuration_present", audit["errors"])
-            self.assertTrue(audit["codex_audit"]["hooks"]["ok"], audit)
-            self.assertIs(audit["codex_audit"]["hooks"].get("managed"), False)
-            self.assertTrue(audit["codex_audit"]["hooks"].get("observations"))
+            self.assertIn("hook_configuration_present", audit["errors"])
 
-    def test_strict_doctor_preserves_and_observes_user_hooks_json_entries(self) -> None:
-        scratch = REPO_ROOT / ".tmp/portable-harness"
-        scratch.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix="ai-harness-doctor-", dir=scratch) as raw:
+    def test_strict_doctor_rejects_any_residual_hooks_json_entry(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ai-harness-doctor-") as raw:
             codex_home = Path(raw) / "codex"
             bootstrap = subprocess.run(
                 [sys.executable, str(SCRIPTS_ROOT / "bootstrap-local.py"), "--harness-root", str(REPO_ROOT), "--codex-home", str(codex_home), "--skip-rules", "--skip-doctor", "--json"],
@@ -660,20 +593,16 @@ class BootstrapDoctorRuntimeTests(unittest.TestCase):
             )
 
             configure_native_plugins(codex_home)
-            hooks_before = (codex_home / "hooks.json").read_bytes()
             doctor = subprocess.run(
                 [sys.executable, str(SCRIPTS_ROOT / "doctor-core.py"), "--root", str(REPO_ROOT), "--codex-home", str(codex_home), "--strict", "--json"],
                 text=True,
                 capture_output=True,
                 check=False,
             )
-            self.assertEqual((codex_home / "hooks.json").read_bytes(), hooks_before)
 
+        self.assertNotEqual(0, doctor.returncode, doctor.stdout)
         audit = json.loads(doctor.stdout)
-        self.assertNotIn("hook_configuration_present", audit["errors"])
-        self.assertTrue(audit["codex_audit"]["hooks"]["ok"], audit)
-        self.assertIs(audit["codex_audit"]["hooks"].get("managed"), False)
-        self.assertTrue(audit["codex_audit"]["hooks"].get("observations"))
+        self.assertIn("hook_configuration_present", audit["errors"])
 
 
 class MachineDoctorExitSemanticsTests(unittest.TestCase):

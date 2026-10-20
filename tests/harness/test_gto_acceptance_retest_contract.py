@@ -18,6 +18,7 @@ import unittest
 
 import test_control_plane as legacy
 import test_gto_workflow as workflow
+from test_gto_point_acceptance import PointHarness
 
 SPEC = importlib.util.spec_from_file_location("gto_acceptance_contract_controller", legacy.CONTROLLER)
 ctl = importlib.util.module_from_spec(SPEC)
@@ -126,7 +127,7 @@ def acceptance_result():
         "scope_acceptance_ids": ["PATH-A", "PATH-B"]}}
 
 
-class AcceptanceEvidenceContractTest(unittest.TestCase):
+class AcceptanceEvidenceContractTest(PointHarness, unittest.TestCase):
     def record(self, state, receipt):
         ctl._record_expensive_attempt(state, state["subtasks"][-1], receipt)
 
@@ -148,79 +149,96 @@ class AcceptanceEvidenceContractTest(unittest.TestCase):
         with self.assertRaises(ctl.ControlError):
             self.record(acceptance_state(), result)
 
-    def test_ui_acceptance_records_actual_environment_without_os_allowlist(self):
-        # Controlled receipts verify recording/gates, not actual GUI availability.
-        for environment in ("wsl", "windows_native", "linux", "remote-desktop"):
-            with self.subTest(environment=environment):
-                state, result = acceptance_state(), acceptance_result()
-                evidence = result["expensive_acceptance"]["usage_evidence"]
-                evidence[0].update(tool="Computer Use", environment=environment,
-                    ui_applicability="required", entry="host-exposed desktop capability",
-                    ui_not_applicable_reason="")
-                self.record(state, result)
-                attempt = state["acceptance_gate"]["attempts"][-1]
-                self.assertEqual("pass", attempt["outcome"])
-                self.assertEqual(evidence, attempt["usage_evidence"])
+    def test_wsl_ui_cannot_claim_windows_computer_use(self):
         result = acceptance_result()
         result["expensive_acceptance"]["usage_evidence"][0].update(
-            tool="Computer Use", environment="", ui_applicability="required",
-            entry="host-exposed desktop capability", ui_not_applicable_reason="")
+            tool="Computer Use", environment="wsl", ui_applicability="required",
+            entry="http://localhost:8000/form", ui_not_applicable_reason="")
         with self.assertRaises(ctl.ControlError):
             self.record(acceptance_state(), result)
 
-    def test_first_acceptance_cannot_be_scoped_even_after_many_reviews(self):
-        state = acceptance_state()
-        for index in range(3):
-            state["subtasks"].insert(0, {"stage": "pre_acceptance_review", "status": "completed",
-                "result": {"review": {"kind": "re_review", "verdict": "pass"}}})
-        result = acceptance_result()
-        result["expensive_acceptance"].update(mode="scoped", scope_acceptance_ids=["PATH-A"])
-        with self.assertRaises(ctl.ControlError):
-            self.record(state, result)
+    def test_first_acceptance_can_register_its_executed_scope_without_extra_review(self):
+        self.begin()
+        attempt = self.attempt(['CHECK-01'])
+        result = self.observe(attempt, ['CHECK-01'])
+        result['expensive_acceptance'].pop('point_results')  # Existing mapping input is still public.
+        self.register(attempt, result)
+        status = self.coverage()
+        self.assertEqual('pass', status['points']['CHECK-01']['status'])
+        self.assertFalse(status['complete'])
+        self.assertEqual(['CHECK-02'], status['rerun_acceptance_ids'])
 
-    def scoped_case(self, previous_outcome="pass", affected=None):
-        state = acceptance_state()
-        previous = {"attempt_id": "attempt-old", "subtask_id": "ACCEPT-OLD", "candidate_id": "candidate-old",
-                    "outcome": previous_outcome,
-                    "evidence_by_acceptance_id": {"PATH-B": [".artifacts/old-b.log"]},
-                    "passed_acceptance_ids": ["PATH-B"] if previous_outcome == "pass" else []}
-        state["acceptance_gate"]["attempts"].insert(0, previous)
-        state["subtasks"].insert(-1, {
-            "subtask_id": "ACCEPT-OLD", "role": "tester", "stage": "expensive_acceptance",
-            "status": "completed" if previous_outcome == "pass" else "blocked", "dispatch": ACCEPTOR})
-        result = acceptance_result()
-        result["expensive_acceptance"].update(
-            mode="scoped", scope_acceptance_ids=["PATH-A"],
-            impact={"changed_paths": ["candidate-source.py"],
-                    "affected_acceptance_ids": affected or ["PATH-A"],
-                    "reason": "Only PATH-A consumes the modified input adapter."},
-            retained_evidence_by_acceptance_id={"PATH-B": {"source_attempt_id": "attempt-old",
-                "evidence_refs": [".artifacts/old-b.log"], "reason": "PATH-B input and code remain unchanged."}})
-        result["expensive_acceptance"]["evidence_by_acceptance_id"]["PATH-B"] = [".artifacts/old-b.log"]
-        return state, result
+    def repaired_failure(self):
+        self.begin(10, failing=True)
+        source = self.attempt()
+        self.register(source, self.observe(source, self.ids, failed='POINT-FAIL'))
+        self.run_ctl('dispatch-finding-fix', finding_id='POINT-FAIL')
+        path = self.repo / 'inputs/shared.json'
+        path.write_text(json.dumps({'CHECK-09': True, 'CHECK-10': True}))
+        self.run_ctl('record-finding-fix', finding_id='POINT-FAIL', result={
+            'summary': 'Correct shared input.', 'changed_files': ['inputs/shared.json'],
+            'sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'verification': 'Targeted input correction.',
+            'checks': self.work_result()['checks'], 'written_by': 'impl-001', 'written_role': 'backend-implementer'})
+        self.reintegrate()
+        self.run_ctl('freeze-candidate')
+        return self.attempt(bind=False)
 
     def test_scoped_retest_cannot_inherit_a_failed_item(self):
-        state, result = self.scoped_case("product_failure")
-        with self.assertRaises(ctl.ControlError):
-            self.record(state, result)
+        self.begin(10, failing=True)
+        attempt = self.attempt()
+        result = self.observe(attempt, self.ids)
+        falsely_passed = deepcopy(result)
+        failed_point = falsely_passed['expensive_acceptance']['point_results'][-1]
+        failed_point['status'] = 'pass'
+        falsely_passed['expensive_acceptance']['evidence_by_acceptance_id']['CHECK-10'] = failed_point['evidence_refs']
+        self.register(attempt, falsely_passed, ok=False)
+        self.register(attempt, result)
+        status = self.coverage()
+        self.assertEqual('fail', status['points']['CHECK-10']['status'])
+        self.assertEqual(9, sum(point['status'] == 'pass' for point in status['points'].values()))
+        self.assertFalse(status['complete'])
+        self.run_ctl('finalize-task', ok=False)
 
     def test_scoped_retest_cannot_inherit_an_unexecuted_item(self):
-        state, result = self.scoped_case()
-        state["acceptance_gate"]["attempts"][0]["evidence_by_acceptance_id"] = {}
-        state["acceptance_gate"]["attempts"][0]["passed_acceptance_ids"] = []
-        with self.assertRaises(ctl.ControlError):
-            self.record(state, result)
+        self.begin()
+        attempt = self.attempt()
+        self.register(attempt, self.observe(attempt, self.ids, unexecuted={'CHECK-02': 'not_run'}))
+        status = self.coverage()
+        self.assertEqual('not_run', status['points']['CHECK-02']['status'])
+        self.assertFalse(status['complete'])
+        self.run_ctl('finalize-task', ok=False)
 
     def test_changed_impact_cannot_be_hidden_behind_old_passing_evidence(self):
-        state, result = self.scoped_case(affected=["PATH-A", "PATH-B"])
-        with self.assertRaises(ctl.ControlError):
-            self.record(state, result)
+        self.begin()
+        attempt = self.attempt()
+        self.register(attempt, self.observe(attempt, self.ids))
+        (self.repo / 'inputs/CHECK-01.json').write_text('{"CHECK-01": false}')
+        proof = self.repo / '.artifacts/impact.json'
+        proof.write_text('{"claim": "no change"}')
+        before = self.state()
+        rejected = self.run_ctl('record-acceptance-impact', result={
+            'written_by': 'accept-001', 'written_role': 'tester', 'source_attempt_id': attempt['attempt_id'],
+            'point_ids': ['CHECK-01'], 'changed_paths': [], 'reason': 'Attempt to hide the input change.',
+            'evidence_refs': ['.artifacts/impact.json']}, ok=False)
+        self.assertNotIn('invalid choice', str(rejected))
+        self.assertEqual(before, self.state())
+        self.assertEqual('invalid', self.coverage()['points']['CHECK-01']['status'])
 
-    def test_missing_impact_analysis_cannot_justify_scoped_retest(self):
-        state, result = self.scoped_case()
-        del result["expensive_acceptance"]["impact"]
-        with self.assertRaises(ctl.ControlError):
-            self.record(state, result)
+    def test_unchanged_historical_points_need_no_self_reported_impact_or_mapping_copy(self):
+        self.begin(3)
+        sources = []
+        for ident in self.ids:
+            attempt = self.attempt([ident])
+            result = self.observe(attempt, [ident])
+            result['expensive_acceptance'].pop('point_results')
+            self.assertNotIn('impact', result['expensive_acceptance'])
+            self.assertEqual({ident}, set(result['expensive_acceptance']['evidence_by_acceptance_id']))
+            self.register(attempt, result)
+            sources.append(attempt['attempt_id'])
+        status = self.coverage()
+        self.assertTrue(status['complete'])
+        self.assertEqual(sources, [status['points'][ident]['source_attempt_id'] for ident in self.ids])
+        self.assertEqual(3, self.count())
 
     def test_product_fix_can_proceed_to_acceptance_without_re_review(self):
         state = finding_state()
@@ -233,46 +251,49 @@ class AcceptanceEvidenceContractTest(unittest.TestCase):
         self.assertEqual([], errors, "Fixed acceptance finding must be closed by the retest, not a reviewer prerequisite.")
 
     def test_successful_retest_closes_the_stable_acceptance_finding(self):
-        state, result = self.scoped_case()
-        state["acceptance_gate"]["attempts"][0].update(outcome="product_failure", finding_id="F-ACCEPT")
-        state["subtasks"][-2]["status"] = "blocked"
-        state["findings"]["F-ACCEPT"] = {
-            "finding_id": "F-ACCEPT", "status": "awaiting_re_review",
-            "source_subtask_id": "ACCEPT-OLD", "discovered_by": ACCEPTOR,
-            "routed_to": INTEGRATOR, "fix_round": 1,
-            "fix_delta": {"changed_files": ["candidate-source.py"], "sha256": "a" * 64},
-            "lineage": {"original_implementer": INTEGRATOR, "original_reviewer": ACCEPTOR}}
-        result["expensive_acceptance"]["closed_finding_ids"] = ["F-ACCEPT"]
-        self.record(state, result)
-        self.assertEqual("closed", state["findings"]["F-ACCEPT"]["status"])
-        self.assertEqual("accept-001", state["findings"]["F-ACCEPT"]["discovered_by"]["platform_agent_id"])
+        attempt = self.repaired_failure()
+        self.bind(attempt['subtask_id'], agent='accept-001', role='tester')
+        result = self.observe(attempt, ['CHECK-09', 'CHECK-10'])
+        result['expensive_acceptance'].pop('point_results')
+        result['expensive_acceptance']['closed_finding_ids'] = ['POINT-FAIL']
+        self.register(attempt, result)
+        finding = self.state()['findings']['POINT-FAIL']
+        self.assertEqual('closed', finding['status'])
+        self.assertEqual('accept-001', finding['discovered_by']['platform_agent_id'])
+        self.assertEqual(attempt['attempt_id'], finding['closed_by_attempt_id'])
 
     def test_a_different_acceptor_cannot_close_the_original_finding(self):
-        state, result = self.scoped_case()
-        state["acceptance_gate"]["attempts"][0].update(outcome="product_failure", finding_id="F-ACCEPT")
-        state["subtasks"][-2].update(status="blocked", dispatch=identity("other-acceptor", "tester"))
-        state["findings"]["F-ACCEPT"] = {
-            "finding_id": "F-ACCEPT", "status": "awaiting_re_review",
-            "source_subtask_id": "ACCEPT-OLD", "discovered_by": identity("other-acceptor", "tester"),
-            "routed_to": INTEGRATOR,
-            "fix_delta": {"changed_files": ["candidate-source.py"], "sha256": "a" * 64}}
-        result["expensive_acceptance"]["closed_finding_ids"] = ["F-ACCEPT"]
-        with self.assertRaises(ctl.ControlError):
-            self.record(state, result)
+        attempt = self.repaired_failure()
+        before = self.state()
+        rejected = self.bind(attempt['subtask_id'], agent='other-acceptor', role='tester', ok=False)
+        self.assertRegex(str(rejected).lower(), 'identity|acceptor|owner|same|original')
+        self.assertEqual(before, self.state())
+        self.assertEqual('awaiting_retest', self.state()['findings']['POINT-FAIL']['status'])
 
     def test_full_acceptance_with_current_use_maps_both_items(self):
-        state = acceptance_state()
-        self.record(state, acceptance_result())
-        self.assertEqual("pass", state["acceptance_gate"]["attempts"][-1]["outcome"])
-        self.assertEqual({"PATH-A", "PATH-B"},
-                         set(state["acceptance_gate"]["attempts"][-1]["evidence_by_acceptance_id"]))
+        self.begin()
+        attempt = self.attempt()
+        result = self.observe(attempt, self.ids)
+        result['expensive_acceptance'].pop('point_results')
+        self.register(attempt, result)
+        self.assertTrue(self.coverage()['complete'])
+        self.assertEqual({'CHECK-01', 'CHECK-02'},
+                         set(self.state()['acceptance_gate']['attempts'][-1]['evidence_by_acceptance_id']))
 
     def test_scoped_retest_can_retain_proven_unchanged_passing_item(self):
-        state, result = self.scoped_case()
-        self.record(state, result)
-        latest = state["acceptance_gate"]["attempts"][-1]
-        self.assertEqual("pass", latest["outcome"])
-        self.assertEqual([".artifacts/old-b.log"], latest["evidence_by_acceptance_id"]["PATH-B"])
+        self.begin()
+        first = self.attempt(['CHECK-01'])
+        first_result = self.observe(first, ['CHECK-01'])
+        first_result['expensive_acceptance'].pop('point_results')
+        self.register(first, first_result)
+        second = self.attempt(['CHECK-02'])
+        result = self.observe(second, ['CHECK-02'])
+        result['expensive_acceptance'].pop('point_results')
+        self.register(second, result)
+        status = self.coverage()
+        self.assertTrue(status['complete'])
+        self.assertEqual(first['attempt_id'], status['points']['CHECK-01']['source_attempt_id'])
+        self.assertEqual({'CHECK-02'}, set(self.state()['acceptance_gate']['attempts'][-1]['evidence_by_acceptance_id']))
 
 
 class AcceptanceCliContractTest(unittest.TestCase):
@@ -317,18 +338,44 @@ class AcceptanceCliContractTest(unittest.TestCase):
     def test_document_agent_can_sync_non_whitespace_wording_after_acceptance(self):
         self.start(documents=True)
         self.review()
-        self.accept()
+        accepted_subtask = self.accept()
+        source_attempt = next(attempt for attempt in self.state()['acceptance_gate']['attempts']
+                              if attempt['subtask_id'] == accepted_subtask)
+        original_attempts = deepcopy(self.state()['acceptance_gate']['attempts'])
+        original_runs = {path.relative_to(self.repo).as_posix(): path.read_bytes()
+                         for path in (self.repo / '.artifacts/synthetic-runs').rglob('manifest.json')}
         self.bind("DOC-FINAL-001", agent="docs-001", role="doc-curator")
         document = self.repo / "docs/contract.md"
+        before_document = document.read_bytes()
         document.write_text(document.read_text() + "\nThe command line entry is described above.\n")
         receipt = legacy.result("completed", "docs-001", "doc-curator", changed_files=["docs/contract.md"])
         receipt["documentation_sync"] = {
             "checked_paths": ["docs/contract.md"], "changed_paths": ["docs/contract.md"],
             "behavior_changed": False, "contract_changed": False, "configuration_changed": False,
             "reason": "Clarifies an existing entry without changing commands, inputs, outputs or requirements."}
+        self.assertEqual('invalid', self.run_ctl('acceptance-status')['points']['REAL-PATH-001']['status'])
+        before_rejection = self.state()
+        self.run_ctl("record-subtask-result", subtask_id="DOC-FINAL-001", result=receipt, ok=False)
+        self.assertEqual(before_rejection, self.state(), 'Document author cannot silently authorize point reuse.')
+        proof = self.repo / '.artifacts/document-impact.json'
+        proof.write_text(json.dumps({'source_attempt_id': source_attempt['attempt_id'],
+            'changed_paths': ['docs/contract.md'],
+            'before_sha256': hashlib.sha256(before_document).hexdigest(),
+            'after_sha256': hashlib.sha256(document.read_bytes()).hexdigest(),
+            'judgment': 'Only an explanatory sentence was appended; acceptance criteria remain unchanged.'}))
+        self.run_ctl('record-acceptance-impact', result={
+            'written_by': 'accept-001', 'written_role': 'tester',
+            'source_attempt_id': source_attempt['attempt_id'], 'point_ids': ['REAL-PATH-001'],
+            'changed_paths': ['docs/contract.md'],
+            'reason': 'Original acceptor checked the full document delta; no input, output or criterion changed.',
+            'evidence_refs': ['.artifacts/document-impact.json']})
         self.run_ctl("record-subtask-result", subtask_id="DOC-FINAL-001", result=receipt)
         self.assertIn("The command line entry", document.read_text())
         self.assertEqual("completed", self.run_ctl("finalize-task")["status"])
+        self.assertEqual(original_attempts, self.state()['acceptance_gate']['attempts'])
+        self.assertEqual(original_runs, {path.relative_to(self.repo).as_posix(): path.read_bytes()
+                         for path in (self.repo / '.artifacts/synthetic-runs').rglob('manifest.json')},
+                         'Scope judgment and document closeout must not execute another acceptance run.')
 
     def test_document_wording_receipt_cannot_hide_changed_executable_content(self):
         self.start(documents=True)
@@ -423,9 +470,8 @@ class BlackboxMachineEntryTest(unittest.TestCase):
 
     def test_effect_failure_schema_preserves_trace_and_existing_report_reference(self):
         evidence = acceptance_result()['expensive_acceptance']
-        # Synthetic schema-only reference; this test does not claim a real run.
-        evidence['run_evidence'] = {
-            'path': '.artifacts/schema-fixture/manifest.json', 'sha256': '0' * 64}
+        # Shape-only input, deliberately not a claim of a real captured run.
+        evidence['run_evidence'] = {'path': '.artifacts/schema-only/manifest.json', 'sha256': '0' * 64}
         receipt = legacy.result('completed', 'accept-001', 'tester', expensive_acceptance=evidence)
         self.assertEqual([], ctl._canonical_schema_errors(receipt, definition='result'),
                          '先证明既有回执结构合法，不拿缺通用字段冒充效果入口Red')
@@ -668,19 +714,27 @@ class BlackboxLifecycleTest(unittest.TestCase):
         self.finish_attempt('preparation')
         attempt = self.create_attempt('blackbox')
         invalid = self.receipt('blackbox', 'environment_failure')
-        # Give the negative case complete run evidence so it reaches the
-        # missing invalid_observation gate, without mutating the later receipt.
-        negative = deepcopy(invalid)
-        legacy.attach_acceptance_run(self.repo, attempt['subtask_id'], negative,
-                                     create_fixture_files=True)
+        # Capture every original reference once, before testing the malformed
+        # registration. Repairing its classification must reuse this exact run.
+        invalid['expensive_acceptance']['evidence_refs'].append('.artifacts/capture-failure.log')
+        legacy.attach_acceptance_run(self.repo, attempt['subtask_id'], invalid, create_fixture_files=True)
+        run_reference = deepcopy(invalid['expensive_acceptance']['run_evidence'])
+        run_manifest = (self.repo / run_reference['path']).read_bytes()
+        run_inventory = {path.relative_to(self.repo).as_posix()
+                         for path in (self.repo / '.artifacts/synthetic-runs').rglob('manifest.json')}
         before = self.state()
-        rejected = self.run_ctl('record-subtask-result', subtask_id=attempt['subtask_id'], result=negative, ok=False)
-        self.assertIn('invalid_observation', ' '.join(rejected['errors']))
+        rejected = self.run_ctl('record-subtask-result', subtask_id=attempt['subtask_id'], result=invalid, ok=False)
+        self.assertRegex(' '.join(rejected['errors']).lower(), 'invalid.observation|evidence|reason')
         self.assertEqual(before, self.state())
         invalid['expensive_acceptance']['invalid_observation'] = {
             'reason': 'evidence_capture', 'evidence_refs': ['.artifacts/capture-failure.log'],
             'summary': '合成观察证据采集失败，不能得出产品效果结论。'}
         self.run_ctl('record-subtask-result', subtask_id=attempt['subtask_id'], result=invalid)
+        self.assertEqual(run_reference, invalid['expensive_acceptance']['run_evidence'])
+        self.assertEqual(run_manifest, (self.repo / run_reference['path']).read_bytes())
+        self.assertEqual(run_inventory, {path.relative_to(self.repo).as_posix()
+                         for path in (self.repo / '.artifacts/synthetic-runs').rglob('manifest.json')},
+                         'Registration correction must not launch a replacement run.')
         preparation = self.finish_attempt('preparation', approve_budget=True)
         valid = self.finish_attempt('blackbox', approve_budget=True)
         self.assertEqual(preparation['attempt_id'], valid['preparation_attempt_id'])

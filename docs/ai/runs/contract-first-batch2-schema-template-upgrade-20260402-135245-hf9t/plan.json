@@ -1,0 +1,21 @@
+﻿{
+    "plan_id":  "PLAN-CONTRACT-FIRST-BATCH2-SCHEMA-TEMPLATE-UPGRADE-20260402-135245-HF9T",
+    "task_id":  "contract-first-batch2-schema-template-upgrade-20260402-135245-hf9t",
+    "version":  2,
+    "mode":  "proposal-confirm-then-execute",
+    "goal":  "待主协调器补充",
+    "scope":  {
+                  "modules":  [
+
+                              ],
+                  "non_goals":  [
+
+                                ]
+              },
+    "acceptance":  [
+
+                   ],
+    "stop_conditions":  [
+
+                        ]
+}

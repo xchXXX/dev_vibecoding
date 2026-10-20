@@ -1,0 +1,46 @@
+{
+    "schema_version":  "1.0",
+    "updated_at":  "2026-08-28T17:52:58.7681831+08:00",
+    "events":  [
+                   {
+                       "signature":  "3549e1ba7ecf55c8461a81aa901b8fc36328fe06f50f3689302fb08507a06133",
+                       "command_signature":  "node sandbox/rules-evals/base/小任务修复/tests/run-tests.js",
+                       "error_signature":  "assertionerror [err_assertion]: expected values to be strictly equal:",
+                       "project_id":  "dev_vibecoding",
+                       "first_failed_at":  "2026-05-30T14:36:03.319996+08:00",
+                       "last_failed_at":  "2026-05-30T14:36:03.319996+08:00",
+                       "failure_count":  1,
+                       "last_query_at":  "2026-05-30T14:36:03.319996+08:00"
+                   },
+                   {
+                       "signature":  "883c620e33661a59bc7513cfa7cdd03be4cf2be9d39e0d8d3dfbe352fa1ad286",
+                       "command_signature":  "hash compare command",
+                       "error_signature":  "parsererror: an empty pipe element is not allowed.",
+                       "project_id":  "dev_vibecoding",
+                       "first_failed_at":  "2026-05-30T14:44:41.582959+08:00",
+                       "last_failed_at":  "2026-05-30T14:44:41.582959+08:00",
+                       "failure_count":  1,
+                       "last_query_at":  "2026-05-30T14:44:41.582959+08:00"
+                   },
+                   {
+                       "signature":  "525beb572d126363a307718acf0ae1927c5d9ca8049fee346bcb096bd780594e",
+                       "command_signature":  "node sandbox/rules-evals/process-base/审阅返工/tests/run-tests.js",
+                       "error_signature":  "assertionerror [err_assertion]: expected values to be strictly equal:",
+                       "project_id":  "dev_vibecoding",
+                       "first_failed_at":  "2026-05-30T15:14:18.580975+08:00",
+                       "last_failed_at":  "2026-05-30T15:14:18.580975+08:00",
+                       "failure_count":  1,
+                       "last_query_at":  "2026-05-30T15:14:18.582977+08:00"
+                   },
+                   {
+                       "signature":  "76b4208a38da04a32c1abe965799a21fd3a4ca45fb0cf498d56e620c7a86d670",
+                       "command_signature":  "run stats command",
+                       "error_signature":  "parsererror: an empty pipe element is not allowed.",
+                       "project_id":  "dev_vibecoding",
+                       "first_failed_at":  "2026-05-30T15:37:13.892682+08:00",
+                       "last_failed_at":  "2026-05-30T15:37:13.892682+08:00",
+                       "failure_count":  1,
+                       "last_query_at":  "2026-05-30T15:37:13.892682+08:00"
+                   }
+               ]
+}

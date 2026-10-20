@@ -8,33 +8,10 @@ import shutil
 import tempfile
 import tomllib
 import hashlib
-import stat
 from pathlib import Path
 from typing import Any
 
 from runtime_common import MANAGED_SKILLS, emit, resolve_codex_home, resolve_repo_root, sha256_file, write_json
-
-
-def _check_path_chain(path: Path) -> None:
-    # Inspect lexical parents before resolve() can hide a link outside ownership.
-    if not path.is_absolute() or '..' in path.parts:
-        raise ValueError("UNSAFE_PATH: sync requires an absolute path without '..'")
-    for item in (path, *path.parents):
-        try:
-            info = item.lstat()
-        except FileNotFoundError:
-            continue
-        if (stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400
-                or (stat.S_ISREG(info.st_mode) and info.st_nlink != 1)):
-            raise ValueError("UNSAFE_PATH: sync path contains a link: " + str(item))
-
-
-def _check_sync_paths(harness_root: Path, codex_home: Path) -> None:
-    for path in (harness_root / 'skills', codex_home / 'skills',
-                 codex_home / '.ai-harness/codex-sync.lock',
-                 codex_home / '.ai-harness/codex-sync.receipt.json',
-                 codex_home / 'schemas/orchestrator-task-state.schema.json'):
-        _check_path_chain(path)
 
 
 def _source_files(source: Path) -> list[Path]:
@@ -81,10 +58,6 @@ def _replace_tree(source: Path, target: Path) -> None:
 
 
 def synchronize(harness_root: Path, codex_home: Path, skills: list[str] | None = None) -> dict[str, Any]:
-    try:
-        _check_sync_paths(harness_root, codex_home)
-    except ValueError as error:
-        return {"ok": False, "errors": [str(error)]}
     if (codex_home / ".ai-harness/windows-native-transition.hold").exists():
         return {"ok": False, "errors": ["WINDOWS_NATIVE_TRANSITION_HOLD: complete the native migration before publishing"]}
     if skills is not None and (
@@ -94,14 +67,6 @@ def synchronize(harness_root: Path, codex_home: Path, skills: list[str] | None =
     ):
         return {"ok": False, "errors": ["partial sync contains an unsupported managed skill"]}
     selected = tuple(skills) if skills is not None else MANAGED_SKILLS
-    try:
-        for name in selected:
-            for path in (harness_root / 'skills' / name, codex_home / 'skills' / name):
-                _check_path_chain(path)
-                for child in path.rglob('*'):
-                    _check_path_chain(child)
-    except ValueError as error:
-        return {"ok": False, "errors": [str(error)]}
     missing = [name for name in selected if not (harness_root / "skills" / name / "SKILL.md").is_file()]
     if missing:
         return {"ok": False, "errors": [f"managed skill source missing: {name}" for name in missing]}
@@ -136,35 +101,6 @@ def synchronize(harness_root: Path, codex_home: Path, skills: list[str] | None =
             if skills is not None:
                 managed_files = [row for row in previous['managed_files'] if row['skill'] not in selected]
             managed_schema_files = list(previous['managed_schema_files'])
-        # Validate every selected destination before the first destructive tree swap.
-        # Unknown assets and user edits cannot be adopted merely because names match.
-        for name in selected:
-            target = codex_home / 'skills' / name
-            source = harness_root / 'skills' / name
-            if (target.is_symlink() or source.is_symlink()
-                    or any(p.is_symlink() for p in target.rglob('*'))
-                    or any(p.is_symlink() for p in source.rglob('*'))):
-                return {"ok": False, "errors": ["skill source/target contains a link; retain all files"]}
-            rows = [row for row in previous.get('managed_files', [])
-                    if isinstance(row, dict) and row.get('skill') == name]
-            if name not in previous.get('managed_skills', []):
-                if target.exists():
-                    return {"ok": False, "errors": ["unmanaged skill directory; retain all files: " + name]}
-                continue
-            expected = {}
-            for row in rows:
-                relative = row.get('target', '')
-                prefix = name + '/'
-                if (not isinstance(relative, str) or not relative.startswith(prefix)
-                        or any(part in ('', '.', '..') for part in relative.split('/'))
-                        or '\\' in relative or not isinstance(row.get('sha256'), str)):
-                    return {"ok": False, "errors": ["invalid managed skill inventory"]}
-                item = relative[len(prefix):]
-                if item in expected:
-                    return {"ok": False, "errors": ["duplicate managed skill inventory"]}
-                expected[item] = row['sha256']
-            if not expected or not target.is_dir() or _tree_hashes(target) != expected:
-                return {"ok": False, "errors": ["managed drift or unreceipted skill files; retain all files: " + name]}
         legacy_relative = 'schemas/orchestrator-task-state.schema.json'
         legacy = codex_home / legacy_relative
         retiring_legacy = False
@@ -308,10 +244,6 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     try:
-        raw_root = Path(args.repo_root or os.environ.get('AI_HARNESS_ROOT', '') or Path(__file__).parent.parent).expanduser().absolute()
-        raw_home = args.codex_home or os.environ.get('CODEX_HOME', '')
-        if raw_home:
-            _check_sync_paths(raw_root, Path(raw_home).expanduser())
         root = resolve_repo_root(args.repo_root, Path(__file__))
         if args.retire_legacy_gui:
             if args.skill:

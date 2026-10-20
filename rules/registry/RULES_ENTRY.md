@@ -9,7 +9,7 @@
 3. 固定读取三条最小必读规则：`global.policy.变更约束`、`global.workflow.用户提问先回答再继续`、`global.style.说明默认使用中文`。
 4. 对其余规则，由 Codex 结合对话语义、目标内容、风险、当前阶段和本轮实际操作自由选择；索引中的 `intents`、`paths`、`summary`、`linked_skill` 只是判断提示，不是强制映射。
 5. 只有 Codex 判断某条规则与当前工作相关时，才读取对应规则正文；只有进一步判断其 `linked_skill` 确实适用时，才读取对应 `SKILL.md`。
-6. 能自动校验的约束以 当前执行环境的 Python 脚本、测试或 doctor 为准，prose rule 只承担入口提示与非结构化约束。
+6. 能自动校验的约束以 WSL Python 脚本、测试或 doctor 为准，prose rule 只承担入口提示与非结构化约束。
 
 正常交互链不调用 Python 解释自然语言、生成 `task_profile`、匹配本轮规则或拼装固定规则套餐。Python 只在离线维护和验收时生成、校验 `RULES_INDEX.json`；索引不承载规则正文，也不生成全正文聚合运行时视图。
 
@@ -38,6 +38,6 @@
 ## 运行时边界
 
 - `RULES_ENTRY.md` 不承载完整规则正文，不代替 `RULES_INDEX`、脚本或测试，也不是每轮额外必读文件。
-- 显式 GTO 任务的方案文档与施工文档固定字段以 `rules/registry/方案与施工文档字段规范.md` 及其校验脚本为准。
+- 长任务下方案文档与施工文档的必填字段以 `rules/registry/方案与施工文档字段规范.md` 及其校验脚本为准。
 - 中文说明默认使用中文；字段名、路径、脚本参数、代码标识符保持原样。
 - 已删除的旧 `rules/common/*` 与旧 `rules/*.md` 结构不恢复，统一以 `rules/registry/` 与 `rules/items/` 为准。

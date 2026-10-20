@@ -1,81 +1,183 @@
-# 安装与生命周期
+# INSTALL
 
-本文描述 portable harness 的接收者合同。当前改造仍需按候选版本完成验收；下列命令是冻结 CLI 接口，不能以本说明替代实际运行结果。取得固定版本的完整包，在包根执行；不要求接收者拥有源码仓库。
+> 当前使用 Windows 原生 Agent 与 WSL 开发环境。CODEX_HOME/.ai-harness/windows-native-transition.hold 存在时，下文 bootstrap/sync 命令会在写入前停止；不要删标志重试。按 [接续任务](tasks/20260910-windows-native-transition/task.md) 完成源码/安装/receipt 收口与隔离重复发布验证后解除。项目 WSL 命令和官方 Windows 插件使用不依赖这些安装命令。
 
-若使用 dots 云端直接从 Git 拉取本仓库，走 [Git 仓库的 dots 云端接入](https://github.com/xchXXX/dev_vibecoding/blob/javirs/docs/modules/portable-harness/delivery/engineering/dots-cloud.md)：一条 Install script 准备仓库环境，仓库内技能随 Git 发现，不需要先构建或安装 portable 包。云接入脚本只随源码仓库提供；以下流程用于将固定分发包安装到明确的 Codex home，两条路线的验收分别留证。
+## 目标
 
-## 依赖与环境
+本文冻结 `ai-harness` 的纯 Codex/WSL bootstrap、sync、doctor 与本机工具基线合同。
 
-基础安装与 doctor 使用 Python 3.11+ 标准库。先确认所用解释器及真实 Codex home；Windows 示例可用 `python`，Linux/WSL 可用 `python3`。示例统一写 `python`，应替换为当前环境已核实的解释器。基础入口不要求 Node、Docker、GUI、WSL 或任意 MCP。GTO 等可选动作所需依赖由对应技能与 doctor 报告，不能自动安装。
+## 新机器 Bootstrap
 
-执行环境可选 `auto`、`windows`、`linux`、`wsl`。`auto` 检测当前进程，不根据作者机器偏好选择 WSL。Windows 原生与 WSL 各自使用本环境解释器、依赖和路径；跨边界时只使用已核实的路径映射。
+在已选定的 `<harness-root>` 下使用 WSL Python：
 
-## 两步主流程
-
-在发布包根，将 `<codex-home>` 替换为当前环境下已核实的绝对路径：
-
-```text
-python scripts/harness.py install --codex-home "<codex-home>" --json
-python scripts/harness.py doctor --codex-home "<codex-home>" --json
+```bash
+python3 ./scripts/bootstrap-local.py --codex-home "${CODEX_HOME:?set verified Windows Codex home WSL path}"
 ```
 
-默认完整安装 `base benchmark fix cfm gto`。然后新开 Codex 会话，确认全局入口及技能已加载，执行下方普通任务示例。磁盘安装成功与 `doctor` 完整性通过都不能证明会话加载；没有新会话证据时保持 `session_verified=false`。
+- harness 根按显式 CLI 参数、`AI_HARNESS_ROOT`、脚本所在仓库的顺序选择。
+- Codex home 必须通过显式 `--codex-home` 或已核实的 `CODEX_HOME` 指定；Windows Agent 调用 WSL 时传入该 Windows 目录的 WSL 等价路径。缺失即报错，不回退到 Linux 用户目录、不建立另一套安装。
+- 无效的显式值直接失败；不扫描 sibling clone、整盘目录或其他工作区。
+- bootstrap 渲染 managed 全局 `AGENTS.md`、写 machine-local receipt，并调用 Codex skill、规则索引与 doctor 链路。
+- 非空未托管全局入口默认拒绝覆盖；只有显式 `--force-global-agents` 才先创建内容寻址备份再替换。
+- Windows 原生 Agent 使用 PowerShell/文件工具及官方 Browser、Computer Use；项目 Git/Python/Node/测试构建通过指定 Ubuntu-24.04 的 wsl.exe --exec 在 Linux 执行，不替换为 Windows 项目依赖、旧 launcher、batch 或 hook。
 
-最多三项接入配置：
+## Codex 运行时映射
 
-| 字段 | 含义与默认 |
-| --- | --- |
-| `codex_home` | 目标 Codex home；必须显式配置或提供 `CODEX_HOME`，不猜用户目录 |
-| `skills_dir` | 技能目录；默认 `<codex_home>/skills` |
-| `environment` | 当前执行环境；默认 `auto` |
+- 真源：`<harness-root>/skills/*`
+- 运行时：`CODEX_HOME/skills/*`
+- GTO schema 真源：`<harness-root>/skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json`
+- GTO schema 运行时：`CODEX_HOME/skills/global-task-orchestrator/schemas/orchestrator-task-state.schema.json`
+- managed 全局入口模板：`<harness-root>/templates/codex/AGENTS.global.md`
+- 目标入口：`CODEX_HOME/AGENTS.md`
 
-CLI 参数高于用户 JSON，用户 JSON 高于允许环境变量，最后才是已验证默认值。项目配置不得覆盖全局安装位置。JSON 中的相对路径相对该配置文件解析，未知字段拒绝。`CODEX_HOME` 是 home 的环境输入；其他允许环境变量以当前 CLI/配置合同为准，不继承任意环境值。
+当前仓库维护的核心 skills 包括：
 
-可选 JSON（保存为自己的本地配置，不放入发布包）：
+- `global-task-orchestrator`
+- `command-failure-memory`
+- `pre-dev-benchmark`
+- `fix-closure-gate`
 
-```json
-{"codex_home":"/absolute/codex-home","environment":"linux"}
+sync 只投放明确受管的 Codex skills、唯一 GTO schema 运行副本与入口文件，receipt 为 schema 记录真源、目标和 SHA-256；默认不接管未托管运行时目录，也不扩展到 `.system/*`、插件、任意目录同步或项目级清理。
+
+bootstrap 的 JSON 在 managed `AGENTS.md`、skill 或 schema 内容发生变化时返回 `restart_required=true` 和具体 `restart_reasons`；无变化时保持 `false`。已有长会话不会热更新这些运行时内容。遇到平台边界冲突时，先核对磁盘上的 `CODEX_HOME/AGENTS.md` 与 `CODEX_HOME/.ai-harness/codex-sync.receipt.json`，再新建任务或重启 Codex。
+
+## 规则索引合同
+
+- `RULES_INDEX.json` 是唯一机器可读规则元数据索引，不内嵌规则正文。
+- Python 只在离线维护或验收时生成、校验索引，不在正常交互链中解释自然语言或选择规则。
+- Codex 固定读取 `AGENTS.md`、索引元数据及三条最小必读规则；其他规则由 Codex结合语义、目标内容、风险、阶段与本轮实际操作自由选读。
+- sync 与 bootstrap 不生成固定任务规则套餐，也不安装全正文聚合运行时视图。
+
+其他项目消费本仓全局规则时必须显式传入规则根：
+
+```bash
+harness_root=/path/to/ai-harness
+project_root=/path/to/project
+python3 "$harness_root/scripts/generate_rules_index.py" \
+  --repo-root "$project_root" \
+  --global-rules-root "$harness_root"
+python3 "$harness_root/scripts/validate_rules.py" \
+  --repo-root "$project_root" \
+  --global-rules-root "$harness_root"
 ```
 
-使用 `--config <path>` 传入。高级用户可用 `--skills-dir` 和 `--modules` 选择位置与模块；具体列表语法用 `python scripts/harness.py install --help` 核实。这些高级参数不是首次安装必填项。
+未提供 `--global-rules-root` 时只处理目标项目自己的规则，不自动发现其他 clone 或工作区。
 
-## 安装内容与所有权
+## Doctor / validate
 
-- `<codex_home>/.ai-harness/portable/runtime/`：规则、模板及配套运行内容。
-- `<skills_dir>/`：所选技能的自包含安装副本。
-- `<codex_home>/.ai-harness/portable/receipt.json`：受管文件、模块版本、安装根与哈希。
-- `<codex_home>/AGENTS.md`：只管理明确标记的区块，保留区块外原始内容。
+doctor 只读检查：
 
-首次遇到同名未知技能或冲突管理块时停止并列出冲突，不推定所有权。更新和卸载先检查所有受影响文件；漂移时保留用户内容并整体拒绝受影响操作，不部分删除。安装器不修改 `config.toml`、hooks、MCP、插件开关、个人记忆或其他技能。
+- managed 全局入口存在且 marker 正确。
+- 真源 skill、运行时 skill 和关键文件基本一致。
+- 唯一 GTO schema 真源、运行时副本及 sync receipt 一致，并真实运行安装版控制器的临时只读 `validate` 动作。
+- `RULES_INDEX.json` 可解析、结构有效且不包含正文。
+- 正式入口与验收链不调用 hook、`.ps1` 或 `.cmd`。
+- WSL 工具基线存在、版本可执行、路径来自 Linux。
 
-CFM 程序属于 `cfm` 模块，记忆数据属于用户。新用户从空数据开始；升级或卸载不携带、删除或自动迁移个人记录。共享同一安装范围时只允许一个发布者；任务使用自己的固定运行版本，不能删除仍被在途任务引用的快照。
+doctor 不自动修复、不安装工具、不接管项目目录，也不清理未托管运行时内容。
 
-## 更新、卸载与恢复
+## 分层环境准备
 
-保留原安装配置，进入要安装的新固定版本包根运行：
+完整合同和路径图见 [WSL 环境工程交付说明](modules/wsl-environment/delivery/engineering/wsl-environment-delivery.md)。不要把“工具命令能执行”误当成项目、浏览器或 Windows GUI 已就绪。
 
-```text
-python scripts/harness.py update --codex-home "<codex-home>" --json
-python scripts/harness.py uninstall --codex-home "<codex-home>" --json
-python scripts/harness.py recover --codex-home "<codex-home>" --json
+| 层级 | 真源/入口 | 操作边界 |
+| --- | --- | --- |
+| 机器公共工具 | `config/ai/wsl-tool-baseline.json`、`scripts/provision-wsl.py`、`scripts/doctor-core.py` | provision 默认输出计划；只有显式 apply 才能在批准范围内安装最小缺口 |
+| 项目依赖隔离 | 项目 manifest/lock、`schemas/project-environment.schema.json`、`scripts/project-env-doctor.py` | 只在当前 WSL 项目内恢复和诊断，不复用 Windows 工件，也不自动删除旧目录 |
+| 可选能力 | 项目环境声明 | Playwright、Docker、数据库、云 CLI 等必须声明且本次任务确实需要 |
+| Windows 外部能力 | 官方 Browser、Computer Use、Desktop 运行时、原生插件声明 | Windows Agent 使用官方工具；harness 只读检查，不改 transport、安全设置、插件开关或注册 WSL GUI 桥 |
+
+在新 worktree setup 完成后、GTO 长任务第一次运行代码前，或普通任务第一次触及运行时，运行一次 machine doctor；该项目第一次需要运行时时再运行 project doctor。不要把这些检查扩展为 hook、daemon、逐命令 wrapper、自动重试或自动修复。
+
+Windows 原生 Agent 负责文件、Browser、截图与 Computer Use；项目 Git/Python/Node/测试/构建继续通过指定发行版的 wsl.exe --exec 执行。外部能力声明 v3 只列 windows_native 与 required_plugins；bootstrap/doctor 不写插件配置或官方 transport，不创建 WSL GUI 桥。磁盘 enabled 不等于 GUI 验收。
+
+## WSL 工具部署
+
+已有并保留：
+
+- `git`、`rg`、`curl`、`wget`、`rsync`、`file`、`lsof`
+- `python3`、`python3-venv`
+- Linux 原生 `node`、`npm`
+
+如已获得对本机工具部署的明确授权，可在 Ubuntu WSL 中按 `provision-wsl.py` 的计划执行固定基线；不要把下列示例当成 bootstrap/doctor 的隐式副作用：
+
+```bash
+sudo apt update
+sudo apt install -y jq unzip zip tree strace shellcheck shfmt fzf fd-find sqlite3 dos2unix \
+  build-essential pkg-config cmake ninja-build python3-pip
 ```
 
-`install`、`update`、`uninstall` 可先用 `--dry-run` 预览；单模块操作用 `--modules`，不改变未选模块。配置了自定义技能目录或环境时，后续动作继续使用同一配置。保留固定版本包及 receipt 以供核验。
+然后在 **Linux 原生 Node.js 已安装且其 `node`/`npm` 不来自 `/mnt/c`** 的 shell 中，通过已批准的外部运行时或包来源安装 Linux 原生 `pnpm`：
 
-生命周期采用互斥、预检、staging、备份、替换、校验和完成凭据。单文件原子替换不代表整个多文件事务原子。失败时尝试恢复本次受管变更；未完成 journal 阻止继续安装，使用 `recover` 处理。备份损坏、外部变更或部分恢复须明确报告，不删 journal 假装成功。
+```bash
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+exec "$SHELL" -l
+```
 
-旧 `bootstrap-local.py`、`sync-codex.py` 与旧 receipt 不构成 portable 安装所有权。不要手改 receipt 或直接覆盖旧安装；先保留原现场并使用独立目标验证。若发现旧 `windows-native-transition.hold`，它是该用户的维护约束，应读取标志指定的记录并暂停受影响旧发布链；不复制作者历史任务，也不通过删除标志绕过维护。
+doctor 固定审计 `jq unzip zip tree strace shellcheck shfmt fzf fdfind sqlite3 dos2unix gcc g++ make pkg-config cmake ninja pip3 pnpm`，以及 `node npm pnpm` 的可用性和 Linux 原生路径。Corepack 不是机器基线要求；Ubuntu 的 `fd-find` 通常提供命令 `fdfind`，`fd` 是兼容替代。doctor 会将 `/mnt/c` 或 Windows Program Files 中的受审计 Node 工具报告为路径泄漏。bootstrap 与 doctor 之后只检查，不重复安装、升级发行版或自动修复项目依赖。
 
-## 新会话示例
+## 删除边界
 
-普通任务输入：“为一个读取配置文件的函数设计最小测试，列出输入、成功条件和失败边界，暂不实现。”应按需求选规则或 benchmark 方法，直接产出相称结果；不创建 GTO task_id、六工件，不要求编排 preflight。
+- 旧代理平台的仓库资产和用户运行时不属于 Codex install/sync 合同。
+- `/mnt/c/Users/Laptop/.claude` 将按用户授权永久删除，包括 `backups`、`sessions` 和整个目录；不生成备份。
+- `/mnt/c/Users/Laptop/.codex/memories/command-failure-memory` 保持原位，不删除、不迁移、不复制。
 
-修复任务输入：“一个 fallback 修复的大套测试已通过，但不确定是否命中，请列出最小验证合同。”应能得到复现、命中证明、诊断和验收的区分；未安装 GTO 也可完成。
+## 非目标
 
-GTO 单独示例：“我明确选择 GTO，请先为一个隔离小任务准备方案。”须使用实际安装的 GTO 技能及平台真实代理能力，按其批准合同推进。没有真实代理能力就报告对应流程未验收，不能由主代理冒充各角色。
+- 不安装 Docker、数据库服务、云 CLI 或账号工具。
+- 不做 Codex 运行时目录全盘 takeover。
+- 不移动仓库、不复制整个 `.codex`；独立并行任务按授权使用隔离 worktree。
+- 不在 bootstrap 或 doctor 中加入包管理器自动安装、自动重试或跨平台回退。
 
-## 诊断与结果边界
+## 最小验收
 
-人读与 `--json` 对应同一结果，成功退出码为 0，其余非零。诊断至少分清配置/路径错误、依赖缺失、未知冲突、受管漂移、锁占用、包完整性失败与恢复不完整。出现失败先保留输出和现场，再按最小建议处理，不无限重试、提权或换环境掩盖错误。
+- bootstrap、sync、doctor 可从 WSL Python 正常链运行。
+- managed skills 和全局入口同步关系可审计。
+- 规则索引只含元数据，运行时无 Python matcher 和固定规则套餐。
+- 用户旧运行时删除边界与 CFM 保留边界清晰且互不重叠。
+- WSL 工具全部可执行，Linux 原生 `pnpm` 可用。
 
-源码维护者从固定候选使用 `build --output <空目录> --version <版本> --source-commit <提交>` 构建白名单包。`source_commit` 必须是真实可解析的 Git 提交，并与纳入发布的内容一致；不得把脏工作区内容打包却标为旧 HEAD。先冻结真实提交，再构建并核验清单；包目标必须新建或为空，不覆盖已有产物。发布包的文件哈希不是发布者签名。Windows、Linux、WSL 运行、真实云端与新 Codex 会话应分别留证，未测项明确未验收。
+## GTO 默认发布版本
+
+GTO 当前默认发布版为 `workflow_revision=3`。新任务直接使用已安装 skill 中的 revision 3 合同，无需用户提醒版本。主工作区 `skills/global-task-orchestrator/` 是包含 schema 在内的唯一同步真源；开发 worktree 中的候选只有整合到此真源并执行 `python3 scripts/sync-codex.py --harness-root "$PWD" --codex-home "${CODEX_HOME:?set verified Windows Codex home WSL path}" --json` 后才成为默认安装。
+
+发布时整套同步 SKILL、agents 元数据、references、controller 和 schema，随后运行 `doctor-core.py` 核对同步回执和安装哈希，并用已安装的 revision 3 合同实际初始化及校验隔离任务。以后版本更新按同一发布链完成，不保留第二个旧版默认入口。已经启动的会话可能持有旧 skill 元数据；发布后新任务加载更新后的入口，已有会话需要重新读取或重启后刷新。
+
+## Windows 原生迁移的限定维护入口
+
+维护标志存在时发布入口拒绝写入。先在隔离目标验证，再冻结候选、受控解除、正式定向发布，失败恢复标志。
+
+- `python3 scripts/bootstrap-local.py --environment-only --harness-root <root> --codex-home <home> --json`：只投放环境 runtime 并更新其真实 receipt；不改动 AGENTS、hooks、插件 config、其他技能和 schema。
+- `python3 scripts/sync-codex.py --retire-legacy-gui --harness-root <root> --codex-home <home> --json`：旧桥 MCP 已明确停用且技能符合既有 receipt 时，仅将旧技能移入私有恢复目录并更新该技能记录；未知改动拒绝退役。
+- `python3 scripts/doctor-core.py --environment-only --root <root> --codex-home <home> --json`：只审计环境 runtime/receipt、Linux 工具和原生插件配置；不执行 GTO 或其 schema，不等价于全局 doctor 通过。
+
+bootstrap/doctor 不修改原生插件配置。一次性迁移在私有备份和定点核对后删除旧 WSL GUI 桥配置、代码与技能；完成后不保留旧运行或发现入口。Windows 调用 WSL 时使用 `wsl.exe -d <distro> --cd <project> --exec python3 <script>`；复杂内容先写脚本文件，避免默认 shell 解释反引号、重定向或变量。
+
+## 并发任务、固定运行版本与能力证明
+
+当前操作合同见 [GTO 运行与证据](../skills/global-task-orchestrator/references/runtime-evidence.md)。普通流程职责维护于全局 AGENTS 模板；技能开关唯一声明在 `config/ai/skill-policy.json`，由 `scripts/configure-skill-policy.py` 更新实际 path 配置，插件升级后重新检查路径并用新会话验明。方法技能不能接管流程。磁盘配置、CLI 快照验证和真实新会话加载分别报告。
+
+## 范围复验变更入口
+
+现行行为与版本边界见[按验收点保留结果与范围复验](../skills/global-task-orchestrator/references/acceptance-points.md)。首次验收可分范围登记；保留任意历史轮次中仍有效的结果，最终检查完整覆盖，不要求额外整轮全绿。普通任务使用简洁清单，只有显式选择 GTO 才使用控制面。
+
+范围复验分发入口：
+
+```sh
+python3 skills/gto-standalone/build_release.py --refresh-source skills/global-task-orchestrator --output-dir .artifacts/scoped-acceptance/release
+```
+
+`--refresh-source` 显式指定通用真源；刷新 scripts、schemas、references、agents 和 SKILL.md 后，由既有 ZIP/manifest 生成器打包。包专属 README、依赖声明和 doctor 保留；SOURCE.json 记录当前源内容摘要。不得手工修改分发控制器；不得把源码路径写进运行时查找逻辑。独立目录运行包内十点示例，证明执行次数 10+2、路径自包含与冻结版本保护，再声明分发可用。
+续跑与时间协议修复使用既有定向同步入口发布：
+
+```sh
+python3 scripts/sync-codex.py --harness-root <root> --codex-home <home> --skill global-task-orchestrator --json
+```
+
+需要同步全局入口模板时，另运行 `python3 scripts/bootstrap-local.py --harness-root <root> --codex-home <home> --git-workflow-only --json`。该入口同时核验其受管 Git 检查器；发布前确认该检查器属于本次范围或与已安装内容相同。不要为单技能更新调用全量 bootstrap。
+
+发布者先备份安装内容与 receipt，并核验维护标志、所有权和其他技能状态；同步后分别核验实际安装文件及 receipt、新进程公开入口、旧冻结任务快照不变。新任务冻结当前安装版本；旧任务通过 `start_session.py` 恢复原快照，不自动升级，也不改写旧时间证据。磁盘同步不代表已运行会话已重新加载指令。
+
+## 恢复与登记精简
+
+新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](../skills/global-task-orchestrator/references/streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。

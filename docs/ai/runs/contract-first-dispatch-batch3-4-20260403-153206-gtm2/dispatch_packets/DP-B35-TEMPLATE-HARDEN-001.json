@@ -1,0 +1,131 @@
+{
+  "task_id": "contract-first-dispatch-batch3-4-20260403-153206-gtm2",
+  "dispatch_packet_id": "DP-B35-TEMPLATE-HARDEN-001",
+  "work_order_id": "WO-B35-TEMPLATE-HARDEN-001",
+  "instruction_source": "docs/plans/contract-first-dispatch.md",
+  "read_before_write": [
+    "docs/plans/contract-first-dispatch.md",
+    "docs/plans/contract-first-dispatch-batch3-4-20260403-153206-gtm2.plan.json",
+    "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/plan.json",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "rules/common/SUBAGENT_RULES.md",
+    "skills/global-task-orchestrator/SKILL.md",
+    "skills/global-task-orchestrator/assets/prompts/work-order-generator.md",
+    "skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md",
+    "skills/global-task-orchestrator/assets/prompts/return-packet-writer.md",
+    "templates/work_order.example.json",
+    "templates/dispatch_packet.example.json",
+    "templates/return_packet.example.json"
+  ],
+  "execution_order": [
+    "更新三份 prompt 生成模板",
+    "更新三份 example.json",
+    "运行关键短语校验",
+    "写入 return_packet"
+  ],
+  "change_spec": [
+    {
+      "path": "skills/global-task-orchestrator/assets/prompts/work-order-generator.md",
+      "change_type": "update",
+      "instructions": [
+        "写清默认中文输出、mandatory reads、回执正文所有权应如何落到现有字段。",
+        "保持 Batch 3.5 边界，不新增字段名。"
+      ],
+      "done_when": [
+        "模板能指导主协调器在现有字段内稳定下沉三项规则。"
+      ]
+    },
+    {
+      "path": "skills/global-task-orchestrator/assets/prompts/dispatch-packet-generator.md",
+      "change_type": "update",
+      "instructions": [
+        "把三项规则纳入 `verification_focus`、`handoff_notes`、`forbidden_changes` 等字段的编译要求。"
+      ],
+      "done_when": [
+        "模板能指导主协调器把三项规则稳定带入复杂任务施工图。"
+      ]
+    },
+    {
+      "path": "skills/global-task-orchestrator/assets/prompts/return-packet-writer.md",
+      "change_type": "update",
+      "instructions": [
+        "保持所有权表述清晰，并显式说明它需要同步体现在合同对象与最小校验闸门。"
+      ],
+      "done_when": [
+        "提示词模板与 Batch 3.5 目标一致。"
+      ]
+    },
+    {
+      "path": "templates/work_order.example.json",
+      "change_type": "update",
+      "instructions": [
+        "在现有字段中改成中文样例，并强化 `dispatch_message_raw`、`constraints`、`acceptance_criteria`。"
+      ],
+      "done_when": [
+        "work_order 示例能展示三项规则的合同下沉。"
+      ]
+    },
+    {
+      "path": "templates/dispatch_packet.example.json",
+      "change_type": "update",
+      "instructions": [
+        "在现有字段中改成中文样例，并强化 `verification_focus`、`handoff_notes`、`forbidden_changes`。"
+      ],
+      "done_when": [
+        "dispatch_packet 示例能展示三项规则的施工图下沉。"
+      ]
+    },
+    {
+      "path": "templates/return_packet.example.json",
+      "change_type": "update",
+      "instructions": [
+        "改成中文样例，并显式体现执行子代理本人填写正文、验证命令清晰、偏离/阻塞/后续明确。"
+      ],
+      "done_when": [
+        "return_packet 示例能展示回执正文所有权与 v2 字段语义。"
+      ]
+    }
+  ],
+  "invariants": [
+    "Batch 3.5 不新增 schema 字段。",
+    "Batch 3.5 仅在现有字段与固定语句内下沉规则。",
+    "说明性文本默认中文。"
+  ],
+  "forbidden_changes": [
+    "不要修改 `schemas/*.json`。",
+    "不要修改 `execution-dispatch-template.md`、`review-dispatch-template.md`。",
+    "不要修改任何脚本文件。"
+  ],
+  "dependency_notes": [
+    "先改模板真源，再改 example.json，避免样例脱离模板口径。",
+    "example.json 不得引入 schema 未冻结的新字段名。"
+  ],
+  "done_signals": [
+    "三份 prompt 生成模板更新完成。",
+    "三份 example.json 更新完成。",
+    "关键短语校验命令通过。",
+    "return_packet 已落盘。"
+  ],
+  "verification_focus": [
+    "三项规则是否都在现有字段内下沉。",
+    "`dispatch_message_raw` 是否改为稳定中文示例。",
+    "未越界修改脚本、schema 或 Batch 4 文件。"
+  ],
+  "fallback_strategy": [
+    "若发现必须新增字段名或改 schema，立即停止并回主协调器。",
+    "若发现需修改 `execution-dispatch-template.md` 或 `review-dispatch-template.md`，立即停止并说明超出 Batch 3.5 冻结主列表。"
+  ],
+  "handoff_notes": [
+    "审查时重点看三项规则是否已进入现有字段值，而不是只停留在 prompt 正文层。",
+    "回执应明确哪些样例文本改成中文、哪些固定语句被新增。"
+  ],
+  "execution_steps": [
+    "保留给旧消费者的兼容字段；以 `execution_order` 为准。"
+  ],
+  "verification_steps": [
+    "保留给旧消费者的兼容字段；以 `verification_focus` 为准。"
+  ],
+  "stop_conditions": [
+    "保留给旧消费者的兼容字段；以 `fallback_strategy` 与 `work_order.stop_conditions` 为准。"
+  ]
+}

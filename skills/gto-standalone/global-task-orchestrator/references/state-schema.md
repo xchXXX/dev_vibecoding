@@ -1,11 +1,5 @@
 # state.json 字段说明
 
-## 中断身份移交记录
-
-`interruption_recoveries` 是追加历史；每项包含经 schema 校验的 `request`、控制器入库时间 `recorded_at`、完整 `previous_blocker`、`previous_dispatch` 与当次执行包 `runtime_sha256`。request 含明确用户授权及留存证据 hash、旧新协调身份和目标派发旧新身份。入库时间不代表用户消息时间；历史身份和失败不改写。
-
-`coordinator_blocker.recovery_coordinator_id` 只标识已批准的当前接替协调者，必须与最新恢复记录一致；原 `result.written_by` 保留。移交不恢复阶段、不提供业务结果、不变更批准合同和预算；正常阶段恢复仍需成功检查。目标回到 ready 后只能绑定批准的新真实代理。适用边界与 CLI 唯一见 [控制器身份移交](controller-guide.md#会话中断且尚无交付的身份移交)。
-
 ## 计划代理与只读结果预检
 
 新方案各子任务填写 `planned_agent_key`，表示施工前确认的代理代号；`role` 仍表示任务职责。相同代号绑定同一 `dispatch.platform_agent_id`，不同代号不得使用同一真实身份；`dispatch.agent_key` 必须等于计划代号。不全面禁止测试代理兼任验收。
@@ -16,7 +10,7 @@
 
 ### 结果提交协议
 
-派发时提供 [完整结果样例](revision-3-results.example.json) 中对应对象；协调器填已知身份，实际执行者补事实。结果写入允许的输入文件后执行只读检查：
+手工填写结果时，派发提供 [完整结果样例](revision-3-results.example.json) 中对应对象；协调器填已知身份，实际执行者补事实，再执行下面的只读检查。已封存的观察摘要优先使用 [prepare-result](streamlined-execution.md) 生成草稿；该入口已执行同等预检，状态和证据未变时直接正式登记，无需重复 validate-result。
 
 ```bash
 python3 "$GTO_CONTROLLER" --action validate-result --repo-root "$repo_root" --task-id "$task_id" \
@@ -29,55 +23,9 @@ work、integration、acceptance、final_documentation 使用 `record-subtask-res
 
 字段、枚举或身份错误修正载荷即可；缺少真实证据需补验证；产品行为失败才走修复。不因格式修正重做仍然有效的工作。
 
-## 分批验收证据合同
+## 按点结果与历史来源
 
-本节是分批证据字段与机械边界的唯一正文；示例见 `revision-3-results.example.json`。本合同于任务 `20260920-155425-863065-gto-evidence-batches` 冻结，文档完成不表示实现或验收已经通过。仅适用于 `workflow_revision=3`；原有 full/scoped 路径及其首次全量、继承、预算和 finding 门禁保持不变。
-
-新增 `record-acceptance-evidence-batch`、`record-acceptance-coverage`，均使用现有 `--repo-root/--task-id/--result-json-file/--json` 参数。前者追加 `acceptance_gate.evidence_batches`，后者追加 `acceptance_gate.coverage_receipts`；首批冻结 `acceptance_gate.batch_contracts` 中对应 kind 的合同。所有派生值由控制器计算，不手工编辑 state。两个动作不创建运行或 attempt，不增加模型调用和预算。
-
-### 可重算的文件与单元合同
-
-`fileRef={path,sha256}`：path 是消费仓库内真实普通文件的相对路径，不允许越界或借 symlink 指向仓库外；sha256 是文件原始字节哈希。`valueRef={path,sha256,pointer}` 在 fileRef 上增加 RFC 6901 JSON pointer；空字符串指整个 JSON。读取缺失、歧义或类型不符均拒绝。对象值哈希使用 UTF-8、键排序、无额外空格的 canonical JSON。哈希字段使用小写 64 位十六进制。
-
-`contract` 为 fileRef，所指 JSON 固定为：
-
-- `kind`：`ordinary` 或 `blackbox`，不接受 preparation。
-- `fixture`：`{path,sha256,collection_pointer,id_pointer}`。collection_pointer 选中完整场景数组，id_pointer 相对每个元素取非空唯一字符串 ID。禁止过滤表达式和只选择部分数组；独立 reviewer 审查此集合确实是完整验收输入集合。
-- `required_units`：`[{unit_id,acceptance_id,current_input:{pointers:{name:pointer}},raw_selectors}]`。unit_id 集合必须精确等于 fixture 派生全部 ID，不重不漏；acceptance_id 均属于该 kind，且映射覆盖该 kind 全部 AC。current_input.pointers 相对相应 fixture 元素，名称非空、映射非空；控制器重算命名值对象作为当前输入投影。raw_selectors 必须显式声明并随本合同字节哈希冻结，不提供隐式字段名或旧格式兼容默认。
-
-`raw_selectors` 为 `null` 或 `{unit_id,execution_status,executed_values}`。使用 JSON valueRef 时必须为对象：unit_id 与 execution_status 都是相对 raw.pointer 所选记录自身的 RFC 6901 pointer，控制器仅在该对象内解析，不能引用原文件根、祖先或相邻记录；所选 ID 必须精确等于本 unit_id。executed_values 是非空且不重复的字符串或布尔值数组，以 canonical JSON 严格类型相等比较所选执行状态。比如归档记录可声明 `{"unit_id":"/scenario_id","execution_status":"/status","executed_values":["OUTPUT_ARCHIVED"]}`，合成夹具同样显式声明 `{"unit_id":"/id","execution_status":"/executed","executed_values":[true]}`；控制器不硬编码任一业务字段或状态。映射只证明该单元存在实际归档输出，不能代表效果通过，独立 source_score 的 PASS、作者、输入及原始文件哈希绑定仍全部必需。
-
-使用不选取 JSON 记录的 whole-fileRef 时 raw_selectors 必须为 null，原有真实执行独立审查仍必需。同一文件可为多个不同 JSON record 提供证据，唯一性按原始文件与具体 selection 保留；重复同一 selection 或用同一 whole-fileRef 重复计数仍拒绝。不得复制、改写原始输出来伪造符合固定字段的记录，也不能把 whole-fileRef 当作绕过具体单元验证的替代路径。
-
-首批登记时冻结 contract 字节哈希与解析合同；后续批次必须使用同一 kind 的相同合同。合同变化不能通过减少 required_units、缩小 collection_pointer 或删除 AC 规避既有要求。历史 fixture 无完整归档时，允许从真实历史 raw 选择实际执行输入投影，但必须有下述独立投影完整性审查；禁止用当前 fixture 重建历史再声称旧输入一致。
-
-### 批次载荷
-
-顶层字段固定为 `batch_id/source_attempt_id/written_by/written_role/contract/units/applicability_review`。written_role 为原 dispatch 角色，written_by 同时匹配原 attempt 子任务 dispatch 与已有 result（若有）。units 为非空列表，每项字段：
-
-- `unit_id/acceptance_id`：必须匹配冻结合同。
-- `raw`：fileRef 或 valueRef，绑定真实已执行的原始文件字节；日志、图片等非 JSON 证据使用 fileRef，选中 JSON 内具体记录时使用 valueRef，并按冻结 `raw_selectors` 核对该记录的单元 ID 和实际归档状态。历史 terminal 来源的 raw.path 必须属于原 result 的 `evidence_refs` 与 `evidence_by_acceptance_id` 引用并集，不能事后塞入未知来源输出；当前 pending 来源允许正式绑定原验收者提交其真实归档记录，由独立审查通过 `units_sha256` 连同 raw 文件/可选 pointer、input 与 score 一起绑定，随后 partial 结果必须把这些 raw.path 全部列入本次 evidence_refs。此分支不声称 pending 已存在原 result。
-- `input`：`{path,sha256,pointers:{name:pointer}}`，pointer 相对该文件根。命名集合与合同一致，历史和当前命名投影 canonical 值必须相等。input 可指真实 raw 文件不同层级；历史来源必须属于原 attempt 已归档证据，当前 pending 则与该批次真实归档来源一起审查。
-- `score`：valueRef，指原验收者新增规范化评分索引中对应记录。所选记录固定为 `{unit_id,outcome,raw_sha256,input_sha256,written_by,source_score,source_score_selectors}`；outcome 只能 `pass`，raw_sha256 绑定 raw 整文件字节哈希，input_sha256 绑定命名输入投影哈希，written_by 匹配原验收者。
-- 评分记录中的 `source_score` 为 valueRef，指真实既有独立评分单元；`source_score_selectors={unit_id,outcome,written_by}` 的每个值为相对 source_score 所在文件根的 pointer。控制器读取并核对 ID、作者和通过状态；通过字符串仅按大小写归一接受 `pass`，不接受失败、未执行、不可判定。不得只复制一个自报 PASS 代替已有评分来源；原 score/raw 文件不修改。
-
-原 attempt 为 terminal environment_failure 时可追加其中真实已执行且后来独立评分通过的部分单元；不修改原 result、terminal、dispatch、失败记录或预算。有效效果失败、未执行或评分不通过单元不通过该入口改判；现有有效效果失败处理与用户决定门禁保持。
-
-### 独立适用性审查
-
-`applicability_review` 为 fileRef，所指记录固定为 `written_by/written_role/source_attempt_id/source_candidate_id/current_candidate_id/source_coverage_sha256/current_coverage_sha256/delta_sha256/changed_paths/unit_ids/units_sha256/input_projection_complete/compatible/reason/evidence_refs`。
-
-written_role 为 reviewer；written_by 必须匹配本任务已绑定且已有通过结果的独立 reviewer，并与该批次验收者及实施/整合/修复身份不同。source/current candidate 对应真实源 attempt 与当前 frozen candidate。source_coverage_sha256 和 current_coverage_sha256 绑定完整 coverage_snapshot 的 canonical hash；delta_sha256 绑定按路径排序的 `[{path,before,after}]`（缺失值为 null），changed_paths 精确覆盖全部新增、删除及变更路径。unit_ids 精确等于该批次单元，`units_sha256` 精确等于 `sha256(canonical(batch.units))`，两个布尔值都须 true，reason 非空，evidence_refs 为非空 fileRef 数组；这些旁证只核原始字节/hash，不要求日志或图片解析为 JSON。
-
-控制器保留源 coverage 与原 AC dependency paths，核验实际完整差异及证据哈希；不接收验收者自定义较窄 paths。历史代码/config/runtime 差异触及依赖时，必须由该真实独立 reviewer 依据完整差异证明这些单元仍适用。未触及原 AC 的差异同样保留在审查记录中，不从全局 manifest 删去。输入投影完整性、fixture 集合完整性、同文件其他函数变化的语义兼容性由 reviewer 判断；机器只保证身份、完整差异、哈希、对应关系与布尔声明被绑定，不能把结构通过表述为机器证明业务语义无影响。
-
-### 局部运行终态与聚合
-
-原 `record-subtask-result` 增加诚实局部终态：`status=completed`、`expensive_acceptance.outcome=partial_pass`、`mode=partial`、`failed_stage=none`；保留原实际调用、耗时、工具使用、blackbox 会话输入 trace 等要求，并增加 `executed_unit_ids` 与 `evidence_batch_ids`。至少一个已登记批次必须来自该 attempt；executed_unit_ids 精确等于这些批次单元并为合同完整集合的真子集。`scope_acceptance_ids` 等于单元对应 AC，`evidence_by_acceptance_id` 只能含本次真实单元证据；不能声称这些 AC 下未执行单元通过。partial_pass 不能单独通过 CLOSE/finalize，不消除待处理 finding，不豁免效果失败决定；它只把实际局部运行成本记录一次。首个局部 attempt 使用该独立分批路径，不能借 mode=partial 放宽 full/scoped 原门禁。
-
-聚合载荷固定为 `{coverage_id,kind,candidate_id,contract_sha256,batch_ids,written_by,written_role}`。作者必须为同一原验收者，candidate_id 指当前 frozen candidate，batch_ids 非空且唯一。所有批次重验后，其单位并集必须精确覆盖合同全集且彼此不重叠；所引用当前 attempt 必须已诚实终结，不能将 pending 当作完成。控制器生成 `same_round_full_execution=false`、完整场景→AC 覆盖及来源索引；聚合不是新运行，不写假 `outcome=pass` 到任一源 attempt。
-
-同一 ID、完全相同 payload 为幂等无写入；同 ID 不同 payload、换 ID 重复同源场景/raw、重叠 batch 计数均拒绝。所有动作先在副本完整校验再持久化；拒绝必须使六工件字节不变。历史 batch/coverage 的结构、来源文件与哈希始终追加保留并可重验，后来出现真实失败或冻结新候选时不能让旧回执阻止该事实落账；当前可用性另行严格判断，只有目标仍为 current frozen candidate、完整引用仍有效且没有更新的失败时才贡献 CLOSE/finalize。登记及当前消费重新核对完整 source/current coverage、身份和单元集合；引用替换、当前候选变化、来源丢失、漏项或后来失败会使其不再贡献当前覆盖，不能仅信首次通过缓存。合法完整聚合可满足对应 kind 的当前覆盖门禁；独立 Review、finding、必需 verification evidence 归属、其他 kind 验收和最终文档闸门继续单独执行。必需 evidence key 不因存在聚合而自动视为满足，只能从聚合所引用的源 acceptance result 中取得该模板/kind 合同 key，并继续通过 owner、registered ref、文件存在与 hash 校验。
+状态、字段、失效原因、历史复用和撤回规则唯一见[范围复验合同](acceptance-points.md)。本次实现与独立验收已完成。旧冻结运行版本的批次合同保留在其自身快照中，不作为新版本强制全面审查或整轮重跑的依据。
 
 本页命令先沿用 SKILL.md 的路径约定：GTO_SKILL_DIR 是本轮实际读取的 SKILL.md 所在绝对目录，GTO_CONTROLLER="$GTO_SKILL_DIR/scripts/orchestrator_ctl.py"；repo_root 单独指向消费项目。不要把项目目录或未核对的 CODEX_HOME 当成工具来源。
 
@@ -210,7 +158,7 @@ python3 "$GTO_CONTROLLER" \
 
 `acceptance_gate` 保存声明的候选输入、当前冻结候选、验收条目、attempt policy 和 attempts。frozen candidate 必须同时保存 `fingerprint` 和 `frozen_at`；`freeze-candidate` 计算候选指纹，覆盖目录、symlink、配置、运行输入和验收条目，任一输入改变即令候选 stale。
 
-每次昂贵验收必须由 `create-subtask-attempt` 预建，并在结果中保存 `outcome`、`real_call_count`、耗时、失败阶段、证据引用和每个 acceptance item 的 evidence mapping。完成 attempt 必须指向对应的 `stage=expensive_acceptance` 子任务，并与该子任务的结果证据一致；pending attempt 必须属于当前 frozen candidate。控制器默认限制 `max_expensive_attempts=4`；只有 `written_role=coordinator`、`approved_by=user`、包含非空原因和授权证据、声明的 previous maximum 精确匹配当前值且新值严格增加的 `extend-acceptance-budget` 回执，才会追加 `acceptance_gate.budget_extensions` 并提高当前任务上限。续批不修改历史 attempt、候选、身份、finding、任务阶段或下一动作，也不提供审查/验收通过证据。`max_full_attempts_per_candidate=1`、`max_environment_retries_per_candidate=1` 保持不变，并从 `approval_required_from_attempt=3` 开始要求每次 attempt 明确批准。attempt、预算续批与 review 均为 append-only；没有完整自洽用户授权链的上限修改会被拒绝，授权事实真实性由协调者和独立验收核对，passing evidence 仍不能手写预种。
+每次昂贵验收必须由 `create-subtask-attempt` 预建，并在结果中保存 `outcome`、`real_call_count`、耗时、失败阶段、证据引用和每个 acceptance item 的 evidence mapping。完成 attempt 必须指向对应的 `stage=expensive_acceptance` 子任务，并与该子任务的结果证据一致；pending attempt 必须属于当前 frozen candidate。控制器默认限制 `max_expensive_attempts=4`；只有 `written_role=coordinator`、`approved_by=user`、包含非空原因和授权证据、声明的 previous maximum 精确匹配当前值且新值严格增加的 `extend-acceptance-budget` 回执，才会追加 `acceptance_gate.budget_extensions` 并提高当前任务上限。续批不修改历史 attempt、候选、身份、finding、任务阶段或下一动作，也不提供审查/验收通过证据。实际执行的成本保留；环境重试额度仅限制自动安排，超额时每个新 attempt 必须有自身的 user 授权及非空原因，历史校验按该 attempt 之前的同候选同范围失败计数验证，不以最终总失败数拒绝合法记录；未执行撤回安排不计实际运行预算，并从 `approval_required_from_attempt=3` 开始要求每次 attempt 明确批准。attempt、预算续批与 review 均为 append-only；没有完整自洽用户授权链的上限修改会被拒绝，授权事实真实性由协调者和独立验收核对，passing evidence 仍不能手写预种。
 
 
 ## 体积与 allowlist
@@ -238,10 +186,10 @@ schema 对固定结构使用字段 allowlist，并限制字符串、数组和哈
 - reviewer 首次完整审查并尽量完成全部独立检查后批量报告；之后围绕 finding、fix delta 和影响范围复审。影响扩大则扩大覆盖，保留稳定 ID、关闭/重开状态和失败历史。
 - 每个 review/验收 finding 均由发现者复现、定位根因、提出修复方案、补真实失败测试或可执行证明、同步相关正式文档或说明不适用。证明记录实际命令、范围、真实失败结果、预期失败及证据引用，作者是发现者。
 - 所有代码 finding 的修复责任固定为原整合责任者；修复须依据问题合同，不能放宽测试、删断言或改预期。原并行实现者不返工。修复及重新整合结果追加保存，终态不重开。
-- review finding 修复并重新整合后交原 reviewer 范围复审。首次验收在完整审查及必要复审通过后覆盖本任务全部范围；每个验收条目有实际证据映射。
+- review finding 修复并重新整合后交原 reviewer 范围复审。首次验收在完整审查及必要复审通过后按各自范围登记；每个实际执行条目有证据映射，最后聚合全部必需点。
 - 验收 finding 修复并重新整合后直接交同一验收者范围复验并检查修复 delta，不回 reviewer。保留首审与复审基线，记录最新候选、改动路径、影响范围、当前通过项及保留证据依据。失败或未运行项不能继承为通过，范围无法证明时扩大复验至必要的全量。
-- review 与验收分别记录实际使用证据：真实执行者、环境、工具、入口/命令、操作范围、结果与证据引用。网页使用宿主实际提供的官方 Browser；桌面 GUI 使用宿主支持的官方 Computer Use；非 UI 使用真实 CLI/API 并明确适用性。
-- 验收通过后由一个文档子代理直接排查并同步遗漏的正式文档与六工件事实，不增加双人文档 review。纯文字纠正可直接收口，并不限于空白或排版；真正行为、契约或配置变化才返回验收链。记录同步范围和判定依据，不能任意豁免文档变化。
+- review 与验收分别记录实际使用证据：真实执行者、环境、工具、入口/命令、操作范围、结果与证据引用。WSL 网页使用官方 Browser；Windows GUI 仅 Windows native Computer Use；非 UI 使用真实 CLI/API 并明确适用性。
+- 验收通过后由一个文档子代理直接排查并同步遗漏的正式文档与六工件事实，不增加双人文档 review。按本文文档影响判断边界处理纯文字纠正，并不限于空白或排版；真正行为、契约或配置变化才返回验收链。记录同步范围和判定依据，不能任意豁免文档变化。
 - 候选覆盖各职责的测试、代码、配置、运行输入和受影响正式文档；仅本任务六工件、内部锁及允许的明确日志按既有边界处理。复验、文档同步与历史证据间的关联必须可追溯。
 
 下列现场命令仅在对应当前 CLI、schema 和同候选示例核对一致后使用。接口落地不另造状态真源。
@@ -254,7 +202,7 @@ schema 对固定结构使用字段 allowlist，并限制字符串、数组和哈
 jq '.acceptance_pass' "$GTO_SKILL_DIR/references/revision-3-results.example.json" > "$result_json_file"
 ```
 
-这里仅生成待填写载荷，不能立即把示例当成真实结果提交。所有 `ACTUAL_*` 替换为真实平台返回身份；普通结果 written_role 与 bind 的 agent_key 一致，review 使用独立 reviewer 身份。路径按批准合同填写，检查命令/退出码/证据/次数/耗时来自实际运行。产品实施 work 的 red 必须命中预先声明的缺失行为；文档、测试准备和汇总按各自职责提供检查，不强制伪造产品 Red/Green。预期 Red 判定见 [包内命令失败规则](governance.md#命令失败与重试)。integration 单独提交全部受影响 document_paths。reviewed_candidate_fingerprint 从本轮 build-review-brief 取值；covered_paths 覆盖实际完整审查范围。
+这里仅生成待填写载荷，不能立即把示例当成真实结果提交。所有 `ACTUAL_*` 替换为真实平台返回身份；普通结果 written_role 与 bind 的 agent_key 一致，review 使用独立 reviewer 身份。路径按批准合同填写，检查命令/退出码/证据/次数/耗时来自实际运行。产品实施 work 的 red 必须命中预先声明的缺失行为；文档、测试准备和汇总按各自职责提供检查，不强制伪造产品 Red/Green。预期 Red 判定引用 CFM 真源。integration 单独提交全部受影响 document_paths。reviewed_candidate_fingerprint 从本轮 build-review-brief 取值；covered_paths 覆盖实际完整审查范围。
 
 合同五个镜像必须逐值一致：objective/do、scope_in/change_areas、scope_out/do_not、acceptance/acceptance、stop_conditions/risks。斜杠右侧均为 six_points 字段；decisions 包含 six_points.implementation。新 init 从 six_points 派生缺失镜像、补 implementation 并保留独立 REQ 清单；调用方不需要手填两遍，显式冲突仍拒绝。既有 state 不批量迁移。
 
@@ -299,7 +247,7 @@ python3 "$GTO_CONTROLLER" --action extend-acceptance-budget --repo-root "$repo_r
 
 该入口在 blocked 状态也只登记续批，不恢复阶段；恢复仍须按 coordinator recovery 合同单独提交成功证据。
 
-平台验收者在真实运行后填 acceptance_pass 载荷：status=completed、outcome=pass、failed_stage="none"（不能是空串）、blocked_by=[]。real_call_count/duration_seconds 是真实测量，evidence_by_acceptance_id 覆盖该 attempt kind 对应的业务验收项；ordinary 覆盖非黑盒项，blackbox 覆盖 blackbox_acceptance_ids，preparation 不贡献业务验收证据。失败使用 blocked 与 product_failure/environment_failure 及真实 failed_stage；业务失败先通过 record-acceptance-findings 登记发现者证据，再用其 finding_id 关联失败回执。
+平台验收者在真实运行后填 acceptance_pass 载荷：status=completed、outcome=pass、failed_stage="none"（不能是空串）、blocked_by=[]。real_call_count/duration_seconds 是真实测量，evidence_by_acceptance_id 仅记录该 attempt 实际执行且通过的业务验收项；ordinary 覆盖非黑盒项，blackbox 覆盖 blackbox_acceptance_ids，preparation 的前置事实不贡献业务验收证据，正式观察可采用原运行按点登记。失败使用 blocked 与 product_failure/environment_failure 及真实 failed_stage；业务失败先通过 record-acceptance-findings 登记发现者证据，再用其 finding_id 关联失败回执。
 
 验收登记立即核对每条 evidence ref 的来源所属，不能等 finalize 才发现 attempt/kind/acceptance item 错配。若已完成通过、非 preparation 的昂贵验收原作者需要补齐合同要求的已有引用，使用 `record-verification-evidence --result-json-file`；receipt 采用本页固定的八个字段。入口只追加 `verification_evidence_receipts` 索引，禁止手工编辑 state 或覆盖原结果模拟补录。
 
@@ -323,7 +271,7 @@ python3 "$GTO_CONTROLLER" --action record-subtask-result --repo-root "$repo_root
 python3 "$GTO_CONTROLLER" --action finalize-task --repo-root "$repo_root" --task-id "$task_id" --json
 ```
 
-遇到任一步意外非零，保存失败并进入适用的命令失败闭环；缺少必需能力时停止该失败链，不能继续后面的依赖命令。以上分段是不同阶段的示例，不能把 finding/验收/收尾的 action 清单当作无条件连续执行脚本。
+遇到任一步意外非零，保存失败并进入适用的命令失败闭环；必需 CFM 不可达时停止该失败链，不能继续后面的依赖命令。以上分段是不同阶段的示例，不能把 finding/验收/收尾的 action 清单当作无条件连续执行脚本。
 
 ## Revision 3 协调层阻塞回执
 
@@ -331,18 +279,16 @@ python3 "$GTO_CONTROLLER" --action finalize-task --repo-root "$repo_root" --task
 
 当前阻塞期间禁止新派发、新候选/attempt、修复调度和 finalize；允许 validate、build-review-brief、accept-artifact-update、`extend-acceptance-budget`，以及已绑定独立任务登记结果/审查回执。治理续批只追加用户授权并递增本任务总 attempt 上限，不恢复阶段，next_action 仍保持 human_adjudication。单个子任务的 blocked 结果不会自动推断整个任务是否受阻，由协调者明确判断并登记。
 
-恢复使用同一个 set-phase，目标只能是保存的 previous_phase，载荷取 `revision-3-results.example.json` 的 coordinator_resumed：同一 written_by、written_role=coordinator、completed、blocked_by=[]、非空 verification、成功 checks（至少 regression，所有退出码=0）及证据引用。能力缺口要记录原能力恢复及对应失败证据的复核；不得在真实探针未成功时填入成功回执。控制器仅核验结构化声明，不执行命令、不读取外部库、不通过命令名猜测根因。阻塞和恢复完整 result 追加到 coordinator_blocked/coordinator_resumed 事件；只清除当前 blocker，不删除历史、不自动重试。
+恢复使用同一个 set-phase，目标只能是保存的 previous_phase，载荷取 `revision-3-results.example.json` 的 coordinator_resumed：同一 written_by、written_role=coordinator、completed、blocked_by=[]、非空 verification、成功 checks（至少 regression，所有退出码=0）及证据引用。CFM 缺口要记录原能力恢复与对应失败的成功 query-before-retry；不得在实际查询未成功时填入成功回执。控制器仅核验结构化声明，不执行命令、不读取外部库、不通过命令名猜测根因。阻塞和恢复完整 result 追加到 coordinator_blocked/coordinator_resumed 事件；只清除当前 blocker，不删除历史、不自动重试。
 
-未初始化成功的任务不能调用这一状态入口；此时保留失败证据并明确报告 blocked，不为造 state 重试 init。不能访问未授权历史或伪造恢复证据。恢复前仅保留独立安全工作和事实，不能把局部业务通过改写为整体 completed。
+未初始化成功的任务不能调用这一状态入口；此时保留失败证据并明确报告 blocked，不为造 state 重试 init。若原 CFM 不可达，不能访问未授权历史、创建替代库或忽略强制查询。恢复前仅保留独立安全工作和事实，不能把局部业务通过改写为整体 completed。
 
 ## Revision 3 机械字段与验收返工接口
 
 - `initial_test_owners` 当前标识初始测试任务；目标依赖与复用合同见 [测试协作](workflow.md#测试协作与文档清理)。文档/测试准备/汇总不冒充产品实现；按可达依赖等待测试，同一测试负责人可复用，测试与实现/整合保持身份独立。控制器检查传递可达的依赖和真实绑定身份；结构通过不能证明平台实际隔离。
 - 新 finding 必须有 `root_cause`、`fix_plan`、`regression_proof` 和 `documentation_update`。后者包含 `written_by`、`status=updated|not_applicable`、`paths`、`reason`；updated 必须列出正式文档，not_applicable 说明原因。证明作者与文档同步作者均为发现者，失败退出码非零且等于预期；`routed_to` 固定为首个 integration 的真实身份。
-- review 和 expensive_acceptance 各自包含非空 `usage_evidence` 数组。每项为 `written_by/environment/tool/entry/scope/result/evidence_refs/ui_applicability/ui_not_applicable_reason`；required 使用宿主实际提供的 Browser 或 Computer Use，不按操作系统限制工具；`environment` 如实填写实际执行环境的非空名称，无操作系统白名单。not_applicable 使用实际 CLI/API 并说明 UI 不适用原因。回执是对真实操作的索引，字段格式本身不是实际使用证明。
-- expensive_acceptance 包含 `mode=full|scoped`、`scope_acceptance_ids`；首次始终 full。`evidence_by_acceptance_id` 仅记录实际通过项，控制器生成 `passed_acceptance_ids`。scope 之外通过项必须在 `retained_evidence_by_acceptance_id` 中逐项给出最近 attempt 的 `source_attempt_id/evidence_refs/reason`，作者保持同一验收身份。失败和未运行项不能继承。
-- scoped 必须提交 `impact.changed_paths/affected_acceptance_ids/reason`。控制器核对两次实际候选 manifest，包括删除项；每个 acceptance item 的 `paths` 声明其依赖路径，所有被改动命中的项目都必须重新执行。输入/验收合同变化、未映射改动或证据不足时运行 full，不靠自报影响范围保留旧证据。
-- 验收发现的问题可声明 `acceptance_ids`，这些项目不能同时被本轮记录为通过。修复回执使其进入 `awaiting_retest`；创建并完成新的 integration 后 freeze 新 candidate，再 create-subtask-attempt，绑定同验收者。通过复验在 `closed_finding_ids` 列出全部待关闭验收 finding，控制器追加 `closed_by_attempt_id` 并直接关闭，不调用 create-re-review-subtask。首次完整审查形成的 `review_baseline` 及每次实际候选快照由控制器维护，后续免重复review不能靠预种失败回执获得。
+- review 和 expensive_acceptance 各自包含非空 `usage_evidence` 数组。每项为 `written_by/environment/tool/entry/scope/result/evidence_refs/ui_applicability/ui_not_applicable_reason`；required 使用 Browser 或 Windows native 的 Computer Use；not_applicable 使用实际 CLI/API 并说明 UI 不适用原因。回执是对真实操作的索引，字段格式本身不是实际使用证明。
+- 验收发现的问题可声明 `acceptance_ids`，这些项目不能同时被本轮记录为通过。修复回执使其进入 `awaiting_retest`；创建并完成新的 integration 后 freeze 新 candidate，再 create-subtask-attempt，绑定同验收者。通过复验在 `closed_finding_ids` 仅列出本次实际通过且满足关闭条件的验收 finding，控制器追加 `closed_by_attempt_id` 并直接关闭，不调用 create-re-review-subtask。首次完整审查形成的 `review_baseline` 及每次实际候选快照由控制器维护，后续免重复review不能靠预种失败回执获得。
 - 文档收尾仍只有一个 final_documentation 子任务。`documentation_sync` 包含 `checked_paths/changed_paths/behavior_changed/contract_changed/configuration_changed/reason`，纯文字同步将三个 changed 布尔值记为 false 并说明判断依据。控制器核对真实代码/配置/运行输入及正式文档 delta，仅允许正式文档变化且实际变更与回执一致；记录文档前后候选 hash 后保留原验收证据。真正行为、契约、配置变化必须新整合和复验，不能自报纯文字掩盖可执行文件漂移。
 
 以下是普通验收返工的命令顺序；正式 skill 黑盒效果失败不自动进入该链，先按 blackbox-methodology 的停止出口报告。普通验收返工的实际命令顺序为 `record-acceptance-findings` → 失败 `record-subtask-result` → `dispatch-finding-fix` → `record-finding-fix` → `create-integration-subtask` → 原整合者新结果 → `freeze-candidate` → `create-subtask-attempt` → 同验收者范围复验结果 → 单文档同步 → `finalize-task`。每步只在前一步成功后继续。
@@ -361,10 +307,22 @@ python3 "$GTO_CONTROLLER" --action finalize-task --repo-root "$repo_root" --task
 
 主协调器收到真实用户决定后，才提交 `record-blackbox-decision --result-json-file "$decision_json_file"`。载荷引用失败 attempt_id，repair 和 next_round 分别授权；重复相同决定幂等，不改失败历史。repair 仅允许原整合者修复；next_round 不授予修复权限，必须新候选重新 preparation pass，且 authorization_attempt_id 回指原失败。普通 finding 不得绕过停止派发产品修复。无效观察须先留原因及证据，再准备复查，其资源消耗仍保留。
 
-最终业务通过按同候选 ordinary 与 blackbox 各自 AC 聚合；preparation 不补业务覆盖，缺正式黑盒通过时不得绑定最终文档或 finalize。控制器只校验这些结构及证据关联，不认证会话隔离、根因或真实用户授权本身。
+最终业务通过按[当前有效的逐点覆盖](acceptance-points.md)聚合，允许任意历史候选来源；preparation 前提事实不补业务覆盖，缺必需的正式黑盒通过时不得绑定最终文档或 finalize。控制器只校验这些结构及证据关联，不认证会话隔离、根因或真实用户授权本身。
 
 六工件保存针对可捕获 OSError 做局部一致性保护：状态替换或事件追加失败时恢复该次写入前的六工件，并保留结构化诊断。该保护不承诺硬杀、断电或恢复写入再次失败时的持久事务语义。
 
 ## 运行绑定与能力证明
 
+`acceptance_gate.batch_targets` 是成功登记批次时由控制器生成的目标索引：以 batch_id 为键，保存 `candidate_id` 和完整批次载荷的 `payload_sha256`。历史结构校验和同目标判重采用该已核验回执，不重新读取未采用的可选附件；跨候选合法重绑保留，同目标重复单元或原始来源仍拒绝。此索引不由项目配置或登记载荷填写，旧冻结运行版本不原地迁移。
+
 `assignment.required_capabilities[]` 的定义、探针记录与失效机制，`capability_receipts[]` 的用途，以及 `current_candidate.runtime_snapshot` 的恢复方式唯一见 [运行与证据](runtime-evidence.md)。字段允许项由同包 schema 强制检查；能力声明属于批准合同，回执属于运行事实。公开 validate/preflight 检查当前候选；历史证据仍保留，修复动作不据旧候选过期禁止记录返工事实。
+
+文档影响判断边界：未关联验收点的纯文字纠正可直接登记；已声明为验收依赖的文档发生内容变化，由原验收者或原发现者通过 `record-acceptance-impact` 判断指定点仍适用，文档作者不能自行豁免。实际判定条件变化必须复验受影响点。
+
+## 恢复与登记精简
+
+新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。
+
+## 只读版本与诊断展示
+
+版本摘要与 diagnostics 仅为 CLI 输出，不新增 state 字段、不保存授权或通过标记。字段和待实现状态唯一见 [简化合同](streamlined-execution.md)。原状态、证据、错误和退出码保持。

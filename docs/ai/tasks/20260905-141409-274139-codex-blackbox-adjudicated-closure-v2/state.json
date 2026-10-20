@@ -1,0 +1,1162 @@
+{
+  "six_points": {
+    "do": "在用户明确人工授权后，以一个受管跟进任务关闭原黑盒任务达到三轮上限后仍开放的 F003、F004、F005、F007 四个边界，并在同一审查人通过后继续冻结候选和真实 Codex 黑盒验收。",
+    "do_not": [
+      "不篡改或重开原任务 20260905-121534-602895-codex-environment-blackbox 的 blocked 状态和历史事件。",
+      "不修改 WSL 系统配置、安装依赖、联网获取包、提交推送或清理用户工作区。",
+      "安全复审通过和候选冻结前不启动真实 Codex。",
+      "不删除原任务关键证据、跟进任务证据或 .artifacts 下真实验收证据。"
+    ],
+    "change_areas": [
+      "tests/benchmarks/codex_environment_autocompliance.py",
+      "tests/harness/test_codex_environment_autocompliance.py",
+      "docs/ai/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2",
+      "docs/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2",
+      ".artifacts/wsl-environment-blackbox"
+    ],
+    "implementation": "继承原任务已通过的 49 项基线，只为四个最终复审反例补充确定性测试和最小实现：所有 EvidenceFormatError 保留已完成命令；所有已识别命令生命周期事件的字符串输出参与敏感环境预扫描；reap 内再次 BaseException 也保留原中断并传播 unreaped；未回收时拒绝 remover。",
+    "acceptance": [
+      "四个审查反例在修改前稳定 Red，且失败是目标断言而非环境错误。",
+      "修改后新增反例和完整 focused module 全绿，无真实 Codex、网络或安装命令。",
+      "同一 reviewer /root/blackbox_security_review 对当前哈希关闭四项 finding。",
+      "49 项以上 focused module 与 61 项 WSL 环境回归重新通过，然后冻结候选。",
+      "实际 CODEX_HOME、配置默认模型、ephemeral JSON read-only 模式下执行黑盒；机器预检失败则以 INFRASTRUCTURE_BLOCKED 留证，不伪装 PASS。",
+      "只清理精确的 /tmp/codex-env-blackbox-* 测试夹具；关键证据持续保留。"
+    ],
+    "risks": [
+      "四项边界涉及解析增量证据、敏感输出和多重中断，过宽修复可能误接受畸形事件或误杀合法输出。",
+      "当前实际 CODEX_HOME 可能仍缺受管 runtime 或继承 Windows TEMP，真实验收可能在零模型调用时被机器预检阻塞。",
+      "未回收子进程时必须保留隔离夹具，此时清理失败是正确结果，不能强删。",
+      "任何新高风险发现或范围扩张都停止并重新请求用户裁决。"
+    ]
+  },
+  "objective": "在用户明确人工授权后，以一个受管跟进任务关闭原黑盒任务达到三轮上限后仍开放的 F003、F004、F005、F007 四个边界，并在同一审查人通过后继续冻结候选和真实 Codex 黑盒验收。",
+  "scope_in": [
+    "tests/benchmarks/codex_environment_autocompliance.py",
+    "tests/harness/test_codex_environment_autocompliance.py",
+    "docs/ai/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2",
+    "docs/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2",
+    ".artifacts/wsl-environment-blackbox"
+  ],
+  "scope_out": [
+    "不篡改或重开原任务 20260905-121534-602895-codex-environment-blackbox 的 blocked 状态和历史事件。",
+    "不修改 WSL 系统配置、安装依赖、联网获取包、提交推送或清理用户工作区。",
+    "安全复审通过和候选冻结前不启动真实 Codex。",
+    "不删除原任务关键证据、跟进任务证据或 .artifacts 下真实验收证据。"
+  ],
+  "acceptance": [
+    "四个审查反例在修改前稳定 Red，且失败是目标断言而非环境错误。",
+    "修改后新增反例和完整 focused module 全绿，无真实 Codex、网络或安装命令。",
+    "同一 reviewer /root/blackbox_security_review 对当前哈希关闭四项 finding。",
+    "49 项以上 focused module 与 61 项 WSL 环境回归重新通过，然后冻结候选。",
+    "实际 CODEX_HOME、配置默认模型、ephemeral JSON read-only 模式下执行黑盒；机器预检失败则以 INFRASTRUCTURE_BLOCKED 留证，不伪装 PASS。",
+    "只清理精确的 /tmp/codex-env-blackbox-* 测试夹具；关键证据持续保留。"
+  ],
+  "stop_conditions": [
+    "四项边界涉及解析增量证据、敏感输出和多重中断，过宽修复可能误接受畸形事件或误杀合法输出。",
+    "当前实际 CODEX_HOME 可能仍缺受管 runtime 或继承 Windows TEMP，真实验收可能在零模型调用时被机器预检阻塞。",
+    "未回收子进程时必须保留隔离夹具，此时清理失败是正确结果，不能强删。",
+    "任何新高风险发现或范围扩张都停止并重新请求用户裁决。"
+  ],
+  "decisions": [
+    "继承原任务已通过的 49 项基线，只为四个最终复审反例补充确定性测试和最小实现：所有 EvidenceFormatError 保留已完成命令；所有已识别命令生命周期事件的字符串输出参与敏感环境预扫描；reap 内再次 BaseException 也保留原中断并传播 unreaped；未回收时拒绝 remover。",
+    "用户于 2026-09-05 明确回复授权，批准在不篡改原任务的前提下建立一次人工裁决跟进任务。",
+    "原任务 20260905-121534-602895-codex-environment-blackbox 保持 blocked，作为三轮上限与人工裁决的不可变审计记录。",
+    "首次跟进任务 20260905-135110-264935-codex-blackbox-adjudicated-closure 因 pending 子任务无法由现有控制器转为 ready 而保留为审计记录；替代任务不篡改它。",
+    "跟进任务仅承接 F003、F004、F005、F007 的最终复审反例，修复后仍回到同一 reviewer。",
+    "真实验收使用实际 CODEX_HOME、配置默认模型和 codex exec --ephemeral --json --sandbox read-only。"
+  ],
+  "approval": {
+    "status": "approved",
+    "approved_by": "user",
+    "contract_sha256": "4439a7791f7688d5455e6e5c36d2c277a25227852aa1e86b437f466410c6d87f",
+    "approved_at": "2026-09-05T06:14:38.800157Z"
+  },
+  "verification_contract": {
+    "minimal_repro": "复现四个最终审查反例：合法空对象等畸形事件清空前序 npm install；item.updated 的 JSON 转义 PATH/HOME/LANG/SHELL 被写盘；reap 阶段第二个 BaseException 逃逸并丢失 unreaped；原中断被替换且夹具被误删。",
+    "hit_proof": "新增测试直接走 parse_codex_jsonl/_codex_result、_persist_real_run、_run_process/_terminate_and_reap 和 execute_with_cleanup 的真实控制链，并断言命令保留、原子拒写、原中断 identity、unreaped 隔离和 remover 零调用。",
+    "diagnostic_checks": [
+      "只运行新增最小测试并确认修改前为目标断言 Red。",
+      "检查任何失败后 /tmp 下无测试自身夹具残留。",
+      "对敏感拒写验证 refusal audit 不含环境原值。"
+    ],
+    "acceptance_checks": [
+      "运行完整 tests.harness.test_codex_environment_autocompliance。",
+      "运行 tests.harness.test_wsl_environment、test_wsl_tools、test_wsl_runtime。",
+      "由同一安全 reviewer 复查最新两文件哈希。",
+      "冻结候选后运行一次受控真实黑盒验收。",
+      "核对 .artifacts 证据哈希、调用次数、状态和精确清理结果。"
+    ],
+    "non_goals": [
+      "不编写通用 shell、JSON 或进程监管框架。",
+      "不自动修复实际 CODEX_HOME、TEMP、runtime 或 receipt。",
+      "不以 49 项旧测试通过替代四个新增反例的直接命中证明。"
+    ],
+    "review_evidence": [
+      "repro_before_fix",
+      "pass_after_fix",
+      "hit_proof_observed",
+      "relevant_regression_ok",
+      "cleanup_proof",
+      "independent_final_review"
+    ]
+  },
+  "workflow_revision": 2,
+  "acceptance_gate": {
+    "candidate_inputs": {
+      "code_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "config_paths": [],
+      "runtime_input_paths": [
+        "templates/codex/AGENTS.global.md",
+        "scripts/doctor-core.py",
+        "scripts/project-env-doctor.py",
+        "config/ai/wsl-tool-baseline.json",
+        "schemas/project-environment.schema.json"
+      ],
+      "runtime_inputs": {
+        "codex_mode": "exec-ephemeral-json-read-only",
+        "model": "configured-default",
+        "behavior_runs_per_scenario": 3,
+        "evidence_retention": "retain-until-explicit-user-delete"
+      }
+    },
+    "current_candidate": null,
+    "acceptance_items": [
+      {
+        "acceptance_id": "LOAD-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "ORDER-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "HEALTHY-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "BROKEN-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "WINDOWS-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "SAFETY-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "CLEANUP-001",
+        "evidence_refs": []
+      },
+      {
+        "acceptance_id": "EVIDENCE-001",
+        "evidence_refs": []
+      }
+    ],
+    "attempt_policy": {
+      "max_expensive_attempts": 4,
+      "max_full_attempts_per_candidate": 1,
+      "max_environment_retries_per_candidate": 1,
+      "approval_required_from_attempt": 3
+    },
+    "attempts": []
+  },
+  "subtasks": [
+    {
+      "subtask_id": "DOC-ADJ-001",
+      "title": "Freeze adjudicated follow-up contract and lineage",
+      "role": "doc-curator",
+      "stage": "work",
+      "status": "completed",
+      "dependencies": [],
+      "read_paths": [
+        "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox",
+        ".tmp/20260905-121534-602895-codex-environment-blackbox/security-rereview-3-result.json"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Confirm the user authorization, parent blocked task lineage, four bounded findings, and no-real-Codex-before-review boundary.",
+        "must_include": [
+          "Parent task remains blocked",
+          "Only F003 F004 F005 F007 continue",
+          "Critical evidence retention remains in force"
+        ],
+        "verification": [
+          "Return the frozen lineage and authorization summary without source changes"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "doc-curator",
+        "platform_agent_id": "root",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "61a24f6f4479813beb903f1cd652b9ee2086a9604f6223bd25182f83c10945c7",
+        "brief_path": ".tmp/gto/20260905-135110-264935-codex-blackbox-adjudicated-closure/doc-brief.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Frozen the user-authorized follow-up lineage without modifying the parent task: only F003, F004, F005 and F007 continue; real Codex remains gated behind review and candidate freeze; critical evidence retention remains in force.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "jq parent state blocked findings and follow-up contract",
+            "validate follow-up contract through successful GTO init-task"
+          ],
+          "result": "Parent task remains blocked with four findings at fix_round=3; follow-up task initialized under the user's explicit authorization; no real Codex was launched and no evidence was deleted."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "The actual CODEX_HOME may still fail machine preflight after code review; that outcome must remain INFRASTRUCTURE_BLOCKED rather than be normalized away."
+        ],
+        "follow_up": [
+          "TEST-ADJ-001 must prove all four adjudicated counterexamples Red before implementation changes."
+        ],
+        "written_by": "root",
+        "written_role": "doc-curator",
+        "review_evidence": {
+          "repro_before_fix": "The parent final re-review preserved exact reproducible counterexamples for F003, F004, F005 and F007 and the parent state remains blocked for audit integrity."
+        }
+      }
+    },
+    {
+      "subtask_id": "TEST-ADJ-001",
+      "title": "Add adjudicated boundary regression tests",
+      "role": "tester",
+      "stage": "work",
+      "status": "completed",
+      "dependencies": [
+        "DOC-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "write_paths": [
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "assignment": {
+        "goal": "Add deterministic Red tests for the four exact final-review counterexamples.",
+        "must_include": [
+          "All EvidenceFormatError branches preserve partial completed commands",
+          "updated event escaped environment refusal",
+          "repeated BaseException during reap",
+          "original interruption identity and unreaped quarantine"
+        ],
+        "verification": [
+          "Run only new tests and prove target assertion failures with zero environment errors"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "tester",
+        "platform_agent_id": "/root/blackbox_tests",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "b564a253fbb7cd7f4cbca3aff3ce123728281ded3f8fe2d14d44d5ddc0c96ae1",
+        "brief_path": ".tmp/gto/20260905-135110-264935-codex-blackbox-adjudicated-closure/test-brief.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Added four deterministic adjudicated-closure regression tests covering all parser format errors, lifecycle environment-output prescan, repeated BaseException during reap, and interrupted-unreaped cleanup quarantine.",
+        "changed_files": [
+          "tests/harness/test_codex_environment_autocompliance.py"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "TEMP=/tmp TMP=/tmp TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -q tests.harness.test_codex_environment_autocompliance",
+            "TEMP=/tmp TMP=/tmp TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v tests.harness.test_codex_environment_autocompliance.AdjudicatedClosureRegressionTests",
+            "find /tmp -maxdepth 1 -mindepth 1 -type d -name codex-env-blackbox-*"
+          ],
+          "result": "Pre-change baseline passed 49/49. The new class independently reproduced expected Red: 4 tests, 19 target assertion failures, 0 errors. F003 discarded prior npm install on four non-JSON format errors; F004 wrote started/updated escaped environment output; F005 replaced the original interruption and lost unreaped/termination; F007 deleted the fixture and recorded infrastructure-only status. No test-owned fixture remained and no real Codex ran."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "The implementation must preserve strict parser failure while retaining only already completed command evidence; malformed trailing data must never permit PASS."
+        ],
+        "follow_up": [
+          "IMPL-ADJ-001 must change only the benchmark implementation and make these exact four tests Green."
+        ],
+        "written_by": "/root/blackbox_tests",
+        "written_role": "tester",
+        "review_evidence": {
+          "repro_before_fix": "Main agent independently reproduced 4 tests with 19 expected assertion failures and zero errors against implementation SHA256 9176ffe24bca3e7ccbac736173565461cffa8ddfd17017c03b44626e95c039d6.",
+          "hit_proof_observed": "The Red output directly showed partial commands becoming empty, lifecycle environment outputs being persisted, the second BaseException replacing the original, unreaped metadata disappearing, and remover being called."
+        }
+      }
+    },
+    {
+      "subtask_id": "IMPL-ADJ-001",
+      "title": "Implement adjudicated boundary closure",
+      "role": "backend-implementer",
+      "stage": "work",
+      "status": "completed",
+      "dependencies": [
+        "TEST-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "write_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py"
+      ],
+      "assignment": {
+        "goal": "Make the four new regression tests Green with minimal scoped changes.",
+        "must_include": [
+          "incremental evidence on every parser format failure",
+          "lifecycle output pre-scan",
+          "BaseException-safe reap",
+          "unreaped deletion quarantine"
+        ],
+        "verification": [
+          "Run new tests and full focused module without real Codex"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/blackbox_impl",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "ce487feab0f61c263edad2479e6acb390c62ed7babb9d119981a49d17b92a2cb",
+        "brief_path": ".tmp/gto/20260905-135110-264935-codex-blackbox-adjudicated-closure/impl-brief.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Closed the four adjudicated black-box evidence and cleanup boundaries with minimal implementation changes, while preserving the strict no-real-Codex verification boundary.",
+        "changed_files": [
+          "tests/benchmarks/codex_environment_autocompliance.py"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "TEMP=/tmp TMP=/tmp TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -q tests.harness.test_codex_environment_autocompliance",
+            "python3 -c ast.parse both focused implementation and test files",
+            "sha256sum tests/benchmarks/codex_environment_autocompliance.py tests/harness/test_codex_environment_autocompliance.py",
+            "git diff --check -- tests/benchmarks/codex_environment_autocompliance.py tests/harness/test_codex_environment_autocompliance.py",
+            "find /tmp -maxdepth 1 -type d -name codex-env-blackbox-* -print"
+          ],
+          "result": "Main-agent independent verification passed 53/53 focused tests in 4.459 seconds; both files parsed successfully; scoped diff check was clean; implementation SHA256 is 27d9d66d794b7e7834650bc6450d50d6c3bca555e8d63952c322d7d53a65ab08 and test SHA256 is 7caa7559ec73312dcf54fd1a8d9a4e7ecc235e512780f7d095caa07aacdca109; no test fixture residue remained."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "This implementation stage intentionally did not call real Codex; actual-machine acceptance remains gated by independent verification, review, and candidate freeze."
+        ],
+        "follow_up": [
+          "VERIFY-ADJ-001 must independently run the focused suite, the 61 WSL regressions, direct hit proof, and residue checks."
+        ],
+        "written_by": "/root/blackbox_impl",
+        "written_role": "backend-implementer",
+        "review_evidence": {
+          "pass_after_fix": "All four adjudicated tests and the full 53-test focused module passed on the final implementation hash.",
+          "hit_proof_observed": "The tests directly exercise every parser format-failure branch, lifecycle output pre-scan, repeated BaseException reap stages, original interruption identity, and unreaped cleanup quarantine.",
+          "cleanup_proof": "The exact /tmp/codex-env-blackbox-* residue scan returned no paths after verification."
+        }
+      }
+    },
+    {
+      "subtask_id": "VERIFY-ADJ-001",
+      "title": "Run focused and WSL regression verification",
+      "role": "test-verifier",
+      "stage": "cheap_check",
+      "status": "completed",
+      "dependencies": [
+        "IMPL-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py",
+        "tests/harness/test_wsl_environment.py",
+        "tests/harness/test_wsl_tools.py",
+        "tests/harness/test_wsl_runtime.py"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Independently verify hit proof, full focused suite, WSL regressions and cleanup.",
+        "must_include": [
+          "direct hit proof",
+          "focused module",
+          "61 WSL regressions",
+          "no fixture residue"
+        ],
+        "verification": [
+          "Return exact commands, counts, duration and evidence slots"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "test-verifier",
+        "platform_agent_id": "/root/blackbox_verify_adj",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "33796343955070ffda72054dbba40584184e108db2260283e47be06271ff64d7",
+        "brief_path": ".tmp/gto/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/verify-brief.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Independent read-only cheap check passed all adjudicated hit-proof tests, the full focused module, all WSL regressions, hash binding, scoped diff validation, and exact fixture residue checks.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "/usr/bin/time -f VERIFY_DURATION_SECONDS=%e env TEMP=/tmp TMP=/tmp TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v tests.harness.test_codex_environment_autocompliance.AdjudicatedClosureRegressionTests",
+            "/usr/bin/time -f VERIFY_DURATION_SECONDS=%e env TEMP=/tmp TMP=/tmp TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v tests.harness.test_codex_environment_autocompliance",
+            "/usr/bin/time -f VERIFY_DURATION_SECONDS=%e env TEMP=/tmp TMP=/tmp TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v tests.harness.test_wsl_environment tests.harness.test_wsl_tools tests.harness.test_wsl_runtime",
+            "git diff --check -- tests/benchmarks/codex_environment_autocompliance.py tests/harness/test_codex_environment_autocompliance.py tests/harness/test_wsl_environment.py tests/harness/test_wsl_tools.py tests/harness/test_wsl_runtime.py",
+            "sha256sum tests/benchmarks/codex_environment_autocompliance.py tests/harness/test_codex_environment_autocompliance.py",
+            "compute GTO review target and source manifest with PYTHONDONTWRITEBYTECODE=1",
+            "find /tmp -maxdepth 1 -mindepth 1 -type d -name codex-env-blackbox-* before and after verification"
+          ],
+          "result": "4/4 adjudicated tests passed (0.388s unittest, 0.64s outer); 53/53 focused tests passed (4.389s unittest, 4.61s outer); 61/61 WSL regressions passed (157.215s unittest, 150.97s outer), all with zero failures/errors and exit 0. Scoped diff check passed, hashes and review target matched the brief, and exact fixture residue was zero before and after."
+        },
+        "deviations": [
+          "An earlier 61-test command naturally completed after its first output collection handle was lost, so it was excluded from the verdict and rerun only after the prior process had ended; the recorded verdict uses the single fully collected evidence run.",
+          "The 61-test unittest timer reported 157.215 seconds while the outer /usr/bin/time reported 150.97 seconds; both raw values are retained and the count and exit status are unaffected."
+        ],
+        "blocked_by": [],
+        "risks": [
+          "Actual-machine behavior remains unknown until the separately gated real Codex acceptance runs after review and candidate freeze."
+        ],
+        "follow_up": [
+          "The original security reviewer must replay F003, F004, F005, and F007 against the latest source manifest before candidate freeze."
+        ],
+        "written_by": "/root/blackbox_verify_adj",
+        "written_role": "test-verifier",
+        "cheap_check": {
+          "passed": true
+        },
+        "review_evidence": {
+          "repro_before_fix": "Verifier did not mutate or revert the frozen candidate. The preserved TEST-ADJ-001 Red baseline records 4 adjudicated tests with 19 target assertion failures, 0 errors, against pre-fix implementation SHA256 9176ffe24bca3e7ccbac736173565461cffa8ddfd17017c03b44626e95c039d6.",
+          "pass_after_fix": "Independent verifier ran the four AdjudicatedClosureRegressionTests (4/4 in 0.388s, outer 0.64s) and the full focused module (53/53 in 4.389s, outer 4.61s); both exited 0 on implementation SHA256 27d9d66d794b7e7834650bc6450d50d6c3bca555e8d63952c322d7d53a65ab08 and test SHA256 7caa7559ec73312dcf54fd1a8d9a4e7ecc235e512780f7d095caa07aacdca109.",
+          "hit_proof_observed": "Verbose execution directly hit and passed ADJ_F003 format-error evidence precedence, ADJ_F004 lifecycle-output prescan with healthy-update allowance, ADJ_F005 repeated BaseException reap preserving original interruption and unreaped state, and ADJ_F007 fail-closed cleanup without deletion or rescheduling.",
+          "relevant_regression_ok": "Independent verifier ran tests.harness.test_wsl_environment, tests.harness.test_wsl_tools, and tests.harness.test_wsl_runtime: 61/61 passed, 0 failures/errors, unittest 157.215s, outer 150.97s, exit 0.",
+          "cleanup_proof": "Exact /tmp codex-env-blackbox-* scan was empty before verification and CLEANUP_MATCH_COUNT=0 after verification; no persistent .artifacts or task evidence was deleted."
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-SEC-ADJ-001",
+      "title": "Review adjudicated security boundaries",
+      "role": "reviewer",
+      "stage": "pre_acceptance_review",
+      "status": "completed",
+      "dependencies": [
+        "VERIFY-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py",
+        "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "The same original reviewer replays the four adjudicated counterexamples and checks adjacent bypasses on the latest hashes.",
+        "must_include": [
+          "F003",
+          "F004",
+          "F005",
+          "F007",
+          "No real Codex before pass"
+        ],
+        "verification": [
+          "Return schema-exact task review bound to the latest source manifest"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/blackbox_security_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "57b8c7ef8fddc545a3db60da35353c48b856df91888c79d77f4daf1ad418f6f9",
+        "brief_path": ".tmp/gto/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/security-review-brief.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "task review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/blackbox_security_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "task",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "/root/blackbox_security_review",
+          "reviewed_change_sha256": "2621516b05e69b5a0fc084aed3fbbb3425c701fb69cdddab7e9412f02bf85a98",
+          "findings": [
+            {
+              "finding_id": "REVIEW-SEC-ADJ-001-F001",
+              "severity": "critical",
+              "paths": [
+                "tests/benchmarks/codex_environment_autocompliance.py",
+                "tests/harness/test_codex_environment_autocompliance.py"
+              ],
+              "summary": "完整环境快照分片到多个已识别命令生命周期事件时仍可绕过敏感证据预扫描并原值落盘。",
+              "evidence": "Frozen manifest hashes matched the brief; 4/4 AdjudicatedClosureRegressionTests and 53/53 focused tests passed. An additional read-only reproduction split PATH/HOME across item.started.aggregated_output and LANG/SHELL across item.updated.aggregated_output, with a safe item.completed. _recognized_command_outputs collected both strings, but _assert_safe_evidence evaluated each list element separately, so _persist_real_run returned without SensitiveEvidenceError, wrote stdout.jsonl, retained /home/secret and /opt/secret/bash, and created no sensitive-evidence-refusal.json.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/blackbox_impl"
+              }
+            },
+            {
+              "finding_id": "REVIEW-SEC-ADJ-001-F002",
+              "severity": "high",
+              "paths": [
+                "tests/benchmarks/codex_environment_autocompliance.py",
+                "tests/harness/test_codex_environment_autocompliance.py"
+              ],
+              "summary": "普通 timeout 返回 unreaped=true 后，真实操作仍继续调度后续 Codex 调用。",
+              "evidence": "A read-only mocked _real_operation reproduction returned unreaped=true from the instruction-discovery process with FINAL_REAP_CHECK=false. The function still invoked _run_process for all three smoke scenarios, producing process_calls=4, status=INFRASTRUCTURE_BLOCKED, unreaped=true. Cleanup quarantine may later prevent deletion, but it does not prevent later scheduling while the prior process may still be alive and using the fixture.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/blackbox_impl"
+              }
+            },
+            {
+              "finding_id": "REVIEW-SEC-ADJ-001-F003",
+              "severity": "high",
+              "paths": [
+                "tests/benchmarks/codex_environment_autocompliance.py",
+                "tests/harness/test_codex_environment_autocompliance.py"
+              ],
+              "summary": "终止证据回调中的再次中断会替换原始中断、丢失 unreaped 状态并触发不安全的夹具删除。",
+              "evidence": "A read-only reproduction made the initial communicate raise an original KeyboardInterrupt, kept poll() at None through bounded reap, and made on_termination raise a second KeyboardInterrupt. Although _terminate_and_reap had derived unreaped=true and attached it to the original exception, the callback exception escaped _run_process. execute_with_cleanup therefore handled the secondary exception without _codex_unreaped, recorded status=INFRASTRUCTURE_BLOCKED and unreaped=false, called the remover, deleted the fixture, and re-raised the secondary rather than the original exception.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/blackbox_impl"
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "REVIEW-SEC-ADJ-001-F001",
+              "REVIEW-SEC-ADJ-001-F002",
+              "REVIEW-SEC-ADJ-001-F003"
+            ],
+            "fix_delta_sha256": "fe44a8cccd89edae70b54c5e58399979bd7d8b12643a8396ad62d089a781b692",
+            "paths": [
+              "tests/benchmarks/codex_environment_autocompliance.py",
+              "tests/harness/test_codex_environment_autocompliance.py"
+            ],
+            "evidence_refs": [
+              "structured-review-result"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "EXPENSIVE-001",
+      "title": "Run real fresh-Codex black-box acceptance",
+      "role": "test-verifier",
+      "stage": "expensive_acceptance",
+      "status": "ready",
+      "dependencies": [
+        "REVIEW-SEC-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "templates/codex/AGENTS.global.md",
+        "scripts/doctor-core.py",
+        "scripts/project-env-doctor.py"
+      ],
+      "write_paths": [
+        ".artifacts/wsl-environment-blackbox"
+      ],
+      "assignment": {
+        "goal": "After review pass and candidate freeze, run the approved actual CODEX_HOME/default-model black box and retain all evidence.",
+        "must_include": [
+          "actual CODEX_HOME",
+          "configured default model",
+          "ephemeral JSON read-only",
+          "maximum ten fresh calls",
+          "exact fixture cleanup",
+          "persistent evidence"
+        ],
+        "verification": [
+          "Report outcome classification, real call count, duration, failed stage and evidence per acceptance id"
+        ]
+      }
+    },
+    {
+      "subtask_id": "FINAL-DOC-001",
+      "title": "Finalize adjudicated black-box evidence documentation",
+      "role": "doc-curator",
+      "stage": "final_documentation",
+      "status": "ready",
+      "dependencies": [
+        "EXPENSIVE-001"
+      ],
+      "read_paths": [
+        ".artifacts/wsl-environment-blackbox",
+        "docs/ai/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2"
+      ],
+      "write_paths": [
+        "docs/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/execution.md",
+        "docs/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/acceptance.md"
+      ],
+      "assignment": {
+        "goal": "Record the actual acceptance outcome, retained evidence and cleanup result without overstating an infrastructure-blocked run.",
+        "must_include": [
+          "real call count",
+          "outcome status",
+          "evidence path and hashes",
+          "fixture cleanup",
+          "remaining risk"
+        ],
+        "verification": [
+          "Task documents match the frozen candidate and persistent evidence"
+        ]
+      }
+    },
+    {
+      "subtask_id": "FINAL-REVIEW-001",
+      "title": "Perform independent final review of adjudicated closure",
+      "role": "reviewer",
+      "stage": "final_review",
+      "status": "ready",
+      "dependencies": [
+        "FINAL-DOC-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py",
+        ".artifacts/wsl-environment-blackbox",
+        "docs/tasks/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Independently verify the latest candidate, acceptance classification, retained evidence and cleanup proof before finalization.",
+        "must_include": [
+          "candidate hash",
+          "review closure",
+          "acceptance evidence",
+          "cleanup evidence",
+          "no overclaim"
+        ],
+        "verification": [
+          "Return schema-exact final review bound to the latest candidate"
+        ]
+      }
+    },
+    {
+      "subtask_id": "REVIEW-SEC-ADJ-001-rereview-1",
+      "title": "Review adjudicated security boundaries re-review 1",
+      "role": "reviewer",
+      "stage": "pre_acceptance_review",
+      "status": "completed",
+      "dependencies": [
+        "VERIFY-ADJ-001",
+        "REVIEW-SEC-ADJ-001"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py",
+        "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Re-review fixed findings: REVIEW-SEC-ADJ-001-F001, REVIEW-SEC-ADJ-001-F002, REVIEW-SEC-ADJ-001-F003",
+        "must_include": [
+          "Re-review finding REVIEW-SEC-ADJ-001-F001.",
+          "Re-review finding REVIEW-SEC-ADJ-001-F002.",
+          "Re-review finding REVIEW-SEC-ADJ-001-F003."
+        ],
+        "verification": [
+          "Return schema-exact task review bound to the latest source manifest"
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/blackbox_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/blackbox_security_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/blackbox_security_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "2c4ff4f7c70b58299984b0e9cb35d1adb4c53cd337a5aa21b314be929a3a5727",
+        "brief_path": ".tmp/gto/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/security-rereview-1-brief.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/blackbox_security_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "/root/blackbox_security_review",
+          "reviewed_change_sha256": "7aebc6fd2321bfcab890a2c4dee174a7ed7d4cd946d63917836866d5eabe0586",
+          "findings": [
+            {
+              "finding_id": "REVIEW-SEC-ADJ-001-F001",
+              "severity": "critical",
+              "paths": [
+                "tests/benchmarks/codex_environment_autocompliance.py",
+                "tests/harness/test_codex_environment_autocompliance.py"
+              ],
+              "summary": "完整环境快照分片到多个已识别命令生命周期事件时仍可绕过敏感证据预扫描并原值落盘。",
+              "evidence": "Frozen manifest hashes matched the brief; 4/4 AdjudicatedClosureRegressionTests and 53/53 focused tests passed. An additional read-only reproduction split PATH/HOME across item.started.aggregated_output and LANG/SHELL across item.updated.aggregated_output, with a safe item.completed. _recognized_command_outputs collected both strings, but _assert_safe_evidence evaluated each list element separately, so _persist_real_run returned without SensitiveEvidenceError, wrote stdout.jsonl, retained /home/secret and /opt/secret/bash, and created no sensitive-evidence-refusal.json.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/blackbox_impl"
+              },
+              "fix_delta": {
+                "summary": "Added recursive environment-assignment aggregation so a complete PATH/HOME/LANG/SHELL snapshot split across lifecycle outputs is refused before any round evidence is written; added the exact security regression.",
+                "changed_files": [
+                  "tests/benchmarks/codex_environment_autocompliance.py",
+                  "tests/harness/test_codex_environment_autocompliance.py"
+                ],
+                "sha256": "7aebc6fd2321bfcab890a2c4dee174a7ed7d4cd946d63917836866d5eabe0586",
+                "verification": "Pre-fix test reproduced atomic refusal failure; post-fix SecurityReviewAdjudicationRegressionTests passed 3/3 and full focused module passed 56/56; implementation/test hashes are 2d44afecc9adb8fb04d5c6ec87137e3c25bda94f5609a6332f08d8cee96b2c40 and 4c5485fb13e2b22197231aa8a8f627eb16c5f998088821eefc9ca889aef63d0b."
+              }
+            },
+            {
+              "finding_id": "REVIEW-SEC-ADJ-001-F002",
+              "severity": "high",
+              "paths": [
+                "tests/benchmarks/codex_environment_autocompliance.py",
+                "tests/harness/test_codex_environment_autocompliance.py"
+              ],
+              "summary": "普通 timeout 返回 unreaped=true 后，真实操作仍继续调度后续 Codex 调用。",
+              "evidence": "A read-only mocked _real_operation reproduction returned unreaped=true from the instruction-discovery process with FINAL_REAP_CHECK=false. The function still invoked _run_process for all three smoke scenarios, producing process_calls=4, status=INFRASTRUCTURE_BLOCKED, unreaped=true. Cleanup quarantine may later prevent deletion, but it does not prevent later scheduling while the prior process may still be alive and using the fixture.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/blackbox_impl"
+              },
+              "fix_delta": {
+                "summary": "Made any unreaped process result an immediate scheduling stop after persisting the completed assertion, preventing later smoke or repeated Codex calls; added the exact call-count regression.",
+                "changed_files": [
+                  "tests/benchmarks/codex_environment_autocompliance.py",
+                  "tests/harness/test_codex_environment_autocompliance.py"
+                ],
+                "sha256": "7aebc6fd2321bfcab890a2c4dee174a7ed7d4cd946d63917836866d5eabe0586",
+                "verification": "Pre-fix reproduction observed four process calls after unreaped discovery; post-fix SecurityReviewAdjudicationRegressionTests passed 3/3 and full focused module passed 56/56 with exact residue count zero."
+              }
+            },
+            {
+              "finding_id": "REVIEW-SEC-ADJ-001-F003",
+              "severity": "high",
+              "paths": [
+                "tests/benchmarks/codex_environment_autocompliance.py",
+                "tests/harness/test_codex_environment_autocompliance.py"
+              ],
+              "summary": "终止证据回调中的再次中断会替换原始中断、丢失 unreaped 状态并触发不安全的夹具删除。",
+              "evidence": "A read-only reproduction made the initial communicate raise an original KeyboardInterrupt, kept poll() at None through bounded reap, and made on_termination raise a second KeyboardInterrupt. Although _terminate_and_reap had derived unreaped=true and attached it to the original exception, the callback exception escaped _run_process. execute_with_cleanup therefore handled the secondary exception without _codex_unreaped, recorded status=INFRASTRUCTURE_BLOCKED and unreaped=false, called the remover, deleted the fixture, and re-raised the secondary rather than the original exception.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/blackbox_impl"
+              },
+              "fix_delta": {
+                "summary": "Contained secondary BaseException from the termination evidence callback so the original interruption identity and attached unreaped/termination state reach cleanup quarantine; added the exact identity and remover-zero regression.",
+                "changed_files": [
+                  "tests/benchmarks/codex_environment_autocompliance.py",
+                  "tests/harness/test_codex_environment_autocompliance.py"
+                ],
+                "sha256": "7aebc6fd2321bfcab890a2c4dee174a7ed7d4cd946d63917836866d5eabe0586",
+                "verification": "Pre-fix reproduction showed the callback interruption replacing the original and deleting the fixture; post-fix SecurityReviewAdjudicationRegressionTests passed 3/3, full focused module passed 56/56, and exact residue scan was empty."
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "REVIEW-SEC-ADJ-001-F001",
+              "REVIEW-SEC-ADJ-001-F002",
+              "REVIEW-SEC-ADJ-001-F003"
+            ],
+            "fix_delta_sha256": "b08176812310eea81b0950506cf60d599cc3ecb4f7959370d483cd437bc60342",
+            "paths": [
+              "tests/benchmarks/codex_environment_autocompliance.py",
+              "tests/harness/test_codex_environment_autocompliance.py"
+            ],
+            "evidence_refs": [
+              "structured-review-result"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-SEC-ADJ-001-rereview-2",
+      "title": "Review adjudicated security boundaries re-review 1 re-review 2",
+      "role": "reviewer",
+      "stage": "pre_acceptance_review",
+      "status": "completed",
+      "dependencies": [
+        "VERIFY-ADJ-001",
+        "REVIEW-SEC-ADJ-001",
+        "REVIEW-SEC-ADJ-001-rereview-1"
+      ],
+      "read_paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py",
+        "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Re-review fixed findings: REVIEW-SEC-ADJ-001-F002",
+        "must_include": [
+          "Re-review finding REVIEW-SEC-ADJ-001-F002."
+        ],
+        "verification": [
+          "Return schema-exact task review bound to the latest source manifest"
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/blackbox_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/blackbox_security_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/blackbox_security_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "365c6838a0d4f518764cef866265854811f0c45b799111067b4f253d5e4aee5d",
+        "brief_path": ".tmp/gto/20260905-141409-274139-codex-blackbox-adjudicated-closure-v2/security-rereview-2-brief.md"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/blackbox_security_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "/root/blackbox_security_review",
+          "reviewed_change_sha256": "09052da735aea8d6ea5a937fbcd022e34c872036302446bb840cf8e791f61acd",
+          "findings": [
+            {
+              "finding_id": "REVIEW-SEC-ADJ-001-F002",
+              "severity": "high",
+              "paths": [
+                "tests/benchmarks/codex_environment_autocompliance.py",
+                "tests/harness/test_codex_environment_autocompliance.py"
+              ],
+              "summary": "普通 timeout 返回 unreaped=true 后，真实操作仍继续调度后续 Codex 调用。",
+              "evidence": "A read-only mocked _real_operation reproduction returned unreaped=true from the instruction-discovery process with FINAL_REAP_CHECK=false. The function still invoked _run_process for all three smoke scenarios, producing process_calls=4, status=INFRASTRUCTURE_BLOCKED, unreaped=true. Cleanup quarantine may later prevent deletion, but it does not prevent later scheduling while the prior process may still be alive and using the fixture.",
+              "status": "open",
+              "fix_round": 2,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/blackbox_impl"
+              },
+              "fix_delta": {
+                "summary": "Preserved unreaped, timeout, and termination metadata across SensitiveEvidenceError so the combined refusal path remains fail-closed, writes a value-free refusal audit, invokes no remover, and quarantines the fixture; added the exact combined regression.",
+                "changed_files": [
+                  "tests/benchmarks/codex_environment_autocompliance.py",
+                  "tests/harness/test_codex_environment_autocompliance.py"
+                ],
+                "sha256": "09052da735aea8d6ea5a937fbcd022e34c872036302446bb840cf8e791f61acd",
+                "verification": "Pre-fix combined test failed with lost unreaped state and fixture deletion; post-fix combined test passed 1/1, security adjudication tests passed 4/4, full focused module passed 57/57, implementation SHA256 is 46bb3fcec0007fd0966a54c51fb569fd0d83aca04902f35545556d80505d4b11 and test SHA256 is f31ecb8e79a666a7c83c4c0477e234455c006cf3abe845610118fb002a710d33."
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "REVIEW-SEC-ADJ-001-F002"
+            ],
+            "fix_delta_sha256": "9309a30fbf827b2eda604b37ae616a0dc7d290b750e7c5f0f0ca1c594ab9108b",
+            "paths": [
+              "tests/benchmarks/codex_environment_autocompliance.py",
+              "tests/harness/test_codex_environment_autocompliance.py"
+            ],
+            "evidence_refs": [
+              "structured-review-result"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "task_id": "20260905-141409-274139-codex-blackbox-adjudicated-closure-v2",
+  "title": "Codex environment black-box adjudicated boundary closure v2",
+  "owner": "root",
+  "status": "active",
+  "current_phase": "review",
+  "version": 3,
+  "workspace": {
+    "repo_root": "<repo-root>",
+    "checkout_kind": "primary",
+    "branch": "main",
+    "head": "c79d58cb0345a0cb879b2be06073a1ef04962c36",
+    "dirty_paths": [
+      "config/ai/wsl-tool-baseline.json",
+      "docs/ARCHITECTURE.md",
+      "docs/CODEX_COMPAT.md",
+      "docs/INSTALL.md",
+      "docs/SUBAGENT_GOVERNANCE.md",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/events.jsonl",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/task.md",
+      "docs/ai/tasks/20260905-030055-424575-wsl-environment-unification/events.jsonl",
+      "docs/ai/tasks/20260905-030055-424575-wsl-environment-unification/state.json",
+      "docs/ai/tasks/20260905-030055-424575-wsl-environment-unification/task.md",
+      "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox/events.jsonl",
+      "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox/state.json",
+      "docs/ai/tasks/20260905-121534-602895-codex-environment-blackbox/task.md",
+      "docs/ai/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/events.jsonl",
+      "docs/ai/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/state.json",
+      "docs/ai/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/task.md",
+      "docs/modules/wsl-environment/contract/layered-environment-contract.md",
+      "docs/modules/wsl-environment/delivery/code-map/wsl-environment-code-map.md",
+      "docs/modules/wsl-environment/delivery/engineering/wsl-environment-delivery.md",
+      "docs/modules/wsl-environment/design/doctor-and-startup-boundaries.md",
+      "docs/modules/wsl-environment/design/windows-attachment-path-bridge.md",
+      "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/execution.md",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/plan.md",
+      "docs/tasks/20260905-030055-424575-wsl-environment-unification/acceptance.md",
+      "docs/tasks/20260905-030055-424575-wsl-environment-unification/execution.md",
+      "docs/tasks/20260905-030055-424575-wsl-environment-unification/plan.md",
+      "docs/tasks/20260905-121534-602895-codex-environment-blackbox/acceptance.md",
+      "docs/tasks/20260905-121534-602895-codex-environment-blackbox/execution.md",
+      "docs/tasks/20260905-121534-602895-codex-environment-blackbox/plan.md",
+      "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/acceptance.md",
+      "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/execution.md",
+      "docs/tasks/20260905-135110-264935-codex-blackbox-adjudicated-closure/plan.md",
+      "rules/items/policy/窗口系统附件路径桥接.md",
+      "rules/items/policy/缺失工具分层与依赖处理.md",
+      "rules/items/policy/脚本运行基线.md",
+      "rules/items/workflow/复杂任务全局编排.md",
+      "rules/items/workflow/长任务实施顺序.md",
+      "rules/registry/RULES_INDEX.json",
+      "rules/registry/RULES_INDEX.md",
+      "schemas/orchestrator-task-state.schema.json",
+      "schemas/project-environment.schema.json",
+      "schemas/task-event.schema.json",
+      "schemas/wsl-tool-baseline.schema.json",
+      "scripts/README.md",
+      "scripts/bootstrap-local.py",
+      "scripts/doctor-core.py",
+      "scripts/project-env-doctor.py",
+      "scripts/provision-wsl.py",
+      "scripts/resolve-wsl-path.py",
+      "scripts/runtime_common.py",
+      "skills/global-task-orchestrator/SKILL.md",
+      "skills/global-task-orchestrator/references/governance-essentials.md",
+      "skills/global-task-orchestrator/references/state-schema.md",
+      "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+      "templates/codex/AGENTS.global.md",
+      "templates/project/config/ai/environment.example.json",
+      "tests/benchmarks/codex_environment_autocompliance.py",
+      "tests/fixtures/wsl-environment/README.md",
+      "tests/fixtures/wsl-environment/baseline.invalid.json",
+      "tests/fixtures/wsl-environment/baseline.valid.json",
+      "tests/fixtures/wsl-environment/project-valid/config/ai/environment.json",
+      "tests/fixtures/wsl-environment/project-valid/package.json",
+      "tests/fixtures/wsl-environment/project-valid/requirements.txt",
+      "tests/harness/test_codex_environment_autocompliance.py",
+      "tests/harness/test_control_plane.py",
+      "tests/harness/test_wsl_environment.py",
+      "tests/harness/test_wsl_runtime.py",
+      "tests/harness/test_wsl_tools.py"
+    ],
+    "write_overlap": [
+      "tests/benchmarks/codex_environment_autocompliance.py",
+      "tests/harness/test_codex_environment_autocompliance.py"
+    ],
+    "overlap_decision": {
+      "status": "resolved",
+      "summary": "User authorized this replacement adjudicated follow-up after the prior follow-up contract produced non-activating pending subtasks. The only overlapping source paths are inherited parent-task black-box implementation and tests; preserve their current hashes and all unrelated dirty paths.",
+      "baseline_hashes": {
+        "tests/benchmarks/codex_environment_autocompliance.py": "9176ffe24bca3e7ccbac736173565461cffa8ddfd17017c03b44626e95c039d6",
+        "tests/harness/test_codex_environment_autocompliance.py": "6d837a91d978f1c2712299df367d89c7923678ae37783edca12420c03e4a5014"
+      }
+    }
+  },
+  "review_policy": {
+    "max_fix_rounds": 3,
+    "require_independent_final_review": true,
+    "scope_expansion_requires_escalation": true
+  },
+  "findings": {
+    "REVIEW-SEC-ADJ-001-F001": {
+      "finding_id": "REVIEW-SEC-ADJ-001-F001",
+      "severity": "critical",
+      "paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "summary": "完整环境快照分片到多个已识别命令生命周期事件时仍可绕过敏感证据预扫描并原值落盘。",
+      "evidence": "Frozen manifest hashes matched the brief; 4/4 AdjudicatedClosureRegressionTests and 53/53 focused tests passed. An additional read-only reproduction split PATH/HOME across item.started.aggregated_output and LANG/SHELL across item.updated.aggregated_output, with a safe item.completed. _recognized_command_outputs collected both strings, but _assert_safe_evidence evaluated each list element separately, so _persist_real_run returned without SensitiveEvidenceError, wrote stdout.jsonl, retained /home/secret and /opt/secret/bash, and created no sensitive-evidence-refusal.json.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/blackbox_impl"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/blackbox_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/blackbox_security_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Added recursive environment-assignment aggregation so a complete PATH/HOME/LANG/SHELL snapshot split across lifecycle outputs is refused before any round evidence is written; added the exact security regression.",
+        "changed_files": [
+          "tests/benchmarks/codex_environment_autocompliance.py",
+          "tests/harness/test_codex_environment_autocompliance.py"
+        ],
+        "sha256": "7aebc6fd2321bfcab890a2c4dee174a7ed7d4cd946d63917836866d5eabe0586",
+        "verification": "Pre-fix test reproduced atomic refusal failure; post-fix SecurityReviewAdjudicationRegressionTests passed 3/3 and full focused module passed 56/56; implementation/test hashes are 2d44afecc9adb8fb04d5c6ec87137e3c25bda94f5609a6332f08d8cee96b2c40 and 4c5485fb13e2b22197231aa8a8f627eb16c5f998088821eefc9ca889aef63d0b."
+      },
+      "closed_at": "2026-09-05T07:01:04.660485Z"
+    },
+    "REVIEW-SEC-ADJ-001-F002": {
+      "finding_id": "REVIEW-SEC-ADJ-001-F002",
+      "severity": "high",
+      "paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "summary": "普通 timeout 返回 unreaped=true 后，真实操作仍继续调度后续 Codex 调用。",
+      "evidence": "A read-only mocked _real_operation reproduction returned unreaped=true from the instruction-discovery process with FINAL_REAP_CHECK=false. The function still invoked _run_process for all three smoke scenarios, producing process_calls=4, status=INFRASTRUCTURE_BLOCKED, unreaped=true. Cleanup quarantine may later prevent deletion, but it does not prevent later scheduling while the prior process may still be alive and using the fixture.",
+      "status": "fix_dispatched",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/blackbox_impl"
+      },
+      "fix_round": 3,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/blackbox_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/blackbox_security_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Preserved unreaped, timeout, and termination metadata across SensitiveEvidenceError so the combined refusal path remains fail-closed, writes a value-free refusal audit, invokes no remover, and quarantines the fixture; added the exact combined regression.",
+        "changed_files": [
+          "tests/benchmarks/codex_environment_autocompliance.py",
+          "tests/harness/test_codex_environment_autocompliance.py"
+        ],
+        "sha256": "09052da735aea8d6ea5a937fbcd022e34c872036302446bb840cf8e791f61acd",
+        "verification": "Pre-fix combined test failed with lost unreaped state and fixture deletion; post-fix combined test passed 1/1, security adjudication tests passed 4/4, full focused module passed 57/57, implementation SHA256 is 46bb3fcec0007fd0966a54c51fb569fd0d83aca04902f35545556d80505d4b11 and test SHA256 is f31ecb8e79a666a7c83c4c0477e234455c006cf3abe845610118fb002a710d33."
+      }
+    },
+    "REVIEW-SEC-ADJ-001-F003": {
+      "finding_id": "REVIEW-SEC-ADJ-001-F003",
+      "severity": "high",
+      "paths": [
+        "tests/benchmarks/codex_environment_autocompliance.py",
+        "tests/harness/test_codex_environment_autocompliance.py"
+      ],
+      "summary": "终止证据回调中的再次中断会替换原始中断、丢失 unreaped 状态并触发不安全的夹具删除。",
+      "evidence": "A read-only reproduction made the initial communicate raise an original KeyboardInterrupt, kept poll() at None through bounded reap, and made on_termination raise a second KeyboardInterrupt. Although _terminate_and_reap had derived unreaped=true and attached it to the original exception, the callback exception escaped _run_process. execute_with_cleanup therefore handled the secondary exception without _codex_unreaped, recorded status=INFRASTRUCTURE_BLOCKED and unreaped=false, called the remover, deleted the fixture, and re-raised the secondary rather than the original exception.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/blackbox_impl"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/blackbox_impl"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/blackbox_security_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Contained secondary BaseException from the termination evidence callback so the original interruption identity and attached unreaped/termination state reach cleanup quarantine; added the exact identity and remover-zero regression.",
+        "changed_files": [
+          "tests/benchmarks/codex_environment_autocompliance.py",
+          "tests/harness/test_codex_environment_autocompliance.py"
+        ],
+        "sha256": "7aebc6fd2321bfcab890a2c4dee174a7ed7d4cd946d63917836866d5eabe0586",
+        "verification": "Pre-fix reproduction showed the callback interruption replacing the original and deleting the fixture; post-fix SecurityReviewAdjudicationRegressionTests passed 3/3, full focused module passed 56/56, and exact residue scan was empty."
+      },
+      "closed_at": "2026-09-05T07:01:04.660522Z"
+    }
+  },
+  "next_action": {
+    "kind": "perform_fix",
+    "finding_id": "REVIEW-SEC-ADJ-001-F002",
+    "target": {
+      "agent_key": "backend-implementer",
+      "platform_agent_id": "/root/blackbox_impl"
+    }
+  },
+  "artifact_sha256": {
+    "task.md": "40518649f4d7f6137573d9a6696fd1ebee8fd7720d94b0f5c34d7b98f0e81bc2",
+    "plan.md": "782cd5506809f8fa6b4406e6a96e9924a0c3768626780366f3cd0b56150fd629",
+    "execution.md": "02c967371bb2760bb0127a4ae45effeee39de9a35a34784e5980c754c58e23ba",
+    "acceptance.md": "10898e0560c4fe527b6fc7a25dfc6adb15f495e113df76340288175e57bb0c19"
+  },
+  "updated_at": "2026-09-05T07:16:11.210180Z"
+}

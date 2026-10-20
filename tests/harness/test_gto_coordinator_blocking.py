@@ -28,8 +28,6 @@ class CoordinatorBlockingTest(unittest.TestCase):
         self.scratch = Path(temporary.name)
         self.repo = self.scratch / "consumer"
         self.repo.mkdir()
-        self.input_dir = self.repo / ".tmp"
-        self.input_dir.mkdir()
         self.sequence = 0
         self.artifacts = self.repo / "docs/ai/tasks" / TASK_ID
         contract = json.loads((ROOT / "skills/global-task-orchestrator/references/revision-3-contract.example.json").read_text())
@@ -42,7 +40,7 @@ class CoordinatorBlockingTest(unittest.TestCase):
         for name, value in arguments.items():
             if name in {"contract", "result"}:
                 self.sequence += 1
-                source = self.input_dir / f"input-{self.sequence}.json"
+                source = self.scratch / f"input-{self.sequence}.json"
                 source.write_text(json.dumps(value), encoding="utf-8")
                 command.extend([f"--{name}-json-file", str(source)])
             else:
@@ -102,7 +100,7 @@ class CoordinatorBlockingTest(unittest.TestCase):
     def test_blocked_task_rejects_dispatch_attempt_freeze_and_finalization(self):
         self.block()
         brief = self.repo / ".tmp/work-brief.md"
-        brief.parent.mkdir(parents=True, exist_ok=True)
+        brief.parent.mkdir(parents=True)
         brief.write_text("Implement the approved example scope.\n")
         actions = [
             ("bind-dispatch", {"subtask_id": "WORK-001", "agent_key": "backend-implementer",

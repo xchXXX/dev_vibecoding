@@ -21,6 +21,7 @@ Linux 与 Windows 的原生依赖必须隔离。Windows 产生的 `.venv`、`nod
 
 - 不引入 hook、daemon、通用逐命令 wrapper、平台自动回退或自动重试。外部能力通过声明选择受支持的执行环境或标准 MCP transport，不接管普通命令。
 - machine doctor、project doctor 和 path resolver 默认只读；它们输出稳定的 JSON 分类结果，而不修复环境。
+- 诊断类别、责任层和下一步沿用现有 finding；机器安装、项目依赖和实际执行者能力分别报告。GTO 的工具位置与恢复诊断只作补充，合同见 [恢复与登记](../../../../skills/global-task-orchestrator/references/streamlined-execution.md)，不把磁盘存在或局部诊断当成功授权。
 - `provision-wsl.py` 的默认行为是计划/检查。执行变更必须使用明确的 apply 意图，并且只针对基线中已声明、来源明确的包；不做 broad upgrade、卸载、发行版切换或未知来源安装。
 - 不自动删除、覆盖或重建 `.venv`、`node_modules`、仓库、`CODEX_HOME` 或 Windows 用户目录。诊断结果只说明负责层和下一步。
 - Windows 原生 Agent 负责文件、Browser、截图与 Computer Use；项目 Git/Python/Node/测试/构建继续通过指定发行版的 wsl.exe --exec 执行。外部能力声明 v3 只列 windows_native 与 required_plugins；bootstrap/doctor 不写插件配置或官方 transport，不创建 WSL GUI 桥。磁盘 enabled 不等于 GUI 验收。

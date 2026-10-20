@@ -1,0 +1,2149 @@
+{
+  "six_points": {
+    "do": "以最小改动为 GTO 增加跨项目通用的便宜检查先行、前置审查、候选冻结、昂贵验收限次、证据版本绑定和终态不可重开门禁，并让本次自举施工从任务合同开始实际遵守新流程。",
+    "do_not": [
+      "不为语音模拟或任何单一业务项目编写专用流水线。",
+      "不实现预检问题自动学习、环境自动修复、守护进程、通用重试器或新的第二控制面。",
+      "不迁移到新的 state 主版本，不保留双轨控制器，不修改任务范围外文件，不调用真实外部模型或真实浏览器作为本次控制面调试工具。",
+      "不提交、不推送、不清理用户工作区，除非用户后续明确要求。"
+    ],
+    "change_areas": [
+      "skills/global-task-orchestrator",
+      "schemas/orchestrator-task-state.schema.json",
+      "schemas/task-event.schema.json",
+      "tests/harness/test_control_plane.py",
+      "docs/SUBAGENT_GOVERNANCE.md",
+      "docs/ARCHITECTURE.md",
+      "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+      "rules/items/workflow",
+      "rules/registry/RULES_INDEX.json",
+      "docs/tasks/20260903-165003-316417-expensive-acceptance-gates",
+      "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates"
+    ],
+    "implementation": "保留 state version=3，增加 workflow_revision=2 及轻量 acceptance_gate；控制器在每次写状态前后执行完整语义校验；bind-dispatch 只允许依赖已完成且无 dispatch/result 的 ready 子任务；昂贵验收绑定冻结候选与不可覆盖的 attempt 历史，代码或配置变化使证据过期；安全和边界审查、未关闭 finding、最终文档与最终审查由机械门禁排序。旧 GTO 管理本次自举，但本次人工执行同一顺序且绝不重绑终态子任务。",
+    "acceptance": [
+      "旧行为的最小复现先稳定失败：终态重绑、依赖未完成派发、status/result 矛盾、审查倒序、过期候选证据和覆盖验收历史均被测试命中。",
+      "新合同能表达通用阶段、冻结候选、acceptance item 到证据映射、max_expensive_attempts=4、同候选完整验收最多一次、同候选环境重试最多一次、第三和第四次需人工批准。",
+      "控制器拒绝 completed/blocked/in_progress 子任务重绑，拒绝依赖未完成或状态矛盾的写入，且失败不改变 state.json、task.md、events.jsonl。",
+      "安全或边界审查未通过、存在未关闭 finding、候选未冻结或已过期时，拒绝派发昂贵验收；候选输入变化后既有真实验收自动失效。",
+      "每次昂贵验收保留独立 attempt、候选哈希、结果分类、真实调用次数、耗时、失败阶段和证据引用，后一轮不能覆盖前一轮。",
+      "最终文档只能在当前候选验收通过后确认，最终审查和 finalize 只接受当前候选及完整证据。",
+      "聚焦控制面测试、完整 harness 回归、schema 与规则索引校验、文档路由校验和本任务范围 git diff --check 通过，并取得独立 final/pass。"
+    ],
+    "risks": [
+      "这是控制器自举改造；旧 GTO 本身不能强制新流程，因此本任务必须人工遵守终态不重开、依赖顺序和先审查后冻结。",
+      "schema 与控制器同时变化可能破坏现有 v3 任务读取；新增字段必须保持旧 v3 状态可读，并用临时仓库覆盖兼容性。",
+      "候选哈希范围过宽会频繁误失效，过窄会复用错误证据；只哈希合同声明的候选代码、配置和运行输入。",
+      "max_expensive_attempts=4 容易被误解为默认允许重跑四遍；必须同时限制同候选完整验收一次，并从第三次开始要求人工批准。",
+      "若实现需要新 action 或字段明显超出轻量范围，停止扩张并回到用户裁决。"
+    ]
+  },
+  "objective": "以最小改动为 GTO 增加跨项目通用的便宜检查先行、前置审查、候选冻结、昂贵验收限次、证据版本绑定和终态不可重开门禁，并让本次自举施工从任务合同开始实际遵守新流程。",
+  "scope_in": [
+    "skills/global-task-orchestrator",
+    "schemas/orchestrator-task-state.schema.json",
+    "schemas/task-event.schema.json",
+    "tests/harness/test_control_plane.py",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "docs/ARCHITECTURE.md",
+    "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+    "rules/items/workflow",
+    "rules/registry/RULES_INDEX.json",
+    "docs/tasks/20260903-165003-316417-expensive-acceptance-gates",
+    "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates"
+  ],
+  "scope_out": [
+    "不为语音模拟或任何单一业务项目编写专用流水线。",
+    "不实现预检问题自动学习、环境自动修复、守护进程、通用重试器或新的第二控制面。",
+    "不迁移到新的 state 主版本，不保留双轨控制器，不修改任务范围外文件，不调用真实外部模型或真实浏览器作为本次控制面调试工具。",
+    "不提交、不推送、不清理用户工作区，除非用户后续明确要求。"
+  ],
+  "acceptance": [
+    "旧行为的最小复现先稳定失败：终态重绑、依赖未完成派发、status/result 矛盾、审查倒序、过期候选证据和覆盖验收历史均被测试命中。",
+    "新合同能表达通用阶段、冻结候选、acceptance item 到证据映射、max_expensive_attempts=4、同候选完整验收最多一次、同候选环境重试最多一次、第三和第四次需人工批准。",
+    "控制器拒绝 completed/blocked/in_progress 子任务重绑，拒绝依赖未完成或状态矛盾的写入，且失败不改变 state.json、task.md、events.jsonl。",
+    "安全或边界审查未通过、存在未关闭 finding、候选未冻结或已过期时，拒绝派发昂贵验收；候选输入变化后既有真实验收自动失效。",
+    "每次昂贵验收保留独立 attempt、候选哈希、结果分类、真实调用次数、耗时、失败阶段和证据引用，后一轮不能覆盖前一轮。",
+    "最终文档只能在当前候选验收通过后确认，最终审查和 finalize 只接受当前候选及完整证据。",
+    "聚焦控制面测试、完整 harness 回归、schema 与规则索引校验、文档路由校验和本任务范围 git diff --check 通过，并取得独立 final/pass。"
+  ],
+  "stop_conditions": [
+    "这是控制器自举改造；旧 GTO 本身不能强制新流程，因此本任务必须人工遵守终态不重开、依赖顺序和先审查后冻结。",
+    "schema 与控制器同时变化可能破坏现有 v3 任务读取；新增字段必须保持旧 v3 状态可读，并用临时仓库覆盖兼容性。",
+    "候选哈希范围过宽会频繁误失效，过窄会复用错误证据；只哈希合同声明的候选代码、配置和运行输入。",
+    "max_expensive_attempts=4 容易被误解为默认允许重跑四遍；必须同时限制同候选完整验收一次，并从第三次开始要求人工批准。",
+    "若实现需要新 action 或字段明显超出轻量范围，停止扩张并回到用户裁决。"
+  ],
+  "decisions": [
+    "保留 state version=3，增加 workflow_revision=2 及轻量 acceptance_gate；控制器在每次写状态前后执行完整语义校验；bind-dispatch 只允许依赖已完成且无 dispatch/result 的 ready 子任务；昂贵验收绑定冻结候选与不可覆盖的 attempt 历史，代码或配置变化使证据过期；安全和边界审查、未关闭 finding、最终文档与最终审查由机械门禁排序。旧 GTO 管理本次自举，但本次人工执行同一顺序且绝不重绑终态子任务。",
+    "本次使用旧 GTO 自举，但人工执行新流程；终态和 in_progress 子任务均不重新绑定。",
+    "默认 max_expensive_attempts=4、max_full_attempts_per_candidate=1、max_environment_retries_per_candidate=1、approval_required_from_attempt=3。",
+    "业务失败必须先建立 finding，完成本地复现、修复、复审并冻结新候选；纯环境失败只允许同候选范围化重试一次。",
+    "本次没有真实外部昂贵验收，昂贵验收阶段明确为不适用；本地临时仓库黑盒测试承担验收。",
+    "保持 state version=3，以 workflow_revision=2 区分启用新合同的任务；不新增复杂调度器。"
+  ],
+  "approval": {
+    "status": "approved",
+    "approved_by": "user",
+    "contract_sha256": "558f1c1bc9070f0978d01debd3c9f0a49417466269a2586d1cd4e63dbf3c00e5",
+    "approved_at": "2026-09-03T08:54:13.558407Z"
+  },
+  "verification_contract": {
+    "minimal_repro": "在 tests/harness/test_control_plane.py 的临时仓库中，用当前控制器分别执行终态重新 bind、依赖未完成 bind、写入 status/result 矛盾、审查未通过时派发昂贵验收、候选变化后复用证据，确认旧行为未被拒绝。",
+    "hit_proof": "同一组黑盒命令在实现后被控制器以明确错误拒绝且 state.json、task.md、events.jsonl 哈希不变；合法顺序则成功并留下不可覆盖 attempt 与候选证据。",
+    "diagnostic_checks": [
+      "运行新增的单个 unittest，逐项观察旧控制器的预期 Red。",
+      "对每个拒绝场景比较 action 前后三份控制工件哈希。",
+      "在临时 Git 仓库修改候选输入，确认旧验收被标记 stale。"
+    ],
+    "acceptance_checks": [
+      "运行完整 tests.harness.test_control_plane。",
+      "运行完整 harness unittest discovery。",
+      "运行 schema、规则索引和任务文档校验。",
+      "运行本任务写入范围 git diff --check。",
+      "独立 reviewer 对最新候选哈希给出 final/pass。"
+    ],
+    "non_goals": [
+      "不以真实外部模型、真实浏览器或真实数据库作为控制器修复的首次排错工具。",
+      "不实现预检失败知识库、自动修环境或项目专用验收脚本。",
+      "不以全量测试通过替代新增门禁的直接命中证明。"
+    ],
+    "review_evidence": [
+      "repro_before_fix",
+      "pass_after_fix",
+      "hit_proof_observed",
+      "relevant_regression_ok",
+      "independent_final_review"
+    ]
+  },
+  "subtasks": [
+    {
+      "subtask_id": "DOC-DESIGN-001",
+      "title": "冻结通用流程和本次自举施工文档",
+      "role": "doc-curator",
+      "status": "completed",
+      "dependencies": [],
+      "read_paths": [
+        "skills/global-task-orchestrator",
+        "schemas/orchestrator-task-state.schema.json",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "rules/items/workflow"
+      ],
+      "write_paths": [
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "docs/ARCHITECTURE.md",
+        "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references",
+        "rules/items/workflow"
+      ],
+      "assignment": {
+        "goal": "把已批准的跨项目新流程与本次自举约束同步到长期真源，保持轻量且不引入项目专用方案。",
+        "must_include": [
+          "便宜检查和安全边界审查先于候选冻结",
+          "候选冻结后才允许昂贵验收",
+          "max_expensive_attempts=4 的分层含义",
+          "终态不重开、finding 修复复审、证据失效和最终文档顺序",
+          "本次任务从一开始人工执行同一流程"
+        ],
+        "verification": [
+          "运行任务文档和规则索引校验",
+          "检查长期真源没有语音模拟项目专用表述"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "doc-curator",
+        "platform_agent_id": "/root/doc_design",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "5e7eb86ed4c93ab5a114dc8ff5bcf44e1849e632635e2a549cd59d5515c3ea20"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "完成旧 GTO 压力基线并同步跨项目通用的昂贵验收顺序、次数、候选和证据失效规则；本次自举明确只做本地确定性验证。",
+        "changed_files": [
+          "skills/global-task-orchestrator/SKILL.md",
+          "skills/global-task-orchestrator/references/governance-essentials.md",
+          "docs/SUBAGENT_GOVERNANCE.md",
+          "docs/ARCHITECTURE.md",
+          "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+          "rules/items/workflow/复杂任务全局编排.md",
+          "rules/items/workflow/长任务实施顺序.md"
+        ],
+        "planned_files_not_changed": [
+          "skills/global-task-orchestrator/references/state-schema.md"
+        ],
+        "verification": {
+          "commands": [
+            "python3 scripts/validate_rules.py --repo-root . --json",
+            "python3 scripts/validate_doc_routing.py --repo-root . --json",
+            "python3 scripts/validate_plan_docs.py --repo-root . --json",
+            "python3 -m unittest tests.harness.test_rules_runtime",
+            "git diff --check -- scoped-document-paths"
+          ],
+          "result": "主协调器复验全部通过：规则校验无错误警告，文档路由检查 13 个任务 39 份 Markdown，通过 7 项规则运行时测试，范围化 diff check 通过。"
+        },
+        "deviations": [
+          "未修改 state-schema.md，因为 controller/schema 尚未实施，避免文档提前声称已有机械 action。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "文档门禁已经明确，但在 controller/schema Green 之前仍依赖主协调器人工遵守。"
+        ],
+        "follow_up": [
+          "由 TEST-GATES-001 先建立控制器行为的预期失败测试。"
+        ],
+        "written_by": "/root/doc_design",
+        "written_role": "doc-curator",
+        "review_evidence": {
+          "repro_before_fix": "旧 GTO 文档面对候选未冻结、安全审查未完成、昂贵验收已失败两次并被催促第三次重跑时，没有明确拒绝、次数、审批或证据失效规则。"
+        }
+      }
+    },
+    {
+      "subtask_id": "TEST-GATES-001",
+      "title": "建立控制面门禁的预期失败测试",
+      "role": "test-verifier",
+      "status": "completed",
+      "dependencies": [
+        "DOC-DESIGN-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_control_plane.py"
+      ],
+      "write_paths": [
+        "tests/harness/test_control_plane.py"
+      ],
+      "assignment": {
+        "goal": "用临时仓库黑盒测试稳定复现现有门禁缺口，并保存正确的 Red 证据。",
+        "must_include": [
+          "终态或 in_progress 不可重绑",
+          "依赖未完成不可派发",
+          "status 与 result 必须一致",
+          "前置审查和 finding 门禁",
+          "候选冻结、证据过期、attempt 不覆盖和次数限制"
+        ],
+        "verification": [
+          "逐个运行新增测试并确认因缺少目标行为而失败，不接受语法或环境错误"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "test-verifier",
+        "platform_agent_id": "/root/test_gates",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "f60f260f33863106c8bed4b0e8ab30d8e4e7dead5a582843897226aca3eabb4e"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "新增并压缩 13 个控制面黑盒测试，稳定复现终态重绑、依赖越序、状态矛盾、revision-2 合同、候选冻结、attempt 限次、结果证据和最终门禁缺口；严格停在预期 Red。",
+        "changed_files": [
+          "tests/harness/test_control_plane.py"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m py_compile tests/harness/test_control_plane.py",
+            "git diff --check -- tests/harness/test_control_plane.py",
+            "python3 -m unittest <13 new focused ControlPlaneContractTest methods> -v"
+          ],
+          "result": "语法和 diff check 通过；13 个新增测试出现 22 个预期断言失败，均直接命中旧 bind 错误成功、status/result 未比对、revision-2 字段未支持、freeze-candidate/create-subtask-attempt 未实现或昂贵结果 schema 未支持，没有语法、fixture 或环境错误。"
+        },
+        "deviations": [
+          "最初测试补丁过长，已在同一绑定下抽取 helper 和 table-driven 场景，压缩为 469 additions / 4 deletions。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "Green 实现必须同时提供合法路径和拒绝路径，不能只通过放宽 schema 让测试越过第一层失败。"
+        ],
+        "follow_up": [
+          "由 IMPL-GATES-001 依照这些已观察 Red 实现最小 controller/schema 行为。"
+        ],
+        "written_by": "/root/test_gates",
+        "written_role": "test-verifier",
+        "review_evidence": {
+          "repro_before_fix": "主协调器亲自运行全部 13 个新增测试；旧控制器产生 22 个预期失败，明确复现终态覆盖、依赖越序、状态矛盾和昂贵验收门禁缺失。",
+          "hit_proof_observed": "测试同时断言拒绝原因与 state.json/task.md/events.jsonl 不变；当前 Red 显示旧 action 会错误成功或缺少对应 schema/action。"
+        }
+      }
+    },
+    {
+      "subtask_id": "IMPL-GATES-001",
+      "title": "实现轻量流程门禁和状态结构",
+      "role": "backend-implementer",
+      "status": "completed",
+      "dependencies": [
+        "TEST-GATES-001"
+      ],
+      "read_paths": [
+        "tests/harness/test_control_plane.py",
+        "skills/global-task-orchestrator",
+        "schemas"
+      ],
+      "write_paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "schemas/orchestrator-task-state.schema.json",
+        "schemas/task-event.schema.json"
+      ],
+      "assignment": {
+        "goal": "以最小实现让 Red 测试变 Green，并保持旧 v3 状态可读。",
+        "must_include": [
+          "统一 action 前置和写入前完整语义校验",
+          "单次子任务生命周期和依赖门禁",
+          "workflow_revision=2 acceptance_gate",
+          "候选指纹和证据失效",
+          "不可覆盖验收 attempt 历史及四次上限"
+        ],
+        "verification": [
+          "运行新增聚焦测试和完整 control-plane 测试"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "70633193e2140b413260c48409f02ae59dd96f60c14180fab8b52538663ce940"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Implemented lightweight workflow-revision-2 gates for ordered cheap checks, pre-acceptance review, frozen candidates, append-only expensive-attempt evidence, attempt caps, and current-candidate finalization.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "schemas/orchestrator-task-state.schema.json",
+          "schemas/task-event.schema.json"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m unittest tests.harness.test_control_plane -v",
+            "python3 -m py_compile skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+            "Draft202012Validator.check_schema on both changed schemas",
+            "git diff --check"
+          ],
+          "result": "Independent coordinator run passed all 56 control-plane tests in 214.185 seconds; controller compiled; both schemas passed Draft 2020-12 self-validation; scoped diff check passed."
+        },
+        "review_evidence": {
+          "pass_after_fix": "All 14 focused gate tests and the complete 56-test control-plane suite pass.",
+          "hit_proof_observed": "Black-box tests directly exercise and reject terminal rebind, unfinished dependencies, contradictory status/result, premature expensive dispatch, stale candidate reuse, attempt overwrite/cap violations, and premature finalization without mutating control artifacts.",
+          "relevant_regression_ok": "The complete pre-existing and new control-plane test module passes after the gate changes."
+        },
+        "deviations": [
+          "A coordinator-discovered TDD case was added because task/pass with no findings was initially rejected; the original implementer fixed the controller and the new test now passes."
+        ],
+        "blocked_by": [],
+        "risks": [
+          "Writes across state.json, projected Markdown, and events.jsonl remain individually atomic rather than one OS-level multi-file transaction.",
+          "Candidate staleness is mechanically rejected for controller-frozen candidates; compatibility fixtures without frozen_at are not dynamically recomputed."
+        ],
+        "follow_up": [
+          "Run independent gate verification and pre-freeze security/boundary review before freezing this task candidate."
+        ],
+        "written_by": "/root/impl_gates",
+        "written_role": "backend-implementer"
+      }
+    },
+    {
+      "subtask_id": "VERIFY-GATES-001",
+      "title": "执行便宜的跨层回归验证",
+      "role": "test-verifier",
+      "status": "completed",
+      "dependencies": [
+        "IMPL-GATES-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator",
+        "schemas",
+        "tests/harness",
+        "rules",
+        "docs"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "只用本地确定性检查验证控制器、schema、规则和文档，没有真实外部昂贵验收。",
+        "must_include": [
+          "直接命中新增门禁",
+          "完整 control-plane 回归",
+          "完整 harness 回归",
+          "schema、规则和文档校验",
+          "旧 v3 状态兼容性"
+        ],
+        "verification": [
+          "回传命令、退出状态和覆盖的 review_evidence 槽位"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "test-verifier",
+        "platform_agent_id": "/root/test_gates",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "dd58b48db07f6c0f61ac51f299232053e4b42615acf824584c2d941323e9678c"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "独立只读验证完成：14 项新增昂贵验收门禁与完整 control-plane 均通过；完整 harness discovery 有 1 项既存宿主 Claude 运行时残留失败，已稳定复现并记录为环境风险。",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 -m unittest -v [14 named expensive-gate ControlPlaneContract tests]",
+            "python3 -m unittest tests.harness.test_control_plane -v",
+            "python3 -m unittest discover -s tests/harness -p 'test_*.py' -v",
+            "python3 - <<'PY' ... Draft202012Validator.check_schema(...) ... PY",
+            "python3 scripts/validate_rules.py --repo-root /mnt/d/prj/harnesss/dev_vibecoding --json",
+            "python3 scripts/validate_plan_docs.py --repo-root /mnt/d/prj/harnesss/dev_vibecoding --json",
+            "python3 scripts/validate_doc_routing.py --repo-root /mnt/d/prj/harnesss/dev_vibecoding --json",
+            "git diff --check -- skills/global-task-orchestrator schemas tests/harness/test_control_plane.py docs/SUBAGENT_GOVERNANCE.md docs/ARCHITECTURE.md docs/plans/AI_HARNESS_MASTER_PLAN.md rules/items/workflow rules/registry/RULES_INDEX.json docs/tasks/20260903-165003-316417-expensive-acceptance-gates docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates"
+          ],
+          "result": "14/14 targeted gates passed in 38.640s; control-plane 56/56 passed in 212.768s; schemas and rule/document validators passed; discovery ran once and failed only test_claude_user_runtime_is_absent because /mnt/c/Users/Laptop/.claude exists."
+        },
+        "deviations": [
+          "完整 harness discovery 未通过：test_claude_user_runtime_is_absent 发现预存宿主目录 /mnt/c/Users/Laptop/.claude。"
+        ],
+        "blocked_by": [],
+        "risks": [
+          "最终全量 harness 绿灯被用户级 Claude 运行时残留阻断；本验证未获授权删除宿主目录，且该目录不属于任务写入范围。",
+          "scoped git diff --check 通过但提示 schemas/task-event.schema.json 当前 CRLF 工作副本在下次 Git 写入时会转换为 LF。"
+        ],
+        "follow_up": [
+          "由具备宿主用户目录授权的负责人处理或隔离 /mnt/c/Users/Laptop/.claude 后，重新运行一次完整 harness discovery。",
+          "独立 reviewer 仍需提供 independent_final_review 后再尝试任务 finalize。"
+        ],
+        "written_by": "/root/test_gates",
+        "written_role": "test-verifier",
+        "review_evidence": {
+          "repro_before_fix": "TEST-GATES-001 的黑盒临时仓库测试先覆盖旧控制器未实现门禁时的预期 Red；本轮未修改这些测试或实现。",
+          "pass_after_fix": "14 项定向门禁测试全部通过，覆盖 bind/依赖原子拒绝、stage 合同、冻结与 stale、attempt 历史、昂贵结果写入及 product_failure 闭环。",
+          "hit_proof_observed": "定向黑盒测试直接执行控制器 action，并对拒绝分支断言明确错误及 state.json/task.md/events.jsonl 不变；合法第三次批准 attempt 与昂贵结果历史写入均通过。",
+          "relevant_regression_ok": "完整 control-plane 56/56 通过，legacy v3 定向兼容测试通过；完整 harness 唯一失败为宿主 Claude 用户运行时残留，与本次源文件改动无关。"
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-SEC-001",
+      "title": "执行候选冻结前的安全和边界审查",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "VERIFY-GATES-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator",
+        "schemas",
+        "tests/harness/test_control_plane.py",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "rules/items/workflow"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "在候选冻结前审查越权派发、状态原子性、证据伪造、路径哈希边界和兼容风险。",
+        "must_include": [
+          "任何 finding 在冻结候选前关闭",
+          "失败 action 不得留下部分状态",
+          "候选哈希范围既不过宽也不过窄",
+          "不能用结果字段伪造前置闸门"
+        ],
+        "verification": [
+          "输出结构化 task review；发现问题走原实现者 fix 和同 reviewer re-review"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/security_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "437e4c81e088b9e1d344c4253950c29bead02bd3aa10d6339ec60a0f78cca942"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "task review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/security_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "task",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "/root/security_review",
+          "findings": [
+            {
+              "finding_id": "GTO-SEC-001-BRIEF-HASH",
+              "severity": "high",
+              "paths": [
+                "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+                ".tmp/20260903-165003-316417-expensive-acceptance-gates/security-review-brief.md",
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py"
+              ],
+              "summary": "审查绑定保存的 brief 哈希与 reviewer 实际收到的 brief 不一致。",
+              "evidence": "state stores 437e4c... while the actual brief file hashes to 727790...; bind-dispatch validates only caller-supplied hash syntax.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-002-CANDIDATE-FINGERPRINT",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "候选指纹未正确覆盖目录、内部符号链接目标和验收条目合同。",
+              "evidence": "A read-only counterexample changed src/a.py under a declared directory while the fingerprint remained identical; acceptance_items are absent from the fingerprint payload.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-003-ATTEMPT-POLICY-BYPASS",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "审批和同候选环境重试上限可绕过 create-subtask-attempt。",
+              "evidence": "State semantics accept three same-candidate environment failures without approval, and record-subtask-result can append an attempt for a predeclared subtask without passing through attempt creation policy.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-004-CHEAP-CHECK-VERDICT",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+                "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md"
+              ],
+              "summary": "便宜检查门禁只看 completed，不判断验证是否通过。",
+              "evidence": "A completed cheap_check whose verification result says FAILED produces no pre-acceptance error; this task contains exactly that environmental full-discovery deviation.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-005-REVIEW-RECOVERY",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "前置审查 fail 后没有保留历史并经合法 re-review 回到冻结的路径。",
+              "evidence": "Every historical pre_acceptance_review is required to be task/pass, so a later re_review/pass cannot clear an earlier task/fail; an existing test mutates terminal review history directly.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-006-FINAL-DOCUMENT-ORDER",
+              "severity": "medium",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "控制器未强制 final_documentation 先于 final_review。",
+              "evidence": "Final review and final documentation share the same candidate-pass gate, and the revision-2 contract does not require final_review to depend directly on final_documentation.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-007-INIT-RESIDUE",
+              "severity": "medium",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "部分 init-task 语义错误在拒绝前留下 Markdown 和 events 残留。",
+              "evidence": "A stale frozen fingerprint is missed by _initial_state and rejected only after _init writes projected artifacts and events, leaving a partial task directory without state.json.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "GTO-SEC-001-BRIEF-HASH",
+              "GTO-SEC-002-CANDIDATE-FINGERPRINT",
+              "GTO-SEC-003-ATTEMPT-POLICY-BYPASS",
+              "GTO-SEC-004-CHEAP-CHECK-VERDICT",
+              "GTO-SEC-005-REVIEW-RECOVERY",
+              "GTO-SEC-006-FINAL-DOCUMENT-ORDER",
+              "GTO-SEC-007-INIT-RESIDUE"
+            ],
+            "fix_delta_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "paths": [
+              ".tmp/20260903-165003-316417-expensive-acceptance-gates/security-review-brief.md",
+              "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+              "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md",
+              "schemas/orchestrator-task-state.schema.json",
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "tests/harness/test_control_plane.py"
+            ],
+            "evidence_refs": [
+              "actual-brief-sha256:727790cf156b5d0802b0cf2c7db8a1930f9ef1a3fde1f22aa55a6a0c5660c2f9",
+              "readonly-counterexample-probes",
+              "scoped-source-diff-review"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "FREEZE-LOCAL-001",
+      "title": "冻结本次本地验收候选并复核证据",
+      "role": "test-verifier",
+      "status": "completed",
+      "dependencies": [
+        "REVIEW-SEC-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator",
+        "schemas",
+        "tests/harness",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "rules/items/workflow"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "安全审查通过且 findings 全闭合后，生成当前候选哈希并复用同一批本地证据完成最终本地验收。",
+        "must_include": [
+          "确认本次真实外部昂贵验收不适用",
+          "记录候选哈希和证据引用",
+          "确认冻结后没有候选输入变化"
+        ],
+        "verification": [
+          "只复用未失效证据；变化时重新做受影响的便宜检查并冻结新候选"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "test-verifier",
+        "platform_agent_id": "/root/test_gates",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "4b6e52934e7bb097f0aa7c37df3dca75fa8b8ba9e1872b9e373441e005d1194b"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "本地候选冻结复核完成：当前 scoped review target 与已绑定 SHA 一致，七项安全 findings 均已关闭；复用单次完整 harness 的 106 tests / 421.377s / OK 证据。该控制器/规则任务不适用外部昂贵验收，real_call_count 为 0。",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 skills/global-task-orchestrator/scripts/orchestrator_ctl.py --action build-review-brief --repo-root /mnt/d/prj/harnesss/dev_vibecoding --task-id 20260903-165003-316417-expensive-acceptance-gates --subtask-id FREEZE-LOCAL-001 --json",
+            "jq findings closure count from docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+            "python3 skills/global-task-orchestrator/scripts/orchestrator_ctl.py --action validate --repo-root /mnt/d/prj/harnesss/dev_vibecoding --task-id 20260903-165003-316417-expensive-acceptance-gates --json",
+            "test ! -e /mnt/c/Users/Laptop/.claude"
+          ],
+          "result": "Rebuilt review_target_sha256 equals e0f68c62afc9b9f05780ba85f8692e5b7f48457556802202dd638dd9a6980e9b; 7/7 findings are closed; state validates and the prior single full harness evidence records 106 tests in 421.377s, OK."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [
+          "本轮按简报复用既有 106-test 证据而未重跑；后续 source manifest 变化会使该本地证据失效，必须重新执行受影响便宜检查。"
+        ],
+        "follow_up": [
+          "由独立 reviewer 基于当前 e0f68c62 review target 执行 final_review；若 manifest 改变，先重新生成 review target。"
+        ],
+        "written_by": "/root/test_gates",
+        "written_role": "test-verifier",
+        "expensive_acceptance": {
+          "outcome": "pass",
+          "real_call_count": 0,
+          "duration_seconds": 0,
+          "failed_stage": "not_applicable",
+          "evidence_refs": [
+            "not_applicable:controller-rules-local-only",
+            "recorded-full-harness:106-tests-421.377s-OK",
+            "review-target:e0f68c62afc9b9f05780ba85f8692e5b7f48457556802202dd638dd9a6980e9b"
+          ],
+          "evidence_by_acceptance_id": {
+            "local_controller_rules": [
+              "external_expensive_acceptance:not_applicable",
+              "real_call_count:0",
+              "recorded-full-harness:106-tests-421.377s-OK"
+            ]
+          }
+        },
+        "review_evidence": {
+          "pass_after_fix": "已复用并核对单次 full harness 证据：106 tests in 421.377s, OK，且 Claude 用户运行时缺失检查通过。",
+          "hit_proof_observed": "本轮唯一重建的 build-review-brief 产生当前 manifest 的 target e0f68c62...，与协调器绑定值完全相同。",
+          "relevant_regression_ok": "findings 汇总为 7/7 closed，task validate 返回 ok=true、next_action=final_review；未检测到当前 manifest 漂移。"
+        }
+      }
+    },
+    {
+      "subtask_id": "DOC-FINAL-001",
+      "title": "在候选验收后同步最终文档",
+      "role": "doc-curator",
+      "status": "completed",
+      "dependencies": [
+        "FREEZE-LOCAL-001"
+      ],
+      "read_paths": [
+        "docs/tasks/20260903-165003-316417-expensive-acceptance-gates",
+        "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates",
+        "skills/global-task-orchestrator",
+        "schemas",
+        "tests/harness"
+      ],
+      "write_paths": [
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "docs/ARCHITECTURE.md",
+        "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references",
+        "rules/items/workflow"
+      ],
+      "assignment": {
+        "goal": "只在当前候选本地验收完成后写最终完成事实，不提前声明完成。",
+        "must_include": [
+          "最终证据摘要",
+          "真实昂贵验收不适用及原因",
+          "剩余风险和兼容边界"
+        ],
+        "verification": [
+          "任务 acceptance.md 不得在 final/pass 前声称任务最终完成"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "doc-curator",
+        "platform_agent_id": "/root/doc_design",
+        "context_mode": "isolated",
+        "brief_kind": "subtask",
+        "brief_sha256": "14126924b490f67d55daf6675072575cd2d9d489155263799c1b8adbe87dc66e"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "Synchronized the maintained GTO documentation and workflow rules with the implemented lightweight expensive-acceptance gates after candidate evidence was frozen.",
+        "changed_files": [
+          "skills/global-task-orchestrator/SKILL.md",
+          "skills/global-task-orchestrator/references/governance-essentials.md",
+          "skills/global-task-orchestrator/references/state-schema.md",
+          "docs/SUBAGENT_GOVERNANCE.md",
+          "docs/ARCHITECTURE.md",
+          "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+          "rules/items/workflow/复杂任务全局编排.md",
+          "rules/items/workflow/长任务实施顺序.md"
+        ],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "python3 scripts/validate_rules.py --repo-root . --json",
+            "python3 scripts/validate_plan_docs.py --repo-root . --json",
+            "python3 scripts/validate_doc_routing.py --repo-root . --json",
+            "python3 skills/global-task-orchestrator/scripts/orchestrator_ctl.py --action validate --repo-root . --task-id 20260903-165003-316417-expensive-acceptance-gates --json",
+            "git diff --check"
+          ],
+          "result": "Coordinator independently reran all listed validators after documentation changes; all exited 0, with only the known task-event schema line-ending warning."
+        },
+        "deviations": [
+          "The doc agent accidentally started two identical local control-plane/rules test processes. No third process was started; both were allowed to finish naturally and neither result is used as acceptance evidence."
+        ],
+        "blocked_by": [],
+        "risks": [
+          "Final completion still requires an independent final review over the latest post-documentation source manifest."
+        ],
+        "follow_up": [
+          "Generate the latest final review target and dispatch REVIEW-FINAL-001."
+        ],
+        "written_by": "/root/doc_design",
+        "written_role": "doc-curator"
+      }
+    },
+    {
+      "subtask_id": "REVIEW-FINAL-001",
+      "title": "独立终审最新冻结候选",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "DOC-FINAL-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator",
+        "schemas",
+        "tests/harness",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "docs/ARCHITECTURE.md",
+        "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+        "rules/items/workflow"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "独立核对最新候选、验收证据、流程顺序和全部验收条目后给出 final/pass 或结构化 finding。",
+        "must_include": [
+          "覆盖最新 source manifest",
+          "核对本次实际遵守新流程",
+          "核对无开放 finding 和无过期证据"
+        ],
+        "verification": [
+          "只有 final/pass 覆盖最新哈希后才允许 finalize-task"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/final_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "ef21619a4caeb5463f50ebe2b0dcf4794fcbab8d1cc50922b67f929fcf86a3ab"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "final review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/final_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "final",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "/root/final_review",
+          "reviewed_change_sha256": "438b40ce247d0dd3fc50f30b0934d63ca68bbfbb242687d690a1e8c6005a7987",
+          "findings": [
+            {
+              "finding_id": "GTO-FINAL-001-STALE-FULL-HARNESS",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py",
+                ".tmp/20260903-165003-316417-expensive-acceptance-gates/freeze-local-result.json",
+                "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+                "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/execution.md",
+                "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md"
+              ],
+              "summary": "完整 harness 结果早于最终 controller/test 改动，不能证明当前候选。",
+              "evidence": "The 106-test run preceded round-two re-review recovery changes; only a later 69-test control-plane run covers those changes.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            },
+            {
+              "finding_id": "GTO-FINAL-002-REVIEW-RESULT-NOT-APPEND-ONLY",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py",
+                "skills/global-task-orchestrator/references/state-schema.md"
+              ],
+              "summary": "record-review-result 可覆盖终态 review，且未绑定 kind 与 subtask/stage。",
+              "evidence": "_record_review does not require in_progress or absent result; a completed task/fail review can be replaced by re_review/pass on the same subtask.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            },
+            {
+              "finding_id": "GTO-FINAL-003-MULTI-ROUND-REREVIEW-GATE",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "revision-2 门禁不能累计多轮逐步关闭 findings 的合法复审历史。",
+              "evidence": "The gate requires one re_review/pass to cover the full original set, conflicting with the implemented scoped second re-review.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            },
+            {
+              "finding_id": "GTO-FINAL-004-ACCEPTANCE-PROVENANCE-BYPASS",
+              "severity": "high",
+              "paths": [
+                "schemas/orchestrator-task-state.schema.json",
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py",
+                "skills/global-task-orchestrator/references/state-schema.md"
+              ],
+              "summary": "手写 revision-2 state 可伪造 frozen candidate 和 passing attempt。",
+              "evidence": "Candidate fingerprint/frozen_at and completed attempt evidence fields are optional; attempt subtask provenance and full six-stage presence are not validated.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            },
+            {
+              "finding_id": "GTO-FINAL-005-LEGACY-DEPENDENCY-GATE",
+              "severity": "medium",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py",
+                "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/plan.md"
+              ],
+              "summary": "旧 v3 任务没有获得方案声明的通用依赖派发门禁。",
+              "evidence": "_bind checks dependency completion only for workflow_revision=2; a legacy child can bind while its parent remains ready.",
+              "status": "open",
+              "fix_round": 0,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-SEC-001-rereview-1",
+      "title": "执行候选冻结前的安全和边界审查 re-review 1",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "VERIFY-GATES-001",
+        "REVIEW-SEC-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator",
+        "schemas",
+        "tests/harness/test_control_plane.py",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "rules/items/workflow"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "在候选冻结前审查越权派发、状态原子性、证据伪造、路径哈希边界和兼容风险。",
+        "must_include": [
+          "任何 finding 在冻结候选前关闭",
+          "失败 action 不得留下部分状态",
+          "候选哈希范围既不过宽也不过窄",
+          "不能用结果字段伪造前置闸门"
+        ],
+        "verification": [
+          "输出结构化 task review；发现问题走原实现者 fix 和同 reviewer re-review"
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/security_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/security_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "0f7a2a990ec5424c29f520a600a44bbb31be93269b5156a5be2492dec4a6d376"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict fail.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/security_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "fail",
+          "reviewer_platform_agent_id": "/root/security_review",
+          "findings": [
+            {
+              "finding_id": "GTO-SEC-001-BRIEF-HASH",
+              "severity": "high",
+              "paths": [
+                "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+                ".tmp/20260903-165003-316417-expensive-acceptance-gates/security-review-brief.md",
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py"
+              ],
+              "summary": "审查绑定保存的 brief 哈希与 reviewer 实际收到的 brief 不一致。",
+              "evidence": "state stores 437e4c... while the actual brief file hashes to 727790...; bind-dispatch validates only caller-supplied hash syntax.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "Revision-2 dispatch now verifies the hash of a real repository-local brief file.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "schemas/orchestrator-task-state.schema.json",
+                  "tests/harness/test_control_plane.py"
+                ],
+                "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+                "verification": "test_revision_two_bind_verifies_real_brief_file_hash passed; full control-plane 67/67 passed."
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-002-CANDIDATE-FINGERPRINT",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "候选指纹未正确覆盖目录、内部符号链接目标和验收条目合同。",
+              "evidence": "A read-only counterexample changed src/a.py under a declared directory while the fingerprint remained identical; acceptance_items are absent from the fingerprint payload.",
+              "status": "closed",
+              "fix_round": 2,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "Candidate fingerprint recursively covers directories, safe symlink targets, runtime inputs, and acceptance items while rejecting repository escape links.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "tests/harness/test_control_plane.py"
+                ],
+                "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+                "verification": "Directory, symlink, acceptance-item, and escape-link counterexamples pass; full control-plane 67/67 passed."
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-003-ATTEMPT-POLICY-BYPASS",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "审批和同候选环境重试上限可绕过 create-subtask-attempt。",
+              "evidence": "State semantics accept three same-candidate environment failures without approval, and record-subtask-result can append an attempt for a predeclared subtask without passing through attempt creation policy.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "Attempt approval and environment retry limits are enforced by full-state validation, and expensive results require a precreated attempt.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "tests/harness/test_control_plane.py"
+                ],
+                "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+                "verification": "Hand-authored bypass and precreated-attempt tests pass; full control-plane 67/67 passed."
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-004-CHEAP-CHECK-VERDICT",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+                "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md"
+              ],
+              "summary": "便宜检查门禁只看 completed，不判断验证是否通过。",
+              "evidence": "A completed cheap_check whose verification result says FAILED produces no pre-acceptance error; this task contains exactly that environmental full-discovery deviation.",
+              "status": "open",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "Cheap checks now require structured result.cheap_check.passed=true rather than status=completed alone.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "schemas/orchestrator-task-state.schema.json",
+                  "tests/harness/test_control_plane.py"
+                ],
+                "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+                "verification": "Structured cheap-check verdict test passes; full control-plane 67/67 passed."
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-005-REVIEW-RECOVERY",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "前置审查 fail 后没有保留历史并经合法 re-review 回到冻结的路径。",
+              "evidence": "Every historical pre_acceptance_review is required to be task/pass, so a later re_review/pass cannot clear an earlier task/fail; an existing test mutates terminal review history directly.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "Added an append-only re-review subtask action and gate logic that preserves failed review history and accepts same-reviewer closure evidence.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "tests/harness/test_control_plane.py"
+                ],
+                "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+                "verification": "Review recovery and pending-review rejection tests pass; full control-plane 67/67 passed."
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-006-FINAL-DOCUMENT-ORDER",
+              "severity": "medium",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "控制器未强制 final_documentation 先于 final_review。",
+              "evidence": "Final review and final documentation share the same candidate-pass gate, and the revision-2 contract does not require final_review to depend directly on final_documentation.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "Revision-2 contracts require final_review to depend directly on final_documentation; normal dependency binding enforces completion.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "schemas/orchestrator-task-state.schema.json",
+                  "tests/harness/test_control_plane.py"
+                ],
+                "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+                "verification": "Final documentation ordering test passes; full control-plane 67/67 passed."
+              }
+            },
+            {
+              "finding_id": "GTO-SEC-007-INIT-RESIDUE",
+              "severity": "medium",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "部分 init-task 语义错误在拒绝前留下 Markdown 和 events 残留。",
+              "evidence": "A stale frozen fingerprint is missed by _initial_state and rejected only after _init writes projected artifacts and events, leaving a partial task directory without state.json.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "init-task performs complete candidate and semantic validation before creating task directories or projected artifacts.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "tests/harness/test_control_plane.py"
+                ],
+                "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+                "verification": "Stale-candidate init residue test passes; full control-plane 67/67 passed."
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "GTO-SEC-001-BRIEF-HASH",
+              "GTO-SEC-002-CANDIDATE-FINGERPRINT",
+              "GTO-SEC-003-ATTEMPT-POLICY-BYPASS",
+              "GTO-SEC-004-CHEAP-CHECK-VERDICT",
+              "GTO-SEC-005-REVIEW-RECOVERY",
+              "GTO-SEC-006-FINAL-DOCUMENT-ORDER",
+              "GTO-SEC-007-INIT-RESIDUE"
+            ],
+            "fix_delta_sha256": "66f8a79b78eab27de5c13d820d0db185232fcde1541756b400bf6e567a8c4006",
+            "paths": [
+              ".tmp/20260903-165003-316417-expensive-acceptance-gates/security-rereview-brief.md",
+              "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+              "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md",
+              "schemas/orchestrator-task-state.schema.json",
+              "schemas/task-event.schema.json",
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "tests/harness/test_control_plane.py"
+            ],
+            "evidence_refs": [
+              "actual-rereview-brief-sha256:0f7a2a990ec5424c29f520a600a44bbb31be93269b5156a5be2492dec4a6d376",
+              "12-focused-rereview-tests:pass",
+              "host-claude-runtime-present:true"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-SEC-001-rereview-2",
+      "title": "执行候选冻结前的安全和边界审查 re-review 1 re-review 2",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "VERIFY-GATES-001",
+        "REVIEW-SEC-001",
+        "REVIEW-SEC-001-rereview-1"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator",
+        "schemas",
+        "tests/harness/test_control_plane.py",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "rules/items/workflow"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Re-review fixed findings: GTO-SEC-004-CHEAP-CHECK-VERDICT",
+        "must_include": [
+          "Re-review finding GTO-SEC-004-CHEAP-CHECK-VERDICT."
+        ],
+        "verification": [
+          "输出结构化 task review；发现问题走原实现者 fix 和同 reviewer re-review"
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/security_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/security_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "936a53c3c252adc367082ee4781116ed0edd85140f3bef5cbd62511bc2f64590"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict pass.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/security_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "pass",
+          "reviewer_platform_agent_id": "/root/security_review",
+          "findings": [
+            {
+              "finding_id": "GTO-SEC-004-CHEAP-CHECK-VERDICT",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "schemas/orchestrator-task-state.schema.json",
+                "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+                "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md"
+              ],
+              "summary": "便宜检查门禁只看 completed，不判断验证是否通过。",
+              "evidence": "A completed cheap_check whose verification result says FAILED produces no pre-acceptance error; this task contains exactly that environmental full-discovery deviation.",
+              "status": "closed",
+              "fix_round": 2,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "Cheap checks retain the structured result.cheap_check.passed=true gate. After explicit user authorization, the undeclared /mnt/c/Users/Laptop/.claude runtime was removed; an exact absence check and the full harness now pass.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "schemas/orchestrator-task-state.schema.json",
+                  "tests/harness/test_control_plane.py"
+                ],
+                "sha256": "46c24c2a9616eb245c93e86a07d89f38a1cc14cabb6547ff15f938af78027c91",
+                "verification": "Original implementer independently confirmed /mnt/c/Users/Laptop/.claude is absent without rerunning the full suite. Main coordinator ran the full harness exactly once after deletion: 106 tests in 421.377 seconds, OK; test_claude_user_runtime_is_absent passed."
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "GTO-SEC-004-CHEAP-CHECK-VERDICT"
+            ],
+            "fix_delta_sha256": "d27783311ce3bd6990e9635728f71293400bac237b38992eb33bffc2c782a269",
+            "paths": [
+              ".tmp/20260903-165003-316417-expensive-acceptance-gates/security-rereview-2-brief.md",
+              "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+              "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md",
+              "schemas/orchestrator-task-state.schema.json",
+              "schemas/task-event.schema.json",
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "tests/harness/test_control_plane.py"
+            ],
+            "evidence_refs": [
+              "actual-rereview-2-brief-sha256:936a53c3c252adc367082ee4781116ed0edd85140f3bef5cbd62511bc2f64590",
+              "focused-cheap-check-test:pass",
+              "host-claude-runtime-present:false",
+              "recorded-full-harness:106-tests-421.377s-OK"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-FINAL-001-rereview-1",
+      "title": "独立终审最新冻结候选 re-review 1",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "DOC-FINAL-001",
+        "REVIEW-FINAL-001"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator",
+        "schemas",
+        "tests/harness",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "docs/ARCHITECTURE.md",
+        "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+        "rules/items/workflow"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "Re-review fixed findings: GTO-FINAL-001-STALE-FULL-HARNESS, GTO-FINAL-002-REVIEW-RESULT-NOT-APPEND-ONLY, GTO-FINAL-003-MULTI-ROUND-REREVIEW-GATE, GTO-FINAL-004-ACCEPTANCE-PROVENANCE-BYPASS, GTO-FINAL-005-LEGACY-DEPENDENCY-GATE",
+        "must_include": [
+          "Re-review finding GTO-FINAL-001-STALE-FULL-HARNESS.",
+          "Re-review finding GTO-FINAL-002-REVIEW-RESULT-NOT-APPEND-ONLY.",
+          "Re-review finding GTO-FINAL-003-MULTI-ROUND-REREVIEW-GATE.",
+          "Re-review finding GTO-FINAL-004-ACCEPTANCE-PROVENANCE-BYPASS.",
+          "Re-review finding GTO-FINAL-005-LEGACY-DEPENDENCY-GATE."
+        ],
+        "verification": [
+          "只有 final/pass 覆盖最新哈希后才允许 finalize-task"
+        ]
+      },
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/final_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "2dc0764549b5cad6e7be50237c1fbdd490940fd61bb5633cb899e34eb5c38334"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "re_review review recorded with verdict pass.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/final_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "re_review",
+          "verdict": "pass",
+          "reviewer_platform_agent_id": "/root/final_review",
+          "findings": [
+            {
+              "finding_id": "GTO-FINAL-001-STALE-FULL-HARNESS",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py",
+                ".tmp/20260903-165003-316417-expensive-acceptance-gates/freeze-local-result.json",
+                "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+                "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/execution.md",
+                "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md"
+              ],
+              "summary": "完整 harness 结果早于最终 controller/test 改动，不能证明当前候选。",
+              "evidence": "The 106-test run preceded round-two re-review recovery changes; only a later 69-test control-plane run covers those changes.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "After all controller/schema/test fixes stabilized, the coordinator ran one fresh full harness for the new candidate and obtained 112/112 passing tests.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "schemas/orchestrator-task-state.schema.json",
+                  "skills/global-task-orchestrator/references/state-schema.md",
+                  "tests/harness/test_control_plane.py"
+                ],
+                "sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+                "verification": "Fresh post-fix command: python3 -m unittest discover -s tests/harness -p 'test_*.py' -v. Result: Ran 112 tests in 373.166 seconds, OK. No scoped code/schema/test changes occurred during or after this run."
+              }
+            },
+            {
+              "finding_id": "GTO-FINAL-002-REVIEW-RESULT-NOT-APPEND-ONLY",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py",
+                "skills/global-task-orchestrator/references/state-schema.md"
+              ],
+              "summary": "record-review-result 可覆盖终态 review，且未绑定 kind 与 subtask/stage。",
+              "evidence": "_record_review does not require in_progress or absent result; a completed task/fail review can be replaced by re_review/pass on the same subtask.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "Review results now require an active empty matching-purpose reviewer subtask, and final/task/re-review failures recover only through append-only same-reviewer subtasks.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "tests/harness/test_control_plane.py",
+                  "skills/global-task-orchestrator/references/state-schema.md"
+                ],
+                "sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+                "verification": "Review overwrite/purpose and final-fail append-only recovery tests passed; control-plane 74/74 passed."
+              }
+            },
+            {
+              "finding_id": "GTO-FINAL-003-MULTI-ROUND-REREVIEW-GATE",
+              "severity": "high",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py"
+              ],
+              "summary": "revision-2 门禁不能累计多轮逐步关闭 findings 的合法复审历史。",
+              "evidence": "The gate requires one re_review/pass to cover the full original set, conflicting with the implemented scoped second re-review.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "Revision-2 pre-acceptance gating now accumulates closed finding coverage across same-reviewer re-review rounds.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "tests/harness/test_control_plane.py",
+                  "skills/global-task-orchestrator/references/state-schema.md"
+                ],
+                "sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+                "verification": "Multi-round same-reviewer closure gate test passed; control-plane 74/74 passed."
+              }
+            },
+            {
+              "finding_id": "GTO-FINAL-004-ACCEPTANCE-PROVENANCE-BYPASS",
+              "severity": "high",
+              "paths": [
+                "schemas/orchestrator-task-state.schema.json",
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py",
+                "skills/global-task-orchestrator/references/state-schema.md"
+              ],
+              "summary": "手写 revision-2 state 可伪造 frozen candidate 和 passing attempt。",
+              "evidence": "Candidate fingerprint/frozen_at and completed attempt evidence fields are optional; attempt subtask provenance and full six-stage presence are not validated.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "Revision-2 validation now requires the complete stage chain and controller-grade frozen candidate and attempt provenance/evidence.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "schemas/orchestrator-task-state.schema.json",
+                  "tests/harness/test_control_plane.py",
+                  "skills/global-task-orchestrator/references/state-schema.md"
+                ],
+                "sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+                "verification": "Forged candidate/attempt/incomplete stage-chain test and related provenance regressions passed; control-plane 74/74 passed."
+              }
+            },
+            {
+              "finding_id": "GTO-FINAL-005-LEGACY-DEPENDENCY-GATE",
+              "severity": "medium",
+              "paths": [
+                "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                "tests/harness/test_control_plane.py",
+                "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/plan.md"
+              ],
+              "summary": "旧 v3 任务没有获得方案声明的通用依赖派发门禁。",
+              "evidence": "_bind checks dependency completion only for workflow_revision=2; a legacy child can bind while its parent remains ready.",
+              "status": "closed",
+              "fix_round": 1,
+              "routed_to": {
+                "agent_key": "backend-implementer",
+                "platform_agent_id": "/root/impl_gates"
+              },
+              "fix_delta": {
+                "summary": "All version-3 bind-dispatch operations now reject unfinished dependencies without mutation.",
+                "changed_files": [
+                  "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+                  "tests/harness/test_control_plane.py",
+                  "skills/global-task-orchestrator/references/state-schema.md"
+                ],
+                "sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+                "verification": "Legacy-v3 dependency rejection test and revision-2 dependency regressions passed; control-plane 74/74 passed."
+              }
+            }
+          ],
+          "input_scope": {
+            "finding_ids": [
+              "GTO-FINAL-001-STALE-FULL-HARNESS",
+              "GTO-FINAL-002-REVIEW-RESULT-NOT-APPEND-ONLY",
+              "GTO-FINAL-003-MULTI-ROUND-REREVIEW-GATE",
+              "GTO-FINAL-004-ACCEPTANCE-PROVENANCE-BYPASS",
+              "GTO-FINAL-005-LEGACY-DEPENDENCY-GATE"
+            ],
+            "fix_delta_sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+            "paths": [
+              "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+              "schemas/orchestrator-task-state.schema.json",
+              "skills/global-task-orchestrator/references/state-schema.md",
+              "tests/harness/test_control_plane.py",
+              "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+              "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/events.jsonl"
+            ],
+            "evidence_refs": [
+              "review-target:c189bb1bcb6b601db35035c42ec7c3c50dca84944f06eb217baf62e0d153cbbc",
+              "focused-original-counterexamples:5-tests-16.606s-OK",
+              "fresh-full-harness:112-tests-373.166s-OK",
+              "external-expensive-acceptance:not-applicable-real_call_count-0"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "subtask_id": "REVIEW-FINAL-001-final-review-1",
+      "title": "独立终审最新冻结候选 follow-up 1",
+      "role": "reviewer",
+      "status": "completed",
+      "dependencies": [
+        "DOC-FINAL-001",
+        "REVIEW-FINAL-001",
+        "REVIEW-FINAL-001-rereview-1"
+      ],
+      "read_paths": [
+        "skills/global-task-orchestrator",
+        "schemas",
+        "tests/harness",
+        "docs/SUBAGENT_GOVERNANCE.md",
+        "docs/ARCHITECTURE.md",
+        "docs/plans/AI_HARNESS_MASTER_PLAN.md",
+        "rules/items/workflow"
+      ],
+      "write_paths": [],
+      "assignment": {
+        "goal": "独立核对最新候选、验收证据、流程顺序和全部验收条目后给出 final/pass 或结构化 finding。",
+        "must_include": [
+          "覆盖最新 source manifest",
+          "核对本次实际遵守新流程",
+          "核对无开放 finding 和无过期证据"
+        ],
+        "verification": [
+          "只有 final/pass 覆盖最新哈希后才允许 finalize-task"
+        ]
+      },
+      "dispatch": {
+        "agent_key": "reviewer",
+        "platform_agent_id": "/root/final_review",
+        "context_mode": "isolated",
+        "brief_kind": "review",
+        "brief_sha256": "54393593893e38f79f8237302c5d917dcd4a7fe6edae1a44a50e2ff50566664f"
+      },
+      "result": {
+        "status": "completed",
+        "summary": "final review recorded with verdict pass.",
+        "changed_files": [],
+        "planned_files_not_changed": [],
+        "verification": {
+          "commands": [
+            "review"
+          ],
+          "result": "Structured review result recorded."
+        },
+        "deviations": [],
+        "blocked_by": [],
+        "risks": [],
+        "follow_up": [],
+        "written_by": "/root/final_review",
+        "written_role": "reviewer",
+        "review": {
+          "kind": "final",
+          "verdict": "pass",
+          "reviewer_platform_agent_id": "/root/final_review",
+          "reviewed_change_sha256": "abb7cb4b9af77e3a14c5ea86970d0c933ef845231644e55e8b60d36be4048551",
+          "findings": []
+        }
+      }
+    }
+  ],
+  "task_id": "20260903-165003-316417-expensive-acceptance-gates",
+  "title": "GTO 昂贵验收轻量门禁",
+  "owner": "main-coordinator",
+  "status": "completed",
+  "current_phase": "review",
+  "version": 3,
+  "workspace": {
+    "repo_root": "<repo-root>",
+    "checkout_kind": "primary",
+    "branch": "main",
+    "head": "c79d58cb0345a0cb879b2be06073a1ef04962c36",
+    "dirty_paths": [],
+    "write_overlap": [],
+    "overlap_decision": {
+      "status": "not_required",
+      "summary": "No dirty path overlaps an unfinished execution subtask write path.",
+      "baseline_hashes": {}
+    }
+  },
+  "review_policy": {
+    "max_fix_rounds": 3,
+    "require_independent_final_review": true,
+    "scope_expansion_requires_escalation": true
+  },
+  "findings": {
+    "GTO-SEC-001-BRIEF-HASH": {
+      "finding_id": "GTO-SEC-001-BRIEF-HASH",
+      "severity": "high",
+      "paths": [
+        "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+        ".tmp/20260903-165003-316417-expensive-acceptance-gates/security-review-brief.md",
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py"
+      ],
+      "summary": "审查绑定保存的 brief 哈希与 reviewer 实际收到的 brief 不一致。",
+      "evidence": "state stores 437e4c... while the actual brief file hashes to 727790...; bind-dispatch validates only caller-supplied hash syntax.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/security_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Revision-2 dispatch now verifies the hash of a real repository-local brief file.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "schemas/orchestrator-task-state.schema.json",
+          "tests/harness/test_control_plane.py"
+        ],
+        "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+        "verification": "test_revision_two_bind_verifies_real_brief_file_hash passed; full control-plane 67/67 passed."
+      },
+      "closed_at": "2026-09-03T11:15:47.153033Z"
+    },
+    "GTO-SEC-002-CANDIDATE-FINGERPRINT": {
+      "finding_id": "GTO-SEC-002-CANDIDATE-FINGERPRINT",
+      "severity": "high",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_control_plane.py"
+      ],
+      "summary": "候选指纹未正确覆盖目录、内部符号链接目标和验收条目合同。",
+      "evidence": "A read-only counterexample changed src/a.py under a declared directory while the fingerprint remained identical; acceptance_items are absent from the fingerprint payload.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 2,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/security_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Candidate fingerprint recursively covers directories, safe symlink targets, runtime inputs, and acceptance items while rejecting repository escape links.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_control_plane.py"
+        ],
+        "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+        "verification": "Directory, symlink, acceptance-item, and escape-link counterexamples pass; full control-plane 67/67 passed."
+      },
+      "closed_at": "2026-09-03T11:15:47.153062Z"
+    },
+    "GTO-SEC-003-ATTEMPT-POLICY-BYPASS": {
+      "finding_id": "GTO-SEC-003-ATTEMPT-POLICY-BYPASS",
+      "severity": "high",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_control_plane.py"
+      ],
+      "summary": "审批和同候选环境重试上限可绕过 create-subtask-attempt。",
+      "evidence": "State semantics accept three same-candidate environment failures without approval, and record-subtask-result can append an attempt for a predeclared subtask without passing through attempt creation policy.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/security_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Attempt approval and environment retry limits are enforced by full-state validation, and expensive results require a precreated attempt.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_control_plane.py"
+        ],
+        "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+        "verification": "Hand-authored bypass and precreated-attempt tests pass; full control-plane 67/67 passed."
+      },
+      "closed_at": "2026-09-03T11:15:47.153068Z"
+    },
+    "GTO-SEC-004-CHEAP-CHECK-VERDICT": {
+      "finding_id": "GTO-SEC-004-CHEAP-CHECK-VERDICT",
+      "severity": "high",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "schemas/orchestrator-task-state.schema.json",
+        "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+        "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md"
+      ],
+      "summary": "便宜检查门禁只看 completed，不判断验证是否通过。",
+      "evidence": "A completed cheap_check whose verification result says FAILED produces no pre-acceptance error; this task contains exactly that environmental full-discovery deviation.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 2,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/security_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Cheap checks retain the structured result.cheap_check.passed=true gate. After explicit user authorization, the undeclared /mnt/c/Users/Laptop/.claude runtime was removed; an exact absence check and the full harness now pass.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "schemas/orchestrator-task-state.schema.json",
+          "tests/harness/test_control_plane.py"
+        ],
+        "sha256": "46c24c2a9616eb245c93e86a07d89f38a1cc14cabb6547ff15f938af78027c91",
+        "verification": "Original implementer independently confirmed /mnt/c/Users/Laptop/.claude is absent without rerunning the full suite. Main coordinator ran the full harness exactly once after deletion: 106 tests in 421.377 seconds, OK; test_claude_user_runtime_is_absent passed."
+      },
+      "closed_at": "2026-09-04T02:41:18.493619Z"
+    },
+    "GTO-SEC-005-REVIEW-RECOVERY": {
+      "finding_id": "GTO-SEC-005-REVIEW-RECOVERY",
+      "severity": "high",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_control_plane.py"
+      ],
+      "summary": "前置审查 fail 后没有保留历史并经合法 re-review 回到冻结的路径。",
+      "evidence": "Every historical pre_acceptance_review is required to be task/pass, so a later re_review/pass cannot clear an earlier task/fail; an existing test mutates terminal review history directly.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/security_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Added an append-only re-review subtask action and gate logic that preserves failed review history and accepts same-reviewer closure evidence.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_control_plane.py"
+        ],
+        "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+        "verification": "Review recovery and pending-review rejection tests pass; full control-plane 67/67 passed."
+      },
+      "closed_at": "2026-09-03T11:15:47.153075Z"
+    },
+    "GTO-SEC-006-FINAL-DOCUMENT-ORDER": {
+      "finding_id": "GTO-SEC-006-FINAL-DOCUMENT-ORDER",
+      "severity": "medium",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "schemas/orchestrator-task-state.schema.json",
+        "tests/harness/test_control_plane.py"
+      ],
+      "summary": "控制器未强制 final_documentation 先于 final_review。",
+      "evidence": "Final review and final documentation share the same candidate-pass gate, and the revision-2 contract does not require final_review to depend directly on final_documentation.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/security_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Revision-2 contracts require final_review to depend directly on final_documentation; normal dependency binding enforces completion.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "schemas/orchestrator-task-state.schema.json",
+          "tests/harness/test_control_plane.py"
+        ],
+        "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+        "verification": "Final documentation ordering test passes; full control-plane 67/67 passed."
+      },
+      "closed_at": "2026-09-03T11:15:47.153079Z"
+    },
+    "GTO-SEC-007-INIT-RESIDUE": {
+      "finding_id": "GTO-SEC-007-INIT-RESIDUE",
+      "severity": "medium",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "tests/harness/test_control_plane.py"
+      ],
+      "summary": "部分 init-task 语义错误在拒绝前留下 Markdown 和 events 残留。",
+      "evidence": "A stale frozen fingerprint is missed by _initial_state and rejected only after _init writes projected artifacts and events, leaving a partial task directory without state.json.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/security_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "init-task performs complete candidate and semantic validation before creating task directories or projected artifacts.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_control_plane.py"
+        ],
+        "sha256": "2a56043801a83f04f3b0418b500c08589d82ee953386a1d03284da818fca9c2a",
+        "verification": "Stale-candidate init residue test passes; full control-plane 67/67 passed."
+      },
+      "closed_at": "2026-09-03T11:15:47.153082Z"
+    },
+    "GTO-FINAL-001-STALE-FULL-HARNESS": {
+      "finding_id": "GTO-FINAL-001-STALE-FULL-HARNESS",
+      "severity": "high",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "tests/harness/test_control_plane.py",
+        ".tmp/20260903-165003-316417-expensive-acceptance-gates/freeze-local-result.json",
+        "docs/ai/tasks/20260903-165003-316417-expensive-acceptance-gates/state.json",
+        "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/execution.md",
+        "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/acceptance.md"
+      ],
+      "summary": "完整 harness 结果早于最终 controller/test 改动，不能证明当前候选。",
+      "evidence": "The 106-test run preceded round-two re-review recovery changes; only a later 69-test control-plane run covers those changes.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "After all controller/schema/test fixes stabilized, the coordinator ran one fresh full harness for the new candidate and obtained 112/112 passing tests.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "schemas/orchestrator-task-state.schema.json",
+          "skills/global-task-orchestrator/references/state-schema.md",
+          "tests/harness/test_control_plane.py"
+        ],
+        "sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+        "verification": "Fresh post-fix command: python3 -m unittest discover -s tests/harness -p 'test_*.py' -v. Result: Ran 112 tests in 373.166 seconds, OK. No scoped code/schema/test changes occurred during or after this run."
+      },
+      "closed_at": "2026-09-04T04:05:36.038731Z"
+    },
+    "GTO-FINAL-002-REVIEW-RESULT-NOT-APPEND-ONLY": {
+      "finding_id": "GTO-FINAL-002-REVIEW-RESULT-NOT-APPEND-ONLY",
+      "severity": "high",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "tests/harness/test_control_plane.py",
+        "skills/global-task-orchestrator/references/state-schema.md"
+      ],
+      "summary": "record-review-result 可覆盖终态 review，且未绑定 kind 与 subtask/stage。",
+      "evidence": "_record_review does not require in_progress or absent result; a completed task/fail review can be replaced by re_review/pass on the same subtask.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Review results now require an active empty matching-purpose reviewer subtask, and final/task/re-review failures recover only through append-only same-reviewer subtasks.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_control_plane.py",
+          "skills/global-task-orchestrator/references/state-schema.md"
+        ],
+        "sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+        "verification": "Review overwrite/purpose and final-fail append-only recovery tests passed; control-plane 74/74 passed."
+      },
+      "closed_at": "2026-09-04T04:05:36.038771Z"
+    },
+    "GTO-FINAL-003-MULTI-ROUND-REREVIEW-GATE": {
+      "finding_id": "GTO-FINAL-003-MULTI-ROUND-REREVIEW-GATE",
+      "severity": "high",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "tests/harness/test_control_plane.py"
+      ],
+      "summary": "revision-2 门禁不能累计多轮逐步关闭 findings 的合法复审历史。",
+      "evidence": "The gate requires one re_review/pass to cover the full original set, conflicting with the implemented scoped second re-review.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Revision-2 pre-acceptance gating now accumulates closed finding coverage across same-reviewer re-review rounds.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_control_plane.py",
+          "skills/global-task-orchestrator/references/state-schema.md"
+        ],
+        "sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+        "verification": "Multi-round same-reviewer closure gate test passed; control-plane 74/74 passed."
+      },
+      "closed_at": "2026-09-04T04:05:36.038780Z"
+    },
+    "GTO-FINAL-004-ACCEPTANCE-PROVENANCE-BYPASS": {
+      "finding_id": "GTO-FINAL-004-ACCEPTANCE-PROVENANCE-BYPASS",
+      "severity": "high",
+      "paths": [
+        "schemas/orchestrator-task-state.schema.json",
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "tests/harness/test_control_plane.py",
+        "skills/global-task-orchestrator/references/state-schema.md"
+      ],
+      "summary": "手写 revision-2 state 可伪造 frozen candidate 和 passing attempt。",
+      "evidence": "Candidate fingerprint/frozen_at and completed attempt evidence fields are optional; attempt subtask provenance and full six-stage presence are not validated.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "Revision-2 validation now requires the complete stage chain and controller-grade frozen candidate and attempt provenance/evidence.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "schemas/orchestrator-task-state.schema.json",
+          "tests/harness/test_control_plane.py",
+          "skills/global-task-orchestrator/references/state-schema.md"
+        ],
+        "sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+        "verification": "Forged candidate/attempt/incomplete stage-chain test and related provenance regressions passed; control-plane 74/74 passed."
+      },
+      "closed_at": "2026-09-04T04:05:36.038787Z"
+    },
+    "GTO-FINAL-005-LEGACY-DEPENDENCY-GATE": {
+      "finding_id": "GTO-FINAL-005-LEGACY-DEPENDENCY-GATE",
+      "severity": "medium",
+      "paths": [
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+        "tests/harness/test_control_plane.py",
+        "docs/tasks/20260903-165003-316417-expensive-acceptance-gates/plan.md"
+      ],
+      "summary": "旧 v3 任务没有获得方案声明的通用依赖派发门禁。",
+      "evidence": "_bind checks dependency completion only for workflow_revision=2; a legacy child can bind while its parent remains ready.",
+      "status": "closed",
+      "routed_to": {
+        "agent_key": "backend-implementer",
+        "platform_agent_id": "/root/impl_gates"
+      },
+      "fix_round": 1,
+      "lineage": {
+        "original_implementer": {
+          "agent_key": "backend-implementer",
+          "platform_agent_id": "/root/impl_gates"
+        },
+        "original_reviewer": {
+          "agent_key": "reviewer",
+          "platform_agent_id": "/root/final_review"
+        }
+      },
+      "fix_delta": {
+        "summary": "All version-3 bind-dispatch operations now reject unfinished dependencies without mutation.",
+        "changed_files": [
+          "skills/global-task-orchestrator/scripts/orchestrator_ctl.py",
+          "tests/harness/test_control_plane.py",
+          "skills/global-task-orchestrator/references/state-schema.md"
+        ],
+        "sha256": "caa6c57ef4dc66c93fce4d73825b55028aa18e18f483a14643a19c3147be9778",
+        "verification": "Legacy-v3 dependency rejection test and revision-2 dependency regressions passed; control-plane 74/74 passed."
+      },
+      "closed_at": "2026-09-04T04:05:36.038797Z"
+    }
+  },
+  "next_action": {
+    "kind": "none"
+  },
+  "artifact_sha256": {
+    "task.md": "c43368bcdcf987e4ec513598d6d0706871a3e7178cd34d81d10820b41b152bbd",
+    "plan.md": "e688c4fed8b44d06f4cd15e0f51585ca8deaf09a7399be1a4a291960b4311f3e",
+    "execution.md": "fcbbd8f0e148a792034941afce6d3ae6061ce1fbf39937e548a10d73c950800f",
+    "acceptance.md": "b474a29c495ebf306c52a7ba6aee2e981b2f30bc151c91640beabe4dbd90dbb9"
+  },
+  "updated_at": "2026-09-04T04:49:19.613215Z",
+  "final_review": {
+    "verdict": "pass",
+    "reviewer": {
+      "agent_key": "reviewer",
+      "platform_agent_id": "/root/final_review"
+    },
+    "reviewed_change_sha256": "abb7cb4b9af77e3a14c5ea86970d0c933ef845231644e55e8b60d36be4048551"
+  }
+}

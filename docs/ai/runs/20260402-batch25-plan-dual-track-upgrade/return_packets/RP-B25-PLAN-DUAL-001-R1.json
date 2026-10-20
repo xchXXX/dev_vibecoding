@@ -1,0 +1,40 @@
+{
+  "return_packet_id": "RP-B25-PLAN-DUAL-001-R1",
+  "task_id": "20260402-batch25-plan-dual-track-upgrade",
+  "work_order_id": "WO-B25-PLAN-DUAL-001-R1",
+  "status": "completed",
+  "summary": "Cleaned the nine explicit batch25-smoke temporary artifacts and corrected receipt accounting for the Batch 2.5 validation outputs.",
+  "changed_files": [
+    "docs/ai/runs/batch25-smoke-20260402",
+    "docs/ai/runs/batch25-smoke-20260402b",
+    "docs/ai/runs/batch25-smoke-20260402c",
+    "docs/plans/batch25-smoke-20260402.md",
+    "docs/plans/batch25-smoke-20260402b.md",
+    "docs/plans/batch25-smoke-20260402c.md",
+    ".ai/session/batch25-smoke-20260402",
+    ".ai/session/batch25-smoke-20260402b",
+    ".ai/session/batch25-smoke-20260402c",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R1.json"
+  ],
+  "planned_files_not_changed": [],
+  "verification_commands": [
+    "Resolve-Path verification for all 9 explicit batch25-smoke targets before deletion",
+    "Remove-Item -LiteralPath <target> -Recurse -Force for each verified target",
+    "Post-delete Test-Path verification for all 9 explicit batch25-smoke targets",
+    "ConvertFrom-Json parse check for RP-B25-PLAN-DUAL-001.json",
+    "ConvertFrom-Json parse check for RP-B25-PLAN-DUAL-001-R1.json"
+  ],
+  "verification_result": "All 9 explicit batch25-smoke targets resolved inside the repository before deletion and were absent after cleanup. Both return packet JSON files parse cleanly.",
+  "deviations_from_dispatch": [],
+  "blocked_by": [],
+  "risks": [
+    "Future smoke validation should either use explicitly scoped temporary paths or clean them before completion to avoid another review failure."
+  ],
+  "follow_up_needed": [
+    "Run the Batch 2.5 review gate again."
+  ],
+  "written_at": "2026-04-03T00:00:00+08:00",
+  "written_by": "rework-execution-worker",
+  "written_role": "plan-contract-script-rework"
+}

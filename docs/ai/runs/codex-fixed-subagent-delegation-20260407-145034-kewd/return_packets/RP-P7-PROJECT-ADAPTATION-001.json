@@ -1,0 +1,32 @@
+﻿{
+    "return_packet_id":  "RP-P7-PROJECT-ADAPTATION-001",
+    "task_id":  "codex-fixed-subagent-delegation-20260407-145034-kewd",
+    "work_order_id":  "WO-P7-PROJECT-ADAPTATION-001",
+    "status":  "completed",
+    "summary":  "更新全局与项目模板入口文档，补齐 role-first 委派说明；新增 docs/ai 与 config/ai 入口 README，确保仅保留项目增量边界并引用全局治理真源。",
+    "changed_files":  [
+                          "docs/AGENTS.md",
+                          "templates/project/README.md",
+                          "templates/project/docs/README.md",
+                          "templates/project/config/README.md",
+                          "templates/project/.claude/README.md",
+                          "templates/project/.codex/README.md",
+                          "templates/project/docs/ai/README.md",
+                          "templates/project/config/ai/README.md"
+                      ],
+    "planned_files_not_changed":  [
+
+                                  ],
+    "verification_commands":  [
+                                  "Test-Path docs/AGENTS.md; Test-Path templates/project/docs/ai/README.md; Test-Path templates/project/config/ai/README.md",
+                                  "(Get-Content -Raw -Encoding UTF8 templates/project/docs/ai/README.md).Length",
+                                  "(Get-Content -Raw -Encoding UTF8 templates/project/config/ai/README.md).Length"
+                              ],
+    "verification_result":  "docs/AGENTS.md 与两份新增 README 均存在；新增 README 内容长度均大于 0。",
+    "deviations_from_dispatch":  "无",
+    "blocked_by":  "无",
+    "risks":  "未发现新增风险。",
+    "follow_up_needed":  "否",
+    "written_by":  "doc-curator",
+    "written_role":  "doc-curator"
+}

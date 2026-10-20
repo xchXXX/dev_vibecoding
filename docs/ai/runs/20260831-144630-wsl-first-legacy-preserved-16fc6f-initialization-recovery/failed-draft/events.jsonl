@@ -1,0 +1,7 @@
+{"ts":"2026-08-31T14:46:38+08:00","actor":"main-coordinator","type":"task_initialized","summary":"Initialized task control plane.","refs":["docs/ai/tasks/20260831-144630-wsl-first-legacy-preserved-16fc6f/state.json","docs/ai/tasks/20260831-144630-wsl-first-legacy-preserved-16fc6f/task.md"]}
+
+{"ts":"2026-08-31T14:51:21+08:00","actor":"main-coordinator","type":"initialization_failed","summary":"init-task schema validation rejected empty subtasks; no valid state.json exists. Current agent remains Windows and current account only registers docker-desktop. Approved plan/execution/acceptance documents saved; no implementation or runtime configuration changes.","refs":[]}
+
+{"ts":"2026-08-31T14:59:29+08:00","actor":"main-coordinator","type":"prerequisite_expansion_approved","summary":"User explicitly approved independent Ubuntu WSL2 installation and minimal GTO initialization recovery, without weakening schema or modifying existing tasks; plan and execution updated before code. Same task id retained; original dirty-file baselines preserved.","refs":[]}
+
+{"ts":"2026-08-31T14:59:58+08:00","actor":"main-coordinator","type":"recovery_agent_dispatched","summary":"Actual no-history recovery agent /root/repair_gto_initialization dispatched within approved controller/docs/targeted-test scope. No generated subtask brief exists because initialization is broken; bind formal task identity after recovery, without fabricating a prior brief.","refs":[]}

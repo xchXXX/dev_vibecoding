@@ -6,7 +6,7 @@
 
 ## 首次准备
 
-运行脚本的环境需要 Python 3.11+、Git 和包内 `requirements.txt` 指定的 Python 依赖。Python 与 Git 必须处于同一实际执行环境；Windows 原生、WSL/Linux 不共用虚拟环境。依赖已满足时无需安装任何东西。
+运行脚本的环境需要 Python 3.10+、Git 和包内 `requirements.txt` 指定的 Python 依赖。Python 与 Git 必须处于同一实际执行环境；Windows 原生、WSL/Linux 不共用虚拟环境。依赖已满足时无需安装任何东西。
 
 先运行轻量自检（路径换成实际安装目录）：
 
@@ -34,8 +34,14 @@ python -m pip install -r "/absolute/path/global-task-orchestrator/requirements.t
 
 ## 更新、卸载与状态
 
-新任务使用当前安装版本。已有任务沿用消费项目内的六工件；冻结后的任务按记录使用运行快照，不能复制状态到另一工作区后继续冒充同一任务。通过 harness 安装的技能使用同一安装器更新与卸载，由 receipt 核验所有权和文件漂移。手工安装则先备份并核对文件归属、未知改动和正在使用它的未冻结任务；确认边界后更新，重新自检和检查新会话加载。
+新任务使用当前安装版本。已有任务沿用消费项目内的六工件；冻结后的任务按记录使用运行快照，不能复制状态到另一工作区后继续冒充同一任务。升级前备份现有 skill 文件夹，并确认没有正在使用它的未冻结任务；关闭占用后整体替换，重新自检和检查新会话加载。
 
-手工卸载仅处理已核实属于该次安装的文件，未知内容保留。消费项目中的任务、证据和运行快照不会随之删除；正在进行的任务应先妥善收尾。不要覆盖另一来源的同名 skill。
+卸载只删除你安装的这个 skill 文件夹。消费项目中的任务、证据和运行快照不会随之删除；正在进行的任务应先妥善收尾。不要覆盖另一来源的同名 skill。
 
-唯一可编辑真源是 ai-harness 仓库的 `skills/global-task-orchestrator`。独立 standalone 分发副本由仓库维护者运行 `python scripts/generate-gto-standalone.py` 生成，附带 `SOURCE.json` 精确文件哈希与来源信息；`--check` 只读检查缺失、额外文件和字节漂移，发布入口核验生成一致性，不得手工修改副本。通过 portable harness 分发的 GTO 技能使用分发包根 manifest 与安装 receipt 记录完整性和所有权，技能目录不附带 standalone 的 `SOURCE.json`。基本运行不需要 ai-harness 安装 receipt；需要验证原安装态的实验与普通内容快照的边界见 [运行与证据合同](references/runtime-evidence.md)。脚本检查通过与宿主新会话实际加载成功是两种不同证据。
+本包由 ai-harness 的 GTO 真源生成，禁止手工维护第二套控制器，来源见 [SOURCE.json](SOURCE.json)。原版不会自动同步到本包。本包不需要 ai-harness 安装 receipt；候选和运行快照哈希仍按 [运行与证据合同](references/runtime-evidence.md) 校验。脚本检查通过与宿主新会话实际加载成功是两种不同证据。
+
+范围复验行为见包内 [验收合同](references/acceptance-points.md) 及[通用十点示例](references/examples/point-acceptance/README.md)；实际分发内容以 SOURCE.json 和压缩包清单为准。安装更新不得替换消费项目已冻结的运行快照。
+# 恢复与登记精简
+
+新入口和观察摘要格式见 [简化合同](references/streamlined-execution.md)。本包由真源生成后提供相同行为；没有全局 Codex 安装时，只使用包内工具入口，不查找其他项目或机器目录。旧任务继续使用其冻结快照。
+

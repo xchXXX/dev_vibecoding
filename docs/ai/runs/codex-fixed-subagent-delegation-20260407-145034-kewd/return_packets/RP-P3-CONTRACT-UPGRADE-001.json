@@ -1,0 +1,50 @@
+﻿{
+    "return_packet_id":  "RP-P3-CONTRACT-UPGRADE-001",
+    "task_id":  "codex-fixed-subagent-delegation-20260407-145034-kewd",
+    "work_order_id":  "WO-P3-CONTRACT-UPGRADE-001",
+    "status":  "completed",
+    "summary":  "已完成阶段3合同模板与 schema 升级：补充 write_scope 语义、对齐 dispatch 互引字段，并将 return_packet_id/task_id 纳入回执必填校验。",
+    "changed_files":  [
+                          "templates/work_order.example.json",
+                          "templates/dispatch_packet.example.json",
+                          "templates/return_packet.example.json",
+                          "schemas/work_order.schema.json",
+                          "schemas/dispatch_packet.schema.json",
+                          "schemas/return_packet.schema.json"
+                      ],
+    "planned_files_not_changed":  [
+
+                                  ],
+    "verification_commands":  [
+                                  "python -m json.tool templates/work_order.example.json",
+                                  "python -m json.tool templates/dispatch_packet.example.json",
+                                  "python -m json.tool templates/return_packet.example.json",
+                                  "python -m json.tool schemas/work_order.schema.json",
+                                  "python -m json.tool schemas/dispatch_packet.schema.json",
+                                  "python -m json.tool schemas/return_packet.schema.json",
+                                  "python -c \"import json, pathlib; s=json.loads(pathlib.Path(\u0027schemas/work_order.schema.json\u0027).read_text(encoding=\u0027utf-8\u0027)); print(\u0027write_scope\u0027 in s.get(\u0027properties\u0027, {}))\"",
+                                  "python -c \"import json, pathlib; s=json.loads(pathlib.Path(\u0027schemas/return_packet.schema.json\u0027).read_text(encoding=\u0027utf-8\u0027)); r=set(s.get(\u0027required\u0027, [])); print({\u0027return_packet_id\u0027,\u0027task_id\u0027}.issubset(r))\""
+                              ],
+    "verification_result":  {
+                                "templates_json_valid":  true,
+                                "schemas_json_valid":  true,
+                                "work_order_schema_has_write_scope":  true,
+                                "return_packet_schema_required_has_return_packet_id_and_task_id":  true
+                            },
+    "deviations_from_dispatch":  [
+
+                                 ],
+    "blocked_by":  [
+
+                   ],
+    "risks":  [
+                  "历史 return_packet 若缺少 return_packet_id/task_id，将不再通过升级后的 schema 校验。"
+              ],
+    "follow_up_needed":  [
+                             "阶段4委派消息编译器落地时，应默认生成 write_scope 并保持与 write_paths 一致。",
+                             "若需继续校验历史回执，建议补齐旧样例字段或按版本分层校验。"
+                         ],
+    "written_by":  "backend-implementer",
+    "written_role":  "backend-implementer",
+    "written_at":  "2026-04-07T16:40:00+08:00"
+}

@@ -1,6 +1,6 @@
-"""Content-bound runtime snapshots and append-only, locally retained run evidence.
+"""Receipt-bound runtime snapshots and append-only, locally retained run evidence.
 
-This is a production module used by the controller and evidence CLI.
+This is a production module shared by the controller and benchmark runner.
 Manifests inventory evidence; the task state remains the only workflow ledger.
 """
 from __future__ import annotations
@@ -13,8 +13,10 @@ import os
 from pathlib import Path
 import platform
 import signal
+import re
 import subprocess
 import sys
+import time
 import uuid
 
 
@@ -58,7 +60,7 @@ def freeze_tree(source, destination):
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
-    (destination / '.snapshot.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+    (destination / '.snapshot.json').write_text(json.dumps(manifest, indent=2) + '\n')
     verify_tree(destination, manifest)
     return manifest
 
@@ -71,7 +73,7 @@ def verify_tree(root, expected):
 
 def _write_manifest(path, value):
     temporary = path.with_name(path.name + '.writing')
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
     temporary.replace(path)
 
 
@@ -113,30 +115,43 @@ def acceptance_evidence_paths(result):
     return sorted(paths)
 
 
-def _terminate_process_tree(process):
-    if os.name == 'nt':
-        result = subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
-                                capture_output=True, timeout=10)
-        if result.returncode and process.poll() is None:
-            raise OSError('taskkill failed; the retained run requires manual process cleanup')
-        process.wait(timeout=5)
-        return
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
-    try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        pass
-    # A reaped parent does not mean its process group is empty. Descendants may
-    # ignore SIGTERM and keep running after the leader exits.
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
-    if process.poll() is None:
-        process.wait()
+def execution_times(manifest, *, allow_legacy_clock_reversal=False):
+    """Validate the explicit evidence protocol; monotonic duration is run-local."""
+    version = manifest.get('schema_version')
+    if type(version) is not int or version not in {1, 2}:
+        raise ValueError('unsupported execution time protocol')
+    started, finished = (datetime.fromisoformat(manifest[key]) for key in ('started_at', 'finished_at'))
+    if started.tzinfo is None or finished.tzinfo is None:
+        raise ValueError('execution time requires a timezone')
+    if version == 2:
+        elapsed, before = manifest.get('elapsed_ns'), manifest.get('completed_before')
+        if (type(elapsed) is not int or elapsed < 0 or not isinstance(before, list)
+                or any(not isinstance(h, str) or not re.fullmatch('[0-9a-f]{64}', h) for h in before)
+                or len(before) != len(set(before))):
+            raise ValueError('invalid execution time/causal evidence')
+    elif ('elapsed_ns' in manifest or 'completed_before' in manifest
+          or (finished < started and not allow_legacy_clock_reversal)):
+        raise ValueError('original execution chronology is invalid')
+    return started, finished
+
+
+def _completed_before(cwd, task_id):
+    """Capture terminal original bytes before starting the child, across run roots."""
+    if not task_id:
+        return []
+    seals = set()
+    for path in (Path(cwd) / '.artifacts').rglob('manifest.json'):
+        try:
+            if any(p.is_symlink() for p in (path, *path.parents)):
+                continue
+            raw = path.read_bytes()
+            manifest = json.loads(raw)
+            if (manifest.get('binding', {}).get('task_id') == task_id
+                    and manifest.get('status') in {'passed', 'failed', 'interrupted', 'invalidated'}):
+                seals.add(digest(raw))
+        except (OSError, ValueError, TypeError, AttributeError):
+            continue  # Missing causal proof remains conservative at adoption.
+    return sorted(seals)
 
 
 def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_paths=()):
@@ -149,7 +164,10 @@ def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_
         raise ValueError('command must be a nonempty argv list, without secrets')
     run = retained_root / ('run-' + uuid.uuid4().hex)
     run.mkdir(parents=True, exist_ok=False)
-    manifest = {'schema_version': 1, 'binding': binding, 'command': command,
+    before = _completed_before(cwd, binding.get('task_id'))
+    monotonic_start = time.monotonic_ns()
+    manifest = {'schema_version': 2, 'binding': binding, 'command': command,
+                'completed_before': before,
                 'cwd': str(Path(cwd).resolve()), 'status': 'running', 'exit_code': None,
                 'started_at': datetime.now(timezone.utc).isoformat(),
                 'environment': {'host': platform.node(), 'platform': platform.platform(),
@@ -164,10 +182,15 @@ def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_
                 manifest['exit_code'] = process.wait(timeout=timeout)
                 manifest['status'] = 'passed' if process.returncode == 0 else 'failed'
             except (subprocess.TimeoutExpired, KeyboardInterrupt):
-                _terminate_process_tree(process)
+                os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait()
                 manifest['exit_code'] = process.returncode
                 manifest['status'] = 'interrupted'
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except OSError as exc:
         manifest['status'] = 'failed'
         manifest['error'] = str(exc)
     finally:
@@ -179,6 +202,7 @@ def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_
                 manifest['status'] = 'failed'
                 manifest['error'] = str(exc)
         manifest['finished_at'] = datetime.now(timezone.utc).isoformat()
+        manifest['elapsed_ns'] = time.monotonic_ns() - monotonic_start
         manifest['files'] = {name: digest((run / name).read_bytes())
                              for name in ('stdout.log', 'stderr.log') if (run / name).is_file()}
         _write_manifest(run / 'manifest.json', manifest)
@@ -189,11 +213,12 @@ def verify_run(run, binding, *, repo=None):
     run = Path(run)
     if any(p.is_symlink() for p in (run, *run.parents)):
         raise ValueError('run evidence path must not contain symlinks')
-    manifest = json.loads((run / 'manifest.json').read_text(encoding="utf-8"))
+    manifest = json.loads((run / 'manifest.json').read_text())
     if manifest.get('binding') != binding:
         raise ValueError('run binding does not match candidate/runtime')
     if manifest.get('status') not in {'passed', 'failed', 'interrupted', 'invalidated'}:
         raise ValueError('run is incomplete; retain and investigate before cleanup')
+    execution_times(manifest)
     if set(manifest.get('files', {})) != {'stdout.log', 'stderr.log'}:
         raise ValueError('run evidence inventory is incomplete')
     for name, expected in manifest['files'].items():
@@ -234,7 +259,31 @@ def acceptance_run_errors(repo, state, subtask, result):
             raise ValueError('run manifest path must not contain symlinks')
         if digest(path.read_bytes()) != reference['sha256']:
             raise ValueError('run manifest hash mismatch')
-        manifest = verify_run(path.parent, acceptance_binding(state, subtask['subtask_id']), repo=repo)
+        binding_subtask = subtask['subtask_id']
+        preparation_id = acceptance.get('source_preparation_attempt_id')
+        if preparation_id:
+            source = next(a for a in state['acceptance_gate']['attempts'] if a['attempt_id'] == preparation_id)
+            target = next(a for a in state['acceptance_gate']['attempts'] if a['subtask_id'] == subtask['subtask_id'])
+            source_task = next(t for t in state['subtasks'] if t['subtask_id'] == source['subtask_id'])
+            if (source.get('kind') != 'preparation' or source.get('outcome') != 'pass'
+                    or source_task.get('status') != 'completed'
+                    or source['candidate_id'] != target['candidate_id']
+                    or source['runtime_sha256'] != target['runtime_sha256']
+                    or source_task['dispatch']['platform_agent_id'] != subtask['dispatch']['platform_agent_id']
+                    or source.get('run_evidence') != reference or acceptance.get('real_call_count') != 0):
+                raise ValueError('formal observation adoption requires the original completed preparation and executor')
+            for row in acceptance.get('point_results', []):
+                for ref in row['evidence_refs']:
+                    observation = json.loads(retained_file(repo, ref).read_bytes())
+                    if (not isinstance(observation, dict)
+                            or not {'acceptance_id', 'status', 'input', 'actual', 'expected'} <= set(observation)
+                            or observation['acceptance_id'] != row['acceptance_id']
+                            or observation['status'] != row['status']):
+                        raise ValueError('preparation output is not a formal point observation')
+            if not acceptance.get('point_results'):
+                raise ValueError('formal preparation adoption requires point observations')
+            binding_subtask = source['subtask_id']
+        manifest = verify_run(path.parent, acceptance_binding(state, binding_subtask), repo=repo)
         native_outputs = {(path.parent / name).relative_to(repo).as_posix() for name in manifest['files']}
         covered = set(manifest.get('evidence_files', {})) | native_outputs
         missing = set(acceptance_evidence_paths(result)) - covered
@@ -376,7 +425,7 @@ def main():
                           'status': manifest['status'], 'exit_code': manifest['exit_code']}
     except Exception as exc:
         result = {'ok': False, 'errors': [str(exc)]}
-    print(json.dumps(result, ensure_ascii=True))
+    print(json.dumps(result, ensure_ascii=False))
     return 0 if result.get('ok') else 2
 
 

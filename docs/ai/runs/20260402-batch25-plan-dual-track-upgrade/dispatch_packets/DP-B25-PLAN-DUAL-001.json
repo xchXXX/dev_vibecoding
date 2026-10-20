@@ -1,0 +1,145 @@
+{
+  "task_id": "20260402-batch25-plan-dual-track-upgrade",
+  "dispatch_packet_id": "DP-B25-PLAN-DUAL-001",
+  "work_order_id": "WO-B25-PLAN-DUAL-001",
+  "instruction_source": "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+  "read_before_write": [
+    "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "rules/common/SUBAGENT_RULES.md",
+    "schemas/plan.schema.json",
+    "templates/plan.example.json",
+    "templates/progress.session.example.md",
+    "skills/global-task-orchestrator/scripts/bootstrap-task.ps1",
+    "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+    "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+    "scripts/start_session.ps1"
+  ],
+  "execution_order": [
+    "Upgrade schemas/plan.schema.json",
+    "Upgrade templates/plan.example.json",
+    "Upgrade templates/progress.session.example.md",
+    "Patch skills/global-task-orchestrator/scripts/bootstrap-task.ps1",
+    "Patch scripts/start_session.ps1",
+    "Patch skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+    "Adjust skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1 only if needed",
+    "Run schema and script validations",
+    "Write the return_packet"
+  ],
+  "change_spec": [
+    {
+      "path": "schemas/plan.schema.json",
+      "change_type": "update",
+      "instructions": [
+        "Make source_plan_doc part of the canonical dual-artifact contract.",
+        "Represent status, scope_in, scope_out, acceptance, and stop_conditions in the minimal plan projection."
+      ],
+      "done_when": [
+        "The schema validates the updated plan example."
+      ]
+    },
+    {
+      "path": "templates/plan.example.json",
+      "change_type": "update",
+      "instructions": [
+        "Model plan.json as the structured projection of plan.md.",
+        "Show source_plan_doc explicitly."
+      ],
+      "done_when": [
+        "The example uses the canonical Batch 2.5 field set."
+      ]
+    },
+    {
+      "path": "templates/progress.session.example.md",
+      "change_type": "update",
+      "instructions": [
+        "Stop treating plan.json as the only plan entry.",
+        "Show that plan.md is the semantic source and plan.json is projection."
+      ],
+      "done_when": [
+        "The progress example reflects the frozen reading priority."
+      ]
+    },
+    {
+      "path": "skills/global-task-orchestrator/scripts/bootstrap-task.ps1",
+      "change_type": "update",
+      "instructions": [
+        "Generate a better draft plan.json with dual-artifact fields instead of a long-lived placeholder.",
+        "Set source_plan_doc and align initial status with a draft projection."
+      ],
+      "done_when": [
+        "bootstrap no longer emits only the old placeholder contract."
+      ]
+    },
+    {
+      "path": "scripts/start_session.ps1",
+      "change_type": "update",
+      "instructions": [
+        "Point template resolution at the current repo template source.",
+        "Keep session bootstrap working with the current repository layout."
+      ],
+      "done_when": [
+        "Session bootstrap works without config/ai/templates."
+      ]
+    },
+    {
+      "path": "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+      "change_type": "update",
+      "instructions": [
+        "Add minimal plan.json validation for source_plan_doc and related fields.",
+        "Remove or soften the dependency on a missing repo_doctor path when validating this batch."
+      ],
+      "done_when": [
+        "validate can perform the Batch 2.5 minimum checks."
+      ]
+    },
+    {
+      "path": "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1",
+      "change_type": "update",
+      "instructions": [
+        "Keep bootstrap and validate routing consistent with the updated helper scripts."
+      ],
+      "done_when": [
+        "ctl still routes the minimum script surface cleanly."
+      ]
+    }
+  ],
+  "invariants": [
+    "plan.md remains the semantic source.",
+    "plan.json remains a structured projection rather than an alternate plan authority.",
+    "Batch 2.5 stays limited to plan schema, example, progress template, and minimal related scripts."
+  ],
+  "forbidden_changes": [
+    "Do not expand work_order, dispatch_packet, or return_packet again.",
+    "Do not modify prompts, review strategy, or wider runtime behavior.",
+    "Do not change files outside the listed write scope."
+  ],
+  "dependency_notes": [
+    "bootstrap-task.ps1 currently calls scripts/start_session.ps1, so session bootstrap must stay aligned.",
+    "orchestrator_ctl.ps1 validate routes to validate-control-plane.ps1, so validation behavior should be adjusted there rather than spread elsewhere."
+  ],
+  "done_signals": [
+    "plan.schema.json updated",
+    "plan.example.json updated",
+    "progress.session.example.md updated",
+    "bootstrap-task.ps1 updated",
+    "start_session.ps1 updated",
+    "validate-control-plane.ps1 updated",
+    "script and schema validation run",
+    "return_packet written"
+  ],
+  "verification_focus": [
+    "source_plan_doc and dual-artifact fields exist and align",
+    "bootstrap no longer emits only placeholder plan.json",
+    "validate performs minimum plan checks",
+    "changes stay within Batch 2.5 scope"
+  ],
+  "fallback_strategy": [
+    "If a legacy field must remain for compatibility, keep it optional and secondary.",
+    "If validate cannot safely keep repo_doctor semantics in this repo, reduce the check to the minimum Batch 2.5 contract gate and record the deviation."
+  ],
+  "handoff_notes": [
+    "The review agent should verify dual-artifact semantics, scope discipline, and actual script behavior.",
+    "The return packet must include concrete verification commands and any deviation from the requested validation path."
+  ]
+}

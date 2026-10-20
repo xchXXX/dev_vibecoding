@@ -9,9 +9,13 @@
 - [方案指南](plan-guide.md)：完整需求映射、方案呈现与交接。
 - [任务流程](workflow.md)：阶段、六工件前置、职责、依赖与普通返工。
 - [黑盒方法](blackbox-methodology.md)：分层选择、准备与停止出口。
-- [协作治理](governance.md)：真实派发、身份与运行数边界、职责独立性及证据真实性。
+- [协作治理](../../../docs/SUBAGENT_GOVERNANCE.md)：真实派发、身份与运行数边界、职责独立性及证据真实性。
 - [SKILL](../SKILL.md)：实际加载目录、公开 CLI 与当前任务的操作入口。
 - [状态使用说明](state-schema.md)、[包内 schema](../schemas/orchestrator-task-state.schema.json)：字段真源与载荷使用；示例只在本 references 目录维护。
-- [命令失败与重试](governance.md#命令失败与重试)：真实命令失败、预期 Red 条件和闭环。
+- [CFM](../../command-failure-memory/SKILL.md)：真实命令失败、预期 Red 条件和闭环。
 
 平台真实隔离与新顶层效果验收必须保留实际工具证据；提示、状态声明及结构校验不能代替。
+
+## 范围复验变更入口
+
+现行行为与版本边界见[按验收点保留结果与范围复验](acceptance-points.md)。首次验收可分范围登记；保留任意历史轮次中仍有效的结果，最终检查完整覆盖，不要求额外整轮全绿。普通任务使用简洁清单，只有显式选择 GTO 才使用控制面。

@@ -1,0 +1,39 @@
+﻿{
+    "return_packet_id":  "RP-B35-VALIDATE-GATE-001",
+    "task_id":  "contract-first-dispatch-batch3-4-20260403-153206-gtm2",
+    "work_order_id":  "WO-B35-VALIDATE-GATE-001",
+    "status":  "completed",
+    "summary":  "已收紧 validate-control-plane.ps1 闸门：read_paths_mandatory 与 evidence_summary 非空校验对全部 work_order 生效；dispatch_message_raw 的中文输出与回执正文所有权校验对全部 work_order 生效，并仅对当前 run 的 WO-B3-* 保留过渡豁免。",
+    "changed_files":  [
+                          "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+                          "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B35-VALIDATE-GATE-001.json"
+                      ],
+    "planned_files_not_changed":  [
+
+                                  ],
+    "verification_commands":  [
+                                  "Select-String -Path \u0027skills/global-task-orchestrator/scripts/validate-control-plane.ps1\u0027 -Pattern \u0027read_paths_mandatory\u0027,\u0027evidence_summary\u0027,\u0027中文\u0027,\u0027主协调器不得代写\u0027 -SimpleMatch",
+                                  "powershell -ExecutionPolicy Bypass -File .\\skills\\global-task-orchestrator\\scripts\\orchestrator_ctl.ps1 -Action validate -TaskId contract-first-dispatch-batch3-4-20260403-153206-gtm2 -RepoRoot C:\\Users\\72385\\dev\\ai-harness"
+                              ],
+    "verification_result":  "我已在完成上述收紧后亲自重跑指定 validate 命令：ok=True，errors 为空，warnings 仅剩“未找到 repo_doctor.ps1，已跳过 repo_doctor 严格校验”。",
+    "deviations_from_dispatch":  [
+
+                                 ],
+    "blocked_by":  [
+
+                   ],
+    "risks":  [
+                  "当前非阻断风险仅为仓库缺少 repo_doctor.ps1，严格校验被跳过。"
+              ],
+    "follow_up_needed":  [
+                             "如需启用 repo_doctor 严格校验，后续补齐 modules\\ops_tooling\\debug\\scripts\\repo_doctor.ps1。"
+                         ],
+    "written_by":  "batch3.5-validate-gate-subagent",
+    "written_role":  "validate-gate-hardener",
+    "verification":  [
+
+                     ],
+    "next_actions":  [
+
+                     ]
+}

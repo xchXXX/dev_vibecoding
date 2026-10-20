@@ -14,7 +14,7 @@ from copy import deepcopy
 
 import test_control_plane as legacy
 import test_gto_workflow as workflow
-from test_gto_acceptance_retest_contract import AcceptanceCliContractTest
+import test_gto_acceptance_retest_contract as retest_contract
 
 
 def canonical(value):
@@ -26,17 +26,17 @@ def digest(value):
 
 
 class BatchHarness:
-    setUp = AcceptanceCliContractTest.setUp
-    run_ctl = AcceptanceCliContractTest.run_ctl
-    init_task = AcceptanceCliContractTest.init_task
-    state = AcceptanceCliContractTest.state
-    git = AcceptanceCliContractTest.git
-    init_git_checkout = AcceptanceCliContractTest.init_git_checkout
-    bind = AcceptanceCliContractTest.bind
-    work_result = AcceptanceCliContractTest.work_result
-    integrate = AcceptanceCliContractTest.integrate
-    review_payload = AcceptanceCliContractTest.review_payload
-    review = AcceptanceCliContractTest.review
+    setUp = retest_contract.AcceptanceCliContractTest.setUp
+    run_ctl = retest_contract.AcceptanceCliContractTest.run_ctl
+    init_task = retest_contract.AcceptanceCliContractTest.init_task
+    state = retest_contract.AcceptanceCliContractTest.state
+    git = retest_contract.AcceptanceCliContractTest.git
+    init_git_checkout = retest_contract.AcceptanceCliContractTest.init_git_checkout
+    bind = retest_contract.AcceptanceCliContractTest.bind
+    work_result = retest_contract.AcceptanceCliContractTest.work_result
+    integrate = retest_contract.AcceptanceCliContractTest.integrate
+    review_payload = retest_contract.AcceptanceCliContractTest.review_payload
+    review = retest_contract.AcceptanceCliContractTest.review
 
     def write_json(self, path, value):
         target = self.repo / path

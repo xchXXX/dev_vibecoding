@@ -5,7 +5,7 @@ description: "为修复类实施任务建立结果通过之外的命中证明闸
 
 # 修复闭环闸门
 
-本技能可独立使用，不依赖 GTO、其他技能或特定操作系统，不创建控制面或擅自派发代理。先冻结“修复点已被证明命中”的最小合同，再进入实现或复审。不要把“大套测试通过”直接当成闭环完成。
+先冻结“修复点已被证明命中”的最小合同，再进入实现或复审。不要把“大套测试通过”直接当成闭环完成。
 
 ## 职责
 
@@ -53,7 +53,7 @@ description: "为修复类实施任务建立结果通过之外的命中证明闸
 
 ## 最小输出
 
-至少产出一个最小 verification contract。普通任务写入已有任务说明或当前回复，不要求六工件或 preflight。只有用户已选择 GTO 时才写入同一控制面并在验收文档引用，不复制第二份合同；已存在且未变化的有效命中证明直接复用，不强制所有任务再过一次闸门。字段最少如下：
+至少产出一个最小 verification contract。已有 GTO 合同时写入同一控制面并在验收文档引用，不复制第二份合同；已存在且未变化的有效命中证明直接复用，不强制所有任务再过一次闸门。字段最少如下：
 
 ```yaml
 minimal_repro: "最低成本、最确定地复现当前问题的命令、步骤或夹具"
@@ -80,9 +80,21 @@ review_evidence:
 
 ## Review Evidence 最小槽位
 
-`review_evidence` 列出必须覆盖的证据：修复前复现、修复后通过、命中信号和相关回归。普通任务在已有说明中逐项附命令/步骤、实际结果及证据引用，不要求某个机器状态字段。有效且未失效的证据可直接引用。
+根层 `review_evidence` 只列“复审必须被覆盖的证据槽位名称”，例如：
 
-只有已选择 GTO 的任务，将根层槽位名称映射到 `verification_contract.review_evidence`，把实际证据映射到完成子任务的 `subtask.result.review_evidence.<slot>`；映射和状态写入由外层控制器完成，本技能不接管它。
+- `repro_before_fix`
+- `pass_after_fix`
+- `hit_proof_observed`
+- `relevant_regression_ok`
+
+实际证据内容不写在根层 `verification_contract.review_evidence`，而是由已完成的执行型或测试型子任务回填到：
+
+- `subtask.result.review_evidence.repro_before_fix`
+- `subtask.result.review_evidence.pass_after_fix`
+- `subtask.result.review_evidence.hit_proof_observed`
+- `subtask.result.review_evidence.relevant_regression_ok`
+
+每个 slot 的值都应是非空字符串，直接说明该子任务提供了什么证据、证明了什么。
 
 ## 最小工作流
 
@@ -91,11 +103,11 @@ review_evidence:
 3. 为修复点定义单一 `hit_proof`。
 4. 把检查拆成 `diagnostic_checks` 与 `acceptance_checks`。
 5. 明确 `non_goals`，避免审查时扩大范围。
-6. 先明确 `review_evidence` 的证据槽位，再按当前任务已有分工回填真实证据；普通任务由当前执行者完成即可。
+6. 先冻结根层 `review_evidence` slot 名称，再安排执行型或测试型子任务回填 `subtask.result.review_evidence.<slot>`。
 7. 若找不到低成本命中证明，明确标记阻塞点，而不是直接用高成本套件硬顶。
 
 ## 与其他 Skill 的边界
 
-- 需要在实现前设计完整 benchmark 分层、fixture 矩阵、盲测或评测脚本时，可按需使用已安装的 `pre-dev-benchmark`；它不是本技能的前置依赖。
-- 只有用户明确选择 GTO 时才读取已安装的 `global-task-orchestrator` 并维护其状态；长任务本身不触发编排。
+- 需要在实现前设计完整 benchmark 分层、fixture 矩阵、盲测或评测脚本时，转去 `skills/pre-dev-benchmark/SKILL.md`。
+- 需要维护长任务 `task_id`、`state.json`、子任务派发和阶段推进时，转去 `skills/global-task-orchestrator/SKILL.md`。
 - 长任务命中本 skill 时，主协调器只负责在进入实现前和进入复审前检查 verification contract 是否齐备；不要把本 skill 的字段语义复制进 orchestrator 本体。

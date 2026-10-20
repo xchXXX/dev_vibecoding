@@ -1,0 +1,140 @@
+{
+  "task_id": "20260909-141012-review-acceptance-routing",
+  "control_mode": "manual-user-authorized-no-gto",
+  "status": "active",
+  "phase": "review_rework",
+  "owner": "/root",
+  "approval": "用户：开始实施；随后以review循环完成后统一投放为最终顺序",
+  "six_points": {
+    "do": "统一初始测试委派、发现者根因与测试文档责任、整合返工、review与验收独立闭环，并验证默认安装的无提示实际行为。",
+    "do_not": [
+      "本次不调用GTO编排",
+      "不提交合并或覆盖既有未提交改动",
+      "不修改无关Windows能力实现",
+      "不把模拟回执当真实黑盒通过"
+    ],
+    "change_areas": [
+      "docs/SUBAGENT_GOVERNANCE.md及相关规范",
+      "rules/items/workflow及相关policy、registry",
+      "skills/global-task-orchestrator",
+      "schemas/orchestrator-task-state.schema.json",
+      "templates/orchestrator及示例",
+      "tests/harness和必要黑盒夹具/runner",
+      "本次六工件和获审后默认安装区域",
+      "scripts/sync-codex.py：仅GTO投放选项，保留其他受管内容及回执"
+    ],
+    "implementation": "文档先行和六工件；并行测试子代理；唯一整合实施；完整首审与范围复审；通过后统一投放；新进程无提示完整黑盒；验收失败直接整合返工与范围复验；单文档子代理收尾。",
+    "acceptance": [
+      "初始测试委派写入隔离、全部work后整合送审",
+      "发现者定位根因给方案补失败证明及同步文档，整合者独占代码返工",
+      "完整首审和范围复审，首次验收始终全范围",
+      "验收失败修复后直接复验，不回review；有效覆盖全部验收项",
+      "review和验收实际使用证据，WSL网页Browser、Windows GUI仅native",
+      "源码review后投放默认区并校验同候选，fresh无流程提示黑盒真实轨迹验证",
+      "单文档子代理验收后查漏同步，实质变化返回验收"
+    ],
+    "risks": [
+      "既有dirty工作受保护，仅改授权范围",
+      "machine doctor发现既有Windows runtime/global入口漂移，默认部署验收前需解决；项目doctor通过",
+      "黑盒未触发分支不得冒充已覆盖，缺失必需能力如实阻塞",
+      "源码候选与默认安装需hash一致，新进程消除热更新误判"
+    ]
+  },
+  "agents": {
+    "docs": "/root/docs_contract",
+    "test_a": "/root/test_a",
+    "integrator": "/root/integrator",
+    "test_b": "/root/test_b",
+    "reviewer": "/root/reviewer"
+  },
+  "checks": {
+    "machine_doctor": "failed-existing-runtime-drift",
+    "project_env_doctor": "pass",
+    "documentation_diff_check": "pass",
+    "test_a": {
+      "tests": 13,
+      "failures": 13,
+      "errors": 0,
+      "evidence": ".artifacts/review-acceptance-routing/test-a/red.log",
+      "limitation": "seven CLI cases stop at new-field initialization; later paths await Green"
+    },
+    "test_b": {
+      "tests": 23,
+      "red_targets": 20,
+      "positive_controls": 3,
+      "errors": 0,
+      "evidence": ".artifacts/review-acceptance-routing/test-b/handoff.md"
+    },
+    "initial_tests_green": {
+      "tests": 36,
+      "failures": 0,
+      "evidence": ".artifacts/review-acceptance-routing/integration/first-green.log"
+    },
+    "integration_final": {
+      "gto_tests": 72,
+      "runner_tests": 8,
+      "sync_tests": 4,
+      "revision2_template_tests": 5,
+      "status": "pass",
+      "evidence": ".artifacts/review-acceptance-routing/integration/handoff.md"
+    },
+    "independent_first_review": {
+      "status": "fail",
+      "findings": 5,
+      "evidence": ".artifacts/review-acceptance-routing/review/handoff.md"
+    }
+  },
+  "findings": [
+    {
+      "id": "RAR-001",
+      "status": "integration_rework",
+      "summary": "equivalent and symlink test writer paths overlap",
+      "discovered_by": "/root/reviewer"
+    },
+    {
+      "id": "RAR-002",
+      "status": "integration_rework",
+      "summary": "stable finding cannot reopen on repeated acceptance failure",
+      "discovered_by": "/root/reviewer"
+    },
+    {
+      "id": "RAR-003",
+      "status": "documentation_fixed",
+      "summary": "new documentation suggested prohibited WSL GUI bridge",
+      "discovered_by": "/root/reviewer"
+    },
+    {
+      "id": "RAR-004",
+      "status": "integration_rework",
+      "summary": "forged documentation receipt allows code drift finalization",
+      "discovered_by": "/root/reviewer"
+    },
+    {
+      "id": "RAR-005",
+      "status": "integration_rework",
+      "summary": "acceptance can reuse implementer platform identity",
+      "discovered_by": "/root/reviewer"
+    },
+    {
+      "id": "RAR-006",
+      "status": "integration_rework",
+      "summary": "runner breaks receipt identity and omits bootstrap receipt and audited runtime source files",
+      "discovered_by": "/root/reviewer",
+      "evidence": ".artifacts/review-acceptance-routing/review/rar-006-handoff.md"
+    }
+  ],
+  "updated_at": "2026-09-09T15:33:53.733894+08:00",
+  "sequencing_correction": "用户指出提前启动整合者；其只读设计暂停，文档完成后测试代理独立写Red，全部测试交付后才恢复整合者。",
+  "agents_status": {
+    "docs": "completed",
+    "test_a": "completed_red",
+    "test_b": "completed_red",
+    "integrator": "review_rework_running",
+    "reviewer": "completed_supplement_awaiting_scoped_review"
+  },
+  "test_baseline_hashes": {
+    "tests/harness/test_gto_initial_test_routing.py": "9001d0d32c6520bcc136233286e3fefb9d60c532ca50cc6c28b7dcd5b71f9658",
+    "tests/harness/test_gto_acceptance_retest_contract.py": "5ded3a2f96d5487a6e8c08923d077e680fde246552ad021b8381807989891033"
+  },
+  "source_candidate": "4324861989f64c518a9a18f03f245b5ebc53b55e1aaab1378d23dc2b16072a70"
+}

@@ -1,39 +1,54 @@
 {
-  "schema_version": 1,
-  "source": "skills/global-task-orchestrator",
-  "generated_by": "scripts/generate-gto-standalone.py",
+  "generated": true,
+  "source": "canonical global-task-orchestrator skill",
   "files": [
     {
-      "path": "README.md",
-      "sha256": "a66bbb98d7010de1bc4d078abf62d054439c2206140e4f46fb091b3b266b57fa"
-    },
-    {
       "path": "SKILL.md",
-      "sha256": "0a5c767bb22dd9ca22caa4548637bbddb6d2f7e1e1d9a2938f10db55ea159d0d"
+      "sha256": "0205d12b2394f016498fdea084a135705567ef4f46dd882126c187e5e8e267a1"
     },
     {
       "path": "agents/openai.yaml",
       "sha256": "5798ed708ca7300cadaf724f139c08daf1fe2b743e02e3fd25963ad86639b009"
     },
     {
+      "path": "references/acceptance-points.md",
+      "sha256": "6c1df6bc254e786a780e1e0505b61846f01f769c966c18775c812e43c6f83006"
+    },
+    {
       "path": "references/blackbox-methodology.md",
-      "sha256": "837853c14f17f415f5e75b61a0c3c38dbda5cc0ae4f35396c97c9b027e1e229b"
+      "sha256": "97a3ff208f2dbed8fa73396ab8e97e216f04275b090a7e6f0bbf87e20c936422"
     },
     {
       "path": "references/controller-guide.md",
-      "sha256": "58ec54e6f6dc514d2cfe8ee2fcf92c9d1eea67294929d2bab0b788fa1514d1b9"
+      "sha256": "2afb004ac6986cbc77e7b6c4dc53c09306f9c9e2ac5d518d3cb421aa5c93ec93"
+    },
+    {
+      "path": "references/examples/point-acceptance/README.md",
+      "sha256": "9060a1c2f8032b77f0e85db848456d3d25859622110dd68f8949e5db77d1e9a5"
+    },
+    {
+      "path": "references/examples/point-acceptance/check_points.py",
+      "sha256": "57894d825387c104e60bf66e2f3d2ced1b3cd79cfe1ba3d292e87bc083f1b7d1"
+    },
+    {
+      "path": "references/examples/point-acceptance/config.json",
+      "sha256": "c1b5668386a092cefd66a1a40e25cc2a78c37586eb28665022b872e10d87e8a7"
+    },
+    {
+      "path": "references/examples/point-acceptance/demo.py",
+      "sha256": "2d19bc249d0415461a8325420ae0e64135697177cdc7d5c55fda155a067a34ed"
     },
     {
       "path": "references/governance-essentials.md",
-      "sha256": "ccc6396e35a39707575268d7352aa6a6b7ddae04fd923de122078ed32aebf44f"
+      "sha256": "14b623112a024526dcb7d55b31b7c70e21023c92167a9144e3168e4313fddbe7"
     },
     {
-      "path": "references/governance.md",
-      "sha256": "e457d144fb4f9c0a8f3050b87ad7603ecb21a2175aca00059ae4e1ffc7d85865"
+      "path": "references/observation.example.json",
+      "sha256": "5d596406aac2072c858dcf49cac8f82efb385683c53f5f997a955cbce5b1c9fc"
     },
     {
       "path": "references/plan-guide.md",
-      "sha256": "3e2e2c8ab1da146d5fb9f18308fa6ff123c916607601b25c650e57421a69a07e"
+      "sha256": "1860ed0b3670e24eaf335d3a3970bc4b6f291eb672a823d0b2b0f362a2cb83ca"
     },
     {
       "path": "references/plan-reading-examples.md",
@@ -41,55 +56,63 @@
     },
     {
       "path": "references/revision-3-contract.example.json",
-      "sha256": "7ffdf44dfe41aaad8e46b71e9aa0e45ef650329eb185578733b2065b34e4974e"
+      "sha256": "cf8ca317c9b565bc0200ed268ea704fb97ec2e2b4b97497d1ed748a824923fec"
     },
     {
       "path": "references/revision-3-results.example.json",
-      "sha256": "654181d24955b0417a1dd39626f021a64681d991417b9d957557c0f31d0b4471"
+      "sha256": "48d3b3223b9cd4c8b28a234a3dd820703d4ecdb2f578ec6deb0f2b248d1563f8"
     },
     {
       "path": "references/runtime-evidence.md",
-      "sha256": "4695b356be42ddc651815ed3b49ffa3ffabd468de17f1ce5e462bf6ed614a505"
+      "sha256": "4611cddb8aa4b5e526cdb7ec93c5304f65be9ecbf2c27463abbc17e6febe258d"
     },
     {
       "path": "references/state-schema.md",
-      "sha256": "470e8b300f650899bcb98579eff125662eb485d466d117791d8b0f42fc5e8c51"
+      "sha256": "62a2c58cda5b8d2896597e403e98593a4a640b600168ce6a76e57c3ce5d8c2b3"
+    },
+    {
+      "path": "references/streamlined-execution.md",
+      "sha256": "056e8c9ccb20fb7b55e5a508f15b1f0548edda0097789472071b5d7a464c483a"
     },
     {
       "path": "references/workflow.md",
-      "sha256": "85a1db2b0da6aba1c13fb5b05028389452374db7466ede42fdcd6f79ad1cb0ee"
-    },
-    {
-      "path": "requirements.txt",
-      "sha256": "8a2ecec3fc4dc0935c85d8b360a1dd12aa8083816bf4640d4e888d64862ee9dc"
+      "sha256": "041415c976f493130b1de3e82eb9276436e1117c335b53177069dd7c7f889f02"
     },
     {
       "path": "schemas/orchestrator-task-state.schema.json",
-      "sha256": "662265fe4a708ff97565c5c32fc804182c4b2ff5c42954e9596e3ce353d1abe1"
+      "sha256": "46a7a1af00420668c2a23e61f4f9da6e2b1d1f901847faa0189b5e55500c9d85"
     },
     {
       "path": "scripts/acceptance_batches.py",
-      "sha256": "5e2f414c1e79178e1e24e5b0539fe40f2953bbfe7aaf6df6a5f3a227335d23aa"
+      "sha256": "f649db18c7d422ba21f0e82414394fd52a0f4fc45762c65e9ccd81e150301da3"
+    },
+    {
+      "path": "scripts/acceptance_points.py",
+      "sha256": "96db53b383658bd6f46bb4bbf76a2c6b639fd07999defaf2d219602ac1d73075"
     },
     {
       "path": "scripts/capability_gate.py",
-      "sha256": "846776d8ee07eae41b2c7e14d58223a1cce0e7ff55ccd1b4a82c37ea3a8b9129"
-    },
-    {
-      "path": "scripts/doctor.py",
-      "sha256": "0eda7c24ac17a643773631d456f223b3d36fdc60200fd69e0f56d4caa9f8668d"
+      "sha256": "37dc2cdaad2976c5d9758eb4afb50fd4b1d246e46a0a3f93882772bec3262217"
     },
     {
       "path": "scripts/orchestrator_ctl.py",
-      "sha256": "62d0b8837f7c00c4fedf2c773bda209283839f81a81fe5bb56ec1696dec1681b"
+      "sha256": "54c3572be75006c923761f80cf6bbeb1fcff9a439159c3c5afef5406e7892d41"
+    },
+    {
+      "path": "scripts/result_preparation.py",
+      "sha256": "6d6c81f56554daef6b6efc164fce5006f5a05cdda880d1545db93982673a4150"
     },
     {
       "path": "scripts/runtime_evidence.py",
-      "sha256": "1367e5ec1b5072e9e4febd07dad67ec0513ee62453a1f715924df3cdaffa930f"
+      "sha256": "c91b9bab2389ceaa0efee5eb461c5131a52bf91b24026f0769dd946d13bf497c"
     },
     {
       "path": "scripts/start_session.py",
-      "sha256": "ede02103d1056a3a2b957e286402f617cd40beef0ef5005fa24bdeac8542dc70"
+      "sha256": "a0ad049c9dad77d3c87e2e7467f8af68929a2fcfeb18609f712164c84dc71547"
+    },
+    {
+      "path": "scripts/tool_paths.py",
+      "sha256": "921237dc83e1937605678ff290cc54ac5c7d85d9e10a7546c0da4225b2ecd127"
     }
   ]
 }

@@ -1,0 +1,28 @@
+﻿{
+  "return_packet_id": "RP-B4-TEST-SUITE-001",
+  "task_id": "contract-first-dispatch-batch3-4-20260403-153206-gtm2",
+  "work_order_id": "WO-B4-TEST-SUITE-001",
+  "status": "completed",
+  "summary": "已基于补强后的 validate 闸门复跑 Batch 4 control-plane 集成测试；happy path 与 4 类 bad path 全部按预期通过。",
+  "changed_files": [
+    "tests/README.md",
+    "tests/harness/README.md",
+    "tests/harness/control-plane.integration.ps1",
+    "docs/ai/runs/contract-first-dispatch-batch3-4-20260403-153206-gtm2/return_packets/RP-B4-TEST-SUITE-001.json"
+  ],
+  "planned_files_not_changed": [],
+  "verification_commands": [
+    "powershell -ExecutionPolicy Bypass -File .\\tests\\harness\\control-plane.integration.ps1"
+  ],
+  "verification_result": "已亲自复跑测试命令，输出为 TOTAL PASS 5、ALL TESTS PASSED；其中包含 Bad path: complex task missing dispatch_packet should fail validate 用例通过。",
+  "deviations_from_dispatch": [],
+  "blocked_by": [],
+  "risks": [
+    "当前仅有非阻塞 warning：repo_doctor.ps1 缺失导致 validate 跳过严格校验。"
+  ],
+  "follow_up_needed": [
+    "如需开启严格校验，可后续补齐 modules\\ops_tooling\\debug\\scripts\\repo_doctor.ps1。"
+  ],
+  "written_by": "batch4-control-plane-test-subagent",
+  "written_role": "control-plane-test-author"
+}

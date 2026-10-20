@@ -1,0 +1,149 @@
+{
+  "task_id": "20260402-batch25-plan-dual-track-upgrade",
+  "work_order_id": "WO-B25-PLAN-DUAL-001-R2",
+  "plan_id": "PLAN-CONTRACT-FIRST-DISPATCH-BATCH25",
+  "role": "plan-contract-rework-finalizer",
+  "task_goal": "Make the Batch 2.5 run self-validatable by adding run plan.json and filling validator-required receipt fields.",
+  "instruction_source": "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+  "read_paths_mandatory": [
+    "docs/CONTRACT_FIRST_DISPATCH_PLAN.md",
+    "docs/SUBAGENT_GOVERNANCE.md",
+    "rules/common/SUBAGENT_RULES.md",
+    "schemas/plan.schema.json",
+    "templates/plan.example.json",
+    "skills/global-task-orchestrator/scripts/validate-control-plane.ps1",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/work_orders/WO-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/work_orders/WO-B25-PLAN-DUAL-001-R1.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R1.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/review_report_r2.md"
+  ],
+  "read_paths_optional": [
+    "templates/progress.session.example.md",
+    "skills/global-task-orchestrator/scripts/bootstrap-task.ps1",
+    "skills/global-task-orchestrator/scripts/orchestrator_ctl.ps1"
+  ],
+  "context_paths": [
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/work_orders/WO-B25-PLAN-DUAL-001-R2.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/dispatch_packets/DP-B25-PLAN-DUAL-001-R2.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/review_report_r2.md"
+  ],
+  "scope_in": [
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/plan.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R1.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R2.json"
+  ],
+  "scope_out": [
+    "Do not change any accepted Batch 2.5 schema, template, or script implementation.",
+    "Do not re-open smoke cleanup work.",
+    "Do not touch prompts, governance docs, or later batches.",
+    "Do not modify work orders, dispatch packets, orchestration logs, or session logs."
+  ],
+  "write_paths": [
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/plan.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R1.json",
+    "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R2.json"
+  ],
+  "evidence_summary": [
+    "The Batch 2.5 implementation and smoke cleanup are already done.",
+    "The remaining blockers are validator-facing metadata gaps: missing run plan.json and missing return_packet_id/task_id in the existing return packets.",
+    "This rework should only finalize the run state, not reopen implementation."
+  ],
+  "constraints": [
+    "Read all mandatory files before editing.",
+    "Use plan.schema.json and plan.example.json as the source for the run plan.json shape.",
+    "Keep the run plan.json aligned with the Batch 2.5 frozen scope and source_plan_doc.",
+    "Only add the minimum missing receipt fields and preserve existing accepted facts.",
+    "Write the R2 return packet before declaring completion."
+  ],
+  "change_spec": [
+    {
+      "path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/plan.json",
+      "instructions": [
+        "Create a self-validatable plan.json for this Batch 2.5 run using the canonical dual-artifact plan shape.",
+        "Set source_plan_doc to docs/CONTRACT_FIRST_DISPATCH_PLAN.md and keep task_id aligned with the run directory."
+      ],
+      "done_when": [
+        "The run directory contains a valid plan.json with the required fields."
+      ]
+    },
+    {
+      "path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001.json",
+      "instructions": [
+        "Add return_packet_id and task_id.",
+        "Preserve the already corrected narrative about temporary smoke artifacts and cleanup."
+      ],
+      "done_when": [
+        "The original return packet satisfies validator-required fields."
+      ]
+    },
+    {
+      "path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R1.json",
+      "instructions": [
+        "Add return_packet_id and task_id.",
+        "Preserve the cleanup facts."
+      ],
+      "done_when": [
+        "The R1 return packet satisfies validator-required fields."
+      ]
+    },
+    {
+      "path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R2.json",
+      "instructions": [
+        "Write the final rework receipt summarizing the run plan.json creation and receipt field completion.",
+        "Include the validate command and result."
+      ],
+      "done_when": [
+        "The R2 return packet exists and parses cleanly."
+      ]
+    }
+  ],
+  "execution_steps": [
+    "Read the validator requirements, existing plan example, and the two existing return packets.",
+    "Create the missing run plan.json.",
+    "Amend the two existing return packets with return_packet_id and task_id.",
+    "Write the R2 return packet.",
+    "Run validate-control-plane.ps1 against the Batch 2.5 run and record the result."
+  ],
+  "acceptance_criteria": [
+    "The Batch 2.5 run contains a plan.json that passes the current validator field checks.",
+    "Both existing return packets include return_packet_id and task_id.",
+    "The R2 return packet exists and is truthful.",
+    "No accepted implementation file outside scope_in is modified."
+  ],
+  "verification_steps": [
+    "Parse plan.json with ConvertFrom-Json.",
+    "Parse all three return packets with ConvertFrom-Json.",
+    "Run orchestrator_ctl.ps1 -Action validate -RepoRoot C:/Users/72385/dev/ai-harness -TaskId 20260402-batch25-plan-dual-track-upgrade -Json."
+  ],
+  "stop_conditions": [
+    "The validator requires additional fields that conflict with the accepted receipts.",
+    "Creating run plan.json would require reopening accepted Batch 2.5 implementation scope.",
+    "The run validate command still fails for a reason other than the known repo_doctor warning."
+  ],
+  "dispatch_packet_path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/dispatch_packets/DP-B25-PLAN-DUAL-001-R2.json",
+  "return_packet_path": "docs/ai/runs/20260402-batch25-plan-dual-track-upgrade/return_packets/RP-B25-PLAN-DUAL-001-R2.json",
+  "return_packet_required": true,
+  "required_return_fields": [
+    "return_packet_id",
+    "task_id",
+    "work_order_id",
+    "status",
+    "summary",
+    "changed_files",
+    "planned_files_not_changed",
+    "verification_commands",
+    "verification_result",
+    "deviations_from_dispatch",
+    "blocked_by",
+    "risks",
+    "follow_up_needed",
+    "written_by",
+    "written_role"
+  ],
+  "completion_gate": "return_packet_written_and_accepted",
+  "state_owner": "main-coordinator",
+  "dispatch_message_raw": "You are the final Batch 2.5 rework worker. Read every path in read_paths_mandatory before editing anything. evidence_summary is navigation only and cannot replace source reading. Your only write scope is the Batch 2.5 run plan.json and the three return packets. Do not change any accepted schema, template, script, or cleanup outcome. Create the missing run plan.json, add validator-required fields to the two existing return packets, write the R2 return packet, run the validate command, and return the compressed final result."
+}

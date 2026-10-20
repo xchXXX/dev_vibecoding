@@ -1,0 +1,199 @@
+{
+  "timestamp": "2026-09-10T09:48:51.624148+00:00",
+  "steps": [
+    {
+      "round": 1,
+      "environment": {
+        "ok": true,
+        "scope": "environment-only",
+        "runtime_changed": true,
+        "managed_runtime_files": [
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/config/ai/wsl-tool-baseline.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/wsl-tool-baseline.json",
+            "source_sha256": "7d38fa0107903e96a0b26a0a8789fb591f7f4005c5ca271e4318c3a7c5dceee9",
+            "target_sha256": "7d38fa0107903e96a0b26a0a8789fb591f7f4005c5ca271e4318c3a7c5dceee9"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/config/ai/windows-external-capabilities.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/windows-external-capabilities.json",
+            "source_sha256": "978743c0bdd7ccb46b501b635b0e7d92e8a14c76e9a173cfe8a39d0ceced6178",
+            "target_sha256": "978743c0bdd7ccb46b501b635b0e7d92e8a14c76e9a173cfe8a39d0ceced6178"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/wsl-tool-baseline.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/wsl-tool-baseline.schema.json",
+            "source_sha256": "d08a0c9baf85935016d02574fd4176391e452da725e98ee564adaa52be1291f2",
+            "target_sha256": "d08a0c9baf85935016d02574fd4176391e452da725e98ee564adaa52be1291f2"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/windows-external-capabilities.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/windows-external-capabilities.schema.json",
+            "source_sha256": "d5f9db00c4c3bbd9703ab61deb6ad8831a1b5e93eb50ca2282c587b6ec582313",
+            "target_sha256": "d5f9db00c4c3bbd9703ab61deb6ad8831a1b5e93eb50ca2282c587b6ec582313"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/project-environment.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/project-environment.schema.json",
+            "source_sha256": "d11f2bf4a1e9ba42f536e75cd7766c0698130de7fbcb3e531deba6750ba60597",
+            "target_sha256": "d11f2bf4a1e9ba42f536e75cd7766c0698130de7fbcb3e531deba6750ba60597"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/provision-wsl.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/provision-wsl.py",
+            "source_sha256": "f4f9ccfc1a17eedf9813fea10fae43f5eb5d51c93ce47989fab8c677b2e95a3b",
+            "target_sha256": "f4f9ccfc1a17eedf9813fea10fae43f5eb5d51c93ce47989fab8c677b2e95a3b"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/project-env-doctor.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/project-env-doctor.py",
+            "source_sha256": "0e8e071f8f49aa9d5c54b7eb37ce0d298d73927db1bc87287280f59d6c64b3fd",
+            "target_sha256": "0e8e071f8f49aa9d5c54b7eb37ce0d298d73927db1bc87287280f59d6c64b3fd"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/resolve-wsl-path.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/resolve-wsl-path.py",
+            "source_sha256": "e3560b2ebb3187dfadf16f0f0f2cdc66a13276f573506b6245aa51a47e8e6bcd",
+            "target_sha256": "e3560b2ebb3187dfadf16f0f0f2cdc66a13276f573506b6245aa51a47e8e6bcd"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/doctor-core.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/doctor-core.py",
+            "source_sha256": "fbd1eda0039af80eb0ebc59a627ccdf95fcae10bfbd271a6fa28e3520404f716",
+            "target_sha256": "fbd1eda0039af80eb0ebc59a627ccdf95fcae10bfbd271a6fa28e3520404f716"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/runtime_common.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/runtime_common.py",
+            "source_sha256": "c0779393dfb52c755f05b60ee17b45f838ffd24efe2c680630ee6138d02eb8a6",
+            "target_sha256": "c0779393dfb52c755f05b60ee17b45f838ffd24efe2c680630ee6138d02eb8a6"
+          }
+        ],
+        "retired_runtime_files_removed": [],
+        "receipt_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/bootstrap.receipt.json"
+      },
+      "cfm": {
+        "ok": true,
+        "harness_root": "/mnt/d/prj/harnesss/dev_vibecoding",
+        "codex_home": "/mnt/c/Users/Laptop/.codex",
+        "managed_skills": [
+          "global-task-orchestrator",
+          "command-failure-memory",
+          "pre-dev-benchmark",
+          "fix-closure-gate"
+        ],
+        "synchronized_skills": [
+          "command-failure-memory"
+        ],
+        "managed_file_count": 20,
+        "managed_schema_file_count": 1,
+        "changed_managed_skills": [
+          "command-failure-memory"
+        ],
+        "changed_schema_files": [],
+        "runtime_changed": true,
+        "receipt_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/codex-sync.receipt.json",
+        "warnings": []
+      }
+    },
+    {
+      "round": 2,
+      "environment": {
+        "ok": true,
+        "scope": "environment-only",
+        "runtime_changed": false,
+        "managed_runtime_files": [
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/config/ai/wsl-tool-baseline.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/wsl-tool-baseline.json",
+            "source_sha256": "7d38fa0107903e96a0b26a0a8789fb591f7f4005c5ca271e4318c3a7c5dceee9",
+            "target_sha256": "7d38fa0107903e96a0b26a0a8789fb591f7f4005c5ca271e4318c3a7c5dceee9"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/config/ai/windows-external-capabilities.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/windows-external-capabilities.json",
+            "source_sha256": "978743c0bdd7ccb46b501b635b0e7d92e8a14c76e9a173cfe8a39d0ceced6178",
+            "target_sha256": "978743c0bdd7ccb46b501b635b0e7d92e8a14c76e9a173cfe8a39d0ceced6178"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/wsl-tool-baseline.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/wsl-tool-baseline.schema.json",
+            "source_sha256": "d08a0c9baf85935016d02574fd4176391e452da725e98ee564adaa52be1291f2",
+            "target_sha256": "d08a0c9baf85935016d02574fd4176391e452da725e98ee564adaa52be1291f2"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/windows-external-capabilities.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/windows-external-capabilities.schema.json",
+            "source_sha256": "d5f9db00c4c3bbd9703ab61deb6ad8831a1b5e93eb50ca2282c587b6ec582313",
+            "target_sha256": "d5f9db00c4c3bbd9703ab61deb6ad8831a1b5e93eb50ca2282c587b6ec582313"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/schemas/project-environment.schema.json",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/schemas/project-environment.schema.json",
+            "source_sha256": "d11f2bf4a1e9ba42f536e75cd7766c0698130de7fbcb3e531deba6750ba60597",
+            "target_sha256": "d11f2bf4a1e9ba42f536e75cd7766c0698130de7fbcb3e531deba6750ba60597"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/provision-wsl.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/provision-wsl.py",
+            "source_sha256": "f4f9ccfc1a17eedf9813fea10fae43f5eb5d51c93ce47989fab8c677b2e95a3b",
+            "target_sha256": "f4f9ccfc1a17eedf9813fea10fae43f5eb5d51c93ce47989fab8c677b2e95a3b"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/project-env-doctor.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/project-env-doctor.py",
+            "source_sha256": "0e8e071f8f49aa9d5c54b7eb37ce0d298d73927db1bc87287280f59d6c64b3fd",
+            "target_sha256": "0e8e071f8f49aa9d5c54b7eb37ce0d298d73927db1bc87287280f59d6c64b3fd"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/resolve-wsl-path.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/resolve-wsl-path.py",
+            "source_sha256": "e3560b2ebb3187dfadf16f0f0f2cdc66a13276f573506b6245aa51a47e8e6bcd",
+            "target_sha256": "e3560b2ebb3187dfadf16f0f0f2cdc66a13276f573506b6245aa51a47e8e6bcd"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/doctor-core.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/doctor-core.py",
+            "source_sha256": "fbd1eda0039af80eb0ebc59a627ccdf95fcae10bfbd271a6fa28e3520404f716",
+            "target_sha256": "fbd1eda0039af80eb0ebc59a627ccdf95fcae10bfbd271a6fa28e3520404f716"
+          },
+          {
+            "source_path": "/mnt/d/prj/harnesss/dev_vibecoding/scripts/runtime_common.py",
+            "target_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/bin/runtime_common.py",
+            "source_sha256": "c0779393dfb52c755f05b60ee17b45f838ffd24efe2c680630ee6138d02eb8a6",
+            "target_sha256": "c0779393dfb52c755f05b60ee17b45f838ffd24efe2c680630ee6138d02eb8a6"
+          }
+        ],
+        "retired_runtime_files_removed": [],
+        "receipt_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/bootstrap.receipt.json"
+      },
+      "cfm": {
+        "ok": true,
+        "harness_root": "/mnt/d/prj/harnesss/dev_vibecoding",
+        "codex_home": "/mnt/c/Users/Laptop/.codex",
+        "managed_skills": [
+          "global-task-orchestrator",
+          "command-failure-memory",
+          "pre-dev-benchmark",
+          "fix-closure-gate"
+        ],
+        "synchronized_skills": [
+          "command-failure-memory"
+        ],
+        "managed_file_count": 20,
+        "managed_schema_file_count": 1,
+        "changed_managed_skills": [],
+        "changed_schema_files": [],
+        "runtime_changed": false,
+        "receipt_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/codex-sync.receipt.json",
+        "warnings": []
+      }
+    }
+  ],
+  "backup": "/mnt/c/Users/Laptop/.codex/.ai-harness/backups/windows-native-transition-envscan-093233",
+  "ok": true,
+  "native_config_unchanged": true,
+  "agents_unchanged": true,
+  "unrelated_receipt_rows_unchanged": true,
+  "source_installed_receipts_match": true
+}

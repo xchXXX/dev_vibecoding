@@ -1,0 +1,409 @@
+{
+  "reviewer": "Fermat",
+  "agent_id": "01a08a95-b269-7c73-9567-f8f3ec9bec24",
+  "native_baseline": {
+    "chunk_id": "ef1804",
+    "wall_time_seconds": 0.752555,
+    "exit_code": 0,
+    "original_token_count": 176,
+    "output": "{\r\n  \"platform\": \"Win32NT\",\r\n  \"process_path\": \"C:\\\\Users\\\\Laptop\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\",\r\n  \"codex_home_env\": null,\r\n  \"verified_home_exists\": true,\r\n  \"verified_repo_exists\": true,\r\n  \"old_reported_cwd_exists\": false,\r\n  \"hold_exists\": false\r\n}\r\n[\r\n  {\r\n    \"Id\": 27720,\r\n    \"Path\": \"C:\\\\Users\\\\Laptop\\\\AppData\\\\Local\\\\OpenAI\\\\Codex\\\\bin\\\\8e5b6932251c2c1c\\\\codex.exe\"\r\n  },\r\n  {\r\n    \"Id\": 28412,\r\n    \"Path\": \"C:\\\\Users\\\\Laptop\\\\AppData\\\\Local\\\\OpenAI\\\\Codex\\\\bin\\\\8e5b6932251c2c1c\\\\codex.exe\"\r\n  },\r\n  {\r\n    \"Id\": 29480,\r\n    \"Path\": \"C:\\\\Users\\\\Laptop\\\\AppData\\\\Local\\\\OpenAI\\\\Codex\\\\bin\\\\8e5b6932251c2c1c\\\\codex.exe\"\r\n  }\r\n]\r\n"
+  },
+  "installed_environment_audit": {
+    "ok": true,
+    "scope": "environment-only",
+    "issues": [],
+    "runtime_verified": false,
+    "windows_external_capabilities": {
+      "ok": true,
+      "runtime_verified": false,
+      "declaration_path": "/mnt/c/Users/Laptop/.codex/.ai-harness/runtime/wsl-environment/config/windows-external-capabilities.json",
+      "capabilities": [
+        {
+          "id": "codex-browser",
+          "kind": "windows_native",
+          "provider": "codex_builtin_browser",
+          "plugin_states": {
+            "browser@openai-bundled": "enabled",
+            "unified-computer-use@openai-bundled": "enabled"
+          },
+          "status": "configured_on_disk",
+          "action": "use_native_plugin",
+          "runtime_verified": false
+        },
+        {
+          "id": "computer-use",
+          "kind": "windows_native",
+          "provider": "official_computer_use",
+          "plugin_states": {
+            "computer-use@openai-bundled": "enabled"
+          },
+          "status": "configured_on_disk",
+          "action": "use_native_plugin",
+          "runtime_verified": false
+        }
+      ],
+      "issues": []
+    },
+    "wsl_tool_audit": {
+      "ok": true,
+      "tools": [
+        {
+          "id": "bwrap",
+          "available": true,
+          "path": "/usr/bin/bwrap",
+          "linux_native": true
+        },
+        {
+          "id": "node",
+          "available": true,
+          "path": "/usr/local/bin/node",
+          "linux_native": true
+        },
+        {
+          "id": "npm",
+          "available": true,
+          "path": "/usr/local/bin/npm",
+          "linux_native": true
+        },
+        {
+          "id": "jq",
+          "available": true,
+          "path": "/usr/bin/jq",
+          "linux_native": true
+        },
+        {
+          "id": "unzip",
+          "available": true,
+          "path": "/usr/bin/unzip",
+          "linux_native": true
+        },
+        {
+          "id": "zip",
+          "available": true,
+          "path": "/usr/bin/zip",
+          "linux_native": true
+        },
+        {
+          "id": "tree",
+          "available": true,
+          "path": "/usr/bin/tree",
+          "linux_native": true
+        },
+        {
+          "id": "strace",
+          "available": true,
+          "path": "/usr/bin/strace",
+          "linux_native": true
+        },
+        {
+          "id": "shellcheck",
+          "available": true,
+          "path": "/usr/bin/shellcheck",
+          "linux_native": true
+        },
+        {
+          "id": "shfmt",
+          "available": true,
+          "path": "/usr/bin/shfmt",
+          "linux_native": true
+        },
+        {
+          "id": "fzf",
+          "available": true,
+          "path": "/usr/bin/fzf",
+          "linux_native": true
+        },
+        {
+          "id": "fdfind",
+          "available": true,
+          "path": "/usr/bin/fdfind",
+          "linux_native": true
+        },
+        {
+          "id": "sqlite3",
+          "available": true,
+          "path": "/usr/bin/sqlite3",
+          "linux_native": true
+        },
+        {
+          "id": "dos2unix",
+          "available": true,
+          "path": "/usr/bin/dos2unix",
+          "linux_native": true
+        },
+        {
+          "id": "gcc",
+          "available": true,
+          "path": "/usr/bin/gcc",
+          "linux_native": true
+        },
+        {
+          "id": "g++",
+          "available": true,
+          "path": "/usr/bin/g++",
+          "linux_native": true
+        },
+        {
+          "id": "make",
+          "available": true,
+          "path": "/usr/bin/make",
+          "linux_native": true
+        },
+        {
+          "id": "pkg-config",
+          "available": true,
+          "path": "/usr/bin/pkg-config",
+          "linux_native": true
+        },
+        {
+          "id": "cmake",
+          "available": true,
+          "path": "/usr/bin/cmake",
+          "linux_native": true
+        },
+        {
+          "id": "ninja",
+          "available": true,
+          "path": "/usr/bin/ninja",
+          "linux_native": true
+        },
+        {
+          "id": "pip3",
+          "available": true,
+          "path": "/usr/bin/pip3",
+          "linux_native": true
+        },
+        {
+          "id": "pnpm",
+          "available": true,
+          "path": "/usr/local/bin/pnpm",
+          "linux_native": true
+        }
+      ],
+      "package_audit": [
+        {
+          "id": "git",
+          "command": "git",
+          "available": true,
+          "path": "/usr/bin/git",
+          "linux_native": true
+        },
+        {
+          "id": "ripgrep",
+          "command": "rg",
+          "available": true,
+          "path": "/usr/bin/rg",
+          "linux_native": true
+        },
+        {
+          "id": "curl",
+          "command": "curl",
+          "available": true,
+          "path": "/usr/bin/curl",
+          "linux_native": true
+        },
+        {
+          "id": "wget",
+          "command": "wget",
+          "available": true,
+          "path": "/usr/bin/wget",
+          "linux_native": true
+        },
+        {
+          "id": "rsync",
+          "command": "rsync",
+          "available": true,
+          "path": "/usr/bin/rsync",
+          "linux_native": true
+        },
+        {
+          "id": "file",
+          "command": "file",
+          "available": true,
+          "path": "/usr/bin/file",
+          "linux_native": true
+        },
+        {
+          "id": "lsof",
+          "command": "lsof",
+          "available": true,
+          "path": "/usr/bin/lsof",
+          "linux_native": true
+        },
+        {
+          "id": "python3",
+          "command": "python3",
+          "available": true,
+          "path": "/usr/bin/python3",
+          "linux_native": true
+        },
+        {
+          "id": "python3-venv",
+          "command": "python3",
+          "available": true,
+          "path": "/usr/bin/python3",
+          "linux_native": true
+        },
+        {
+          "id": "bubblewrap",
+          "command": "bwrap",
+          "available": true,
+          "path": "/usr/bin/bwrap",
+          "linux_native": true
+        },
+        {
+          "id": "nodejs",
+          "command": "node",
+          "available": true,
+          "path": "/usr/local/bin/node",
+          "linux_native": true
+        },
+        {
+          "id": "npm",
+          "command": "npm",
+          "available": true,
+          "path": "/usr/local/bin/npm",
+          "linux_native": true
+        },
+        {
+          "id": "jq",
+          "command": "jq",
+          "available": true,
+          "path": "/usr/bin/jq",
+          "linux_native": true
+        },
+        {
+          "id": "unzip",
+          "command": "unzip",
+          "available": true,
+          "path": "/usr/bin/unzip",
+          "linux_native": true
+        },
+        {
+          "id": "zip",
+          "command": "zip",
+          "available": true,
+          "path": "/usr/bin/zip",
+          "linux_native": true
+        },
+        {
+          "id": "tree",
+          "command": "tree",
+          "available": true,
+          "path": "/usr/bin/tree",
+          "linux_native": true
+        },
+        {
+          "id": "strace",
+          "command": "strace",
+          "available": true,
+          "path": "/usr/bin/strace",
+          "linux_native": true
+        },
+        {
+          "id": "shellcheck",
+          "command": "shellcheck",
+          "available": true,
+          "path": "/usr/bin/shellcheck",
+          "linux_native": true
+        },
+        {
+          "id": "shfmt",
+          "command": "shfmt",
+          "available": true,
+          "path": "/usr/bin/shfmt",
+          "linux_native": true
+        },
+        {
+          "id": "fzf",
+          "command": "fzf",
+          "available": true,
+          "path": "/usr/bin/fzf",
+          "linux_native": true
+        },
+        {
+          "id": "fd-find",
+          "command": "fdfind",
+          "available": true,
+          "path": "/usr/bin/fdfind",
+          "linux_native": true
+        },
+        {
+          "id": "sqlite3",
+          "command": "sqlite3",
+          "available": true,
+          "path": "/usr/bin/sqlite3",
+          "linux_native": true
+        },
+        {
+          "id": "dos2unix",
+          "command": "dos2unix",
+          "available": true,
+          "path": "/usr/bin/dos2unix",
+          "linux_native": true
+        },
+        {
+          "id": "build-essential",
+          "command": "make",
+          "available": true,
+          "path": "/usr/bin/make",
+          "linux_native": true
+        },
+        {
+          "id": "pkg-config",
+          "command": "pkg-config",
+          "available": true,
+          "path": "/usr/bin/pkg-config",
+          "linux_native": true
+        },
+        {
+          "id": "cmake",
+          "command": "cmake",
+          "available": true,
+          "path": "/usr/bin/cmake",
+          "linux_native": true
+        },
+        {
+          "id": "ninja-build",
+          "command": "ninja",
+          "available": true,
+          "path": "/usr/bin/ninja",
+          "linux_native": true
+        },
+        {
+          "id": "python3-pip",
+          "command": "pip3",
+          "available": true,
+          "path": "/usr/bin/pip3",
+          "linux_native": true
+        },
+        {
+          "id": "node-pnpm",
+          "command": "pnpm",
+          "available": true,
+          "path": "/usr/local/bin/pnpm",
+          "linux_native": true
+        }
+      ],
+      "missing_tools": [],
+      "windows_path_tools": [],
+      "fd_compatibility": {
+        "available": true,
+        "command": "fdfind",
+        "path": "/usr/bin/fdfind",
+        "ubuntu_package": "fd-find",
+        "note": "Ubuntu fd-find exposes fdfind; fd is accepted when present."
+      }
+    },
+    "findings": [],
+    "errors": []
+  },
+  "docker": {
+    "chunk_id": "45be9f",
+    "wall_time_seconds": 0.8877197,
+    "exit_code": 0,
+    "original_token_count": 183,
+    "output": "72a22f7b9905d7c3efee0ba6c5317a860c90bc19c3e3cb883b357e982b9bff63 /drugsale_practice_system-worker-1 2026-09-10T06:44:35.374390227Z running healthy\n29bca7421b41eafd3e20d54f39dba23c51741976faad4505588da4045d3d20d5 /drugsale_practice_system-api-1 2026-09-10T06:44:35.942166005Z running healthy\nd36f57799feab98f071dd3b394680576c076dcc137425221b499417326481697 /drugsale_practice_system-web-1 2026-09-10T02:15:21.963412529Z running healthy\n863919c56230b4ec53e5851496a2e846ee476aa301b93041b86ba047bee29aa7 /drugsale_practice_system-postgres-1 2026-09-08T06:50:28.511530039Z running healthy\naa66ea23c3afa6b2d3f109be5440fab1be18924bce95c244b92fc21bd8bf6735 /drugsale_practice_system-redis-1 2026-09-08T06:50:27.930019722Z running healthy\n"
+  },
+  "official_gui_tools_exposed": []
+}

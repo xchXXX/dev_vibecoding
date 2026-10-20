@@ -111,7 +111,8 @@ class CapabilityCliTest(unittest.TestCase):
             self.assertIn('probe evidence missing', str(rejected))
             evidence = self.repo / '.artifacts/capability/probe.json'
             evidence.parent.mkdir(parents=True)
-            capture = self.run_ctl('capture-capability-context', subtask_id=dependent['subtask_id'])['captures']['browser']
+            capture = self.run_ctl('capture-capability-context', subtask_id=dependent['subtask_id'],
+                                   platform_agent_id='impl-001')['captures']['browser']
             evidence.write_text(json.dumps({**capture, 'tool': requirement['tool'], 'probe': requirement['probe'],
                 'session_id': 'cli-test-session', 'status': 'passed',
                 'operation': 'fixture-only operation', 'observed': 'synthetic test data, not live browser proof'}))
@@ -126,7 +127,8 @@ class CapabilityCliTest(unittest.TestCase):
                 independent = contract['subtasks'][1]['subtask_id']
                 self.run_ctl('preflight', subtask_id=independent)
             original = json.loads(evidence.read_text())
-            fresh = self.run_ctl('capture-capability-context', subtask_id=dependent['subtask_id'])['captures']['browser']
+            fresh = self.run_ctl('capture-capability-context', subtask_id=dependent['subtask_id'],
+                                 platform_agent_id='impl-001')['captures']['browser']
             failed = evidence.with_name('failed.json')
             failed.write_text(json.dumps({**original, **fresh, 'status': 'failed', 'observed': 'synthetic later failure'}))
             def register(path, ok=True):

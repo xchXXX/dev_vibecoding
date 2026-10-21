@@ -21,6 +21,8 @@ GTO 启动条件唯一遵循 [全局入口模板](../templates/codex/AGENTS.glob
 
 ## 角色分工
 
+普通施工的流程、独立测试/验收者及 reviewer 默认职责见 [任务与工作区合同](modules/git-workflow/contract/task-workspace.md)。它不使用下文的 GTO 六工件、无历史派发或状态机要求。普通子代理继承父任务入口和实际目录，只完成分配职责，不再次组织整套流程；只读审查不需要额外 worktree。原角色负责范围复审/复验。
+
 计划代理分配与职责分开表达，同代号复用、异代号区分，按批准依赖派发；测试与验收是否复用由方案决定，并满足已有独立性约束。唯一行为说明见 [批准分工与依赖](../skills/global-task-orchestrator/references/workflow.md#批准分工与依赖)。派发结果合同的自动观察／手工模板分流唯一见 [结果提交与核验](../skills/global-task-orchestrator/references/workflow.md#结果提交与核验)；预检及正式接收见 [结果合同](../skills/global-task-orchestrator/references/controller-guide.md#结果合同)，结构通过不替代证据判断。
 
 - Plan 与 Execute：职责、控制工件前置条件和流程图统一见下文“双窗口模式”引用的 GTO 真源；控制器只机械维护 `state.json`、`events.jsonl` 与确定性状态推进。
@@ -105,6 +107,7 @@ Plan 完整要求清单见 [方案指南](../skills/global-task-orchestrator/ref
 - state 中只保存 `<repo-root>` 和仓库相对路径等逻辑位置，不保存盘符、用户名或本机绝对仓库根。
 - write overlap 未归属或未裁决时不得进入 `code_impl`。裁决只记录采用的基线与边界，不授权覆盖、清理或还原用户改动。
 - workspace 动作只检查、捕获和校验；控制器和子代理不得自动创建、切换、移动、删除或清理 worktree，也不得扫描或同步其他 clone。
+- 上条不要求主协调器为每个子代理创建目录：同任务默认共用，跨窗口/GTO Plan→Execute 沿用原绑定。仅主协调器在确定独立任务需要隔离且无可复用目录后安排创建；已冻结 GTO 不搬迁。共享 Git 操作统一由主协调器执行，写入冲突串行。
 
 ### `task_state`
 

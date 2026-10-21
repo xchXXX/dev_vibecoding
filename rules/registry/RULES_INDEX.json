@@ -1,8 +1,8 @@
 {
   "schema_version": "2.0",
-  "source_fingerprint": "d5614ab602ca1852bff0f955b6b7f08acbae9404a7bfa88af4a3fc9d445ef341",
+  "source_fingerprint": "811976a38698ad7998c681c9e01e69d9df68131fe5b600a010c27135508f59ec",
   "repo_root": "<repo-root>",
-  "local_rule_count": 28,
+  "local_rule_count": 29,
   "global_rules": {
     "mode": "none",
     "roots": [],
@@ -441,6 +441,34 @@
       "override_mode": "replace",
       "overrides": [],
       "file_path": "rules/items/workflow/修复闭环闸门.md"
+    },
+    {
+      "id": "global.workflow.关键前提先验证",
+      "title": "关键前提先验证",
+      "subject": "critical-premise-validation",
+      "scope": "global",
+      "kind": "workflow",
+      "priority": 100,
+      "activation": "model_decision",
+      "paths": [],
+      "intents": [
+        "planning",
+        "investigation",
+        "implementation",
+        "testing",
+        "build",
+        "deployment",
+        "data"
+      ],
+      "owner": "ai-governance",
+      "status": "active",
+      "summary": "较长投入前优先验证会导致大面积返工的少数关键前提，用最小真实探测支持决策并复用有效证据。",
+      "linked_skill": "",
+      "enforcement": "advisory",
+      "overrideable": true,
+      "override_mode": "replace",
+      "overrides": [],
+      "file_path": "rules/items/workflow/关键前提先验证.md"
     },
     {
       "id": "global.workflow.复杂任务全局编排",

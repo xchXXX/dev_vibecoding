@@ -47,3 +47,5 @@ python3 "$harness_root/scripts/sync-codex.py" --harness-root "$harness_root" \
 ```
 
 安装后比较真源、安装、receipt；其他受管组件保持，旧任务冻结目录前后哈希一致，并通过新进程恢复确认实际 controller 仍指向原快照。新进程 CLI 成功不证明既有聊天已重新加载；新会话验收单独记录。全局入口变化另用既有定向 bootstrap 发布，不调用完整安装来掩盖缺口。
+
+普通任务从调查到接续、复验和完成的最小操作见 [任务工作区示例](modules/git-workflow/contract/task-workspace-example.md)；字段与版本边界见同目录合同。

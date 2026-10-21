@@ -37,7 +37,7 @@ def read_policy(root):
     if not isinstance(prefixes, list) or not prefixes or not isinstance(reserved, dict):
         raise ValueError('prefixes/reservations')
     for prefix in prefixes:
-        if not isinstance(prefix, str) or not prefix.endswith('/') or git(root, 'check-ref-format', '--branch', prefix + 'example', optional=True)[0]:
+        if not isinstance(prefix, str) or not prefix or prefix.startswith('-') or git(root, 'check-ref-format', '--branch', prefix + 'example', optional=True)[0]:
             raise ValueError('task prefix')
     production = policy.get('production_branch')
     if production is not None and (production == policy['main_branch'] or production in reserved):
@@ -64,7 +64,7 @@ def exists(root, ref):
     return git(root, 'show-ref', '--verify', '--quiet', ref, optional=True)[0] == 0
 
 
-def inspect(root, phase, branch_override='', release_tag=''):
+def inspect(root, phase, branch_override='', release_tag='', task_id='', coordinator=''):
     root = root.resolve()
     policy = read_policy(root)
     _, head = git(root, 'rev-parse', '--verify', 'HEAD')
@@ -88,6 +88,11 @@ def inspect(root, phase, branch_override='', release_tag=''):
         errors.append('DETACHED_HEAD')
     elif branch and branch not in (main, production) and branch not in policy['reserved_branches']:
         valid = any(branch.startswith(prefix) and len(branch) > len(prefix) for prefix in policy['task_prefixes'])
+        if not valid and task_id and coordinator and branch == actual_branch and phase != 'ci':
+            from task_workspace import legacy_binding_valid
+            valid = legacy_binding_valid(root, task_id, coordinator)
+            if valid:
+                warnings.append('EXISTING_TASK_BRANCH_RETAINED')
         if not valid or branch.startswith('-') or git(root, 'check-ref-format', '--branch', branch, optional=True)[0]:
             errors.append('BRANCH_NAME')
     if result['reserved_owner']:
@@ -180,10 +185,12 @@ def main():
     parser.add_argument('--phase', choices=['start', 'push', 'merge', 'release', 'cleanup', 'ci'], required=True)
     parser.add_argument('--branch', default='')
     parser.add_argument('--release-tag', default='')
+    parser.add_argument('--task-id', default='')
+    parser.add_argument('--coordinator', default='')
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args()
     try:
-        result = inspect(args.repo_root, args.phase, args.branch, args.release_tag)
+        result = inspect(args.repo_root, args.phase, args.branch, args.release_tag, args.task_id, args.coordinator)
         code = 0 if result['ok'] else 1
     except (ValueError, KeyError, TypeError, OSError, re.error) as error:
         result = dict(ok=False, errors=['CONFIG_INVALID'], detail=type(error).__name__)

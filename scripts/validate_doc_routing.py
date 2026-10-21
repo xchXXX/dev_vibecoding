@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,18 @@ def validate(repo_root: Path) -> dict[str, Any]:
         module_results.append({"module_name": module.name, "missing_paths": missing, "ok": not missing})
     task_dirs = sorted(path for path in docs_tasks.iterdir() if path.is_dir()) if docs_tasks.is_dir() else []
     for task in task_dirs:
-        missing = [name for name in REQUIRED_TASK_FILES if not (task / name).is_file()]
+        required = REQUIRED_TASK_FILES
+        if (task / "task.json").exists():
+            try:
+                state = json.loads((task / "task.json").read_text(encoding="utf-8-sig"))
+                if (state.get("mode") == "ordinary" and state.get("schema_version") == 1
+                        and state.get("task_id") == task.name):
+                    required = ("task.md", "task.json")
+                else:
+                    errors.append(f"task {task.name} invalid ordinary task record")
+            except (ValueError, AttributeError):
+                errors.append(f"task {task.name} invalid task.json")
+        missing = [name for name in required if not (task / name).is_file()]
         if missing:
             errors.append(f"task {task.name} missing files: {', '.join(missing)}")
         task_results.append({"task_name": task.name, "missing_files": missing, "ok": not missing})

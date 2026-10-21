@@ -2,8 +2,8 @@
 
 本文件由 `python3 scripts/generate_rules_index.py` 生成；不要手工编辑。
 
-- source fingerprint: `d5614ab602ca1852bff0f955b6b7f08acbae9404a7bfa88af4a3fc9d445ef341`
-- local rules: 28
+- source fingerprint: `811976a38698ad7998c681c9e01e69d9df68131fe5b600a010c27135508f59ec`
+- local rules: 29
 
 | id | scope | activation | priority | source |
 |---|---|---|---:|---|
@@ -24,6 +24,7 @@
 | `global.style.说明默认使用中文` | `global` | `always_on` | 100 | `rules/items/style/说明默认使用中文.md` |
 | `global.workflow.Git分支与发布管理` | `global` | `model_decision` | 100 | `rules/items/workflow/分支与发布管理.md` |
 | `global.workflow.修复闭环闸门` | `global` | `model_decision` | 100 | `rules/items/workflow/修复闭环闸门.md` |
+| `global.workflow.关键前提先验证` | `global` | `model_decision` | 100 | `rules/items/workflow/关键前提先验证.md` |
 | `global.workflow.复杂任务全局编排` | `global` | `model_decision` | 100 | `rules/items/workflow/复杂任务全局编排.md` |
 | `global.workflow.子代理委派与协作` | `global` | `model_decision` | 100 | `rules/items/workflow/子代理委派与协作.md` |
 | `global.workflow.审阅返工固定路由` | `global` | `model_decision` | 100 | `rules/items/workflow/审阅返工固定路由.md` |

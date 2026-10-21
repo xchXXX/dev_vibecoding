@@ -2,6 +2,8 @@
 
 规范正文唯一见 `rules/items/workflow/分支与发布管理.md`。本页定义配置和检查器接口，不复制工作流。
 
+任务归属、普通核心工件、接续和独立审查流程唯一见 [任务与工作区合同](task-workspace.md)，该页明确实施状态。新前缀允许 `codex/feat-`、`codex/fix-`、`codex/ops-`，不限定末尾 `/`；具体值仍由项目配置决定。旧任务只有经过真实绑定核验才能继续其原分支，不自动重命名，不豁免未来新任务。
+
 接入条件见 [项目接入检查点](../../../PROJECT_TEMPLATE.md#项目接入检查点)。检查器继续对缺失/损坏配置返回 CONFIG_INVALID，不新增跳过检查或伪造通过的分支。
 
 项目 `config/ai/git-policy.json` 必填 `schema_version: 1`、`remote`、`main_branch`、`task_prefixes`、`reserved_branches`（分支到负责人）、`release_tag_pattern`（完整匹配）、`merge_method: merge`、`cleanup_mode: report-only`。不支持自动删除或 squash；若以后支持 squash，须有可信合并记录，不能仅以祖先关系判断。保留分支不授予当前任务使用权。
@@ -21,4 +23,4 @@
 
 项目离线副本由 `scripts/sync_git_workflow.py --project-root PATH` 生成在 `modules/tooling/check_git_workflow.py`，来源 SHA-256 写在文件头；`--check` 比较精确字节，不覆盖手写文件或已漂移生成物。项目配置由项目维护，生成器不覆盖它。
 
-本机发布使用 `bootstrap-local.py --git-workflow-only`，仅更新受管全局入口、本检查器及对应回执；保护其他 skills、环境、插件配置与回执字段，遵守迁移 hold 和共享发布锁。发布后须用新代理运行验证规则加载和实际选择，不能用静态字符串检查替代。
+本机发布使用 `bootstrap-local.py --git-workflow-only`，目标范围扩展为受管全局入口、本检查器、任务工作区入口及对应回执（实现状态见新合同）；保护其他 skills、环境、插件配置与回执字段，遵守迁移 hold 和共享发布锁。项目生成副本也包含并列 task_workspace.py。发布后须用新代理运行验证规则加载和实际选择，不能用静态字符串检查替代。

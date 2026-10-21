@@ -133,3 +133,5 @@ Git 配置存在且合法时按阶段检查；应已接入但配置缺失或损�
 ## 恢复与登记精简
 
 新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](../skills/global-task-orchestrator/references/streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。
+
+普通施工须使用 task.md/task.json，方案前调查、文档和测试先行、独立 review/验收；仅只读工作免施工登记。字段、默认值与任务接续唯一见 [任务与工作区合同](modules/git-workflow/contract/task-workspace.md)，不要求项目新增机器路径或代理名称配置。

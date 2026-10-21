@@ -12,15 +12,15 @@
     },
     {
       "path": "references/acceptance-points.md",
-      "sha256": "6c1df6bc254e786a780e1e0505b61846f01f769c966c18775c812e43c6f83006"
+      "sha256": "259b212eb4c3473b9bbad6b07b7caa2643171235c5f37dde930fe7ed1cf1a91f"
     },
     {
       "path": "references/blackbox-methodology.md",
-      "sha256": "97a3ff208f2dbed8fa73396ab8e97e216f04275b090a7e6f0bbf87e20c936422"
+      "sha256": "ca40e74967d2c21e60af4b9d23e35d4fe4685a80511c88006f958ce7058c78ad"
     },
     {
       "path": "references/controller-guide.md",
-      "sha256": "2afb004ac6986cbc77e7b6c4dc53c09306f9c9e2ac5d518d3cb421aa5c93ec93"
+      "sha256": "505ecff8ec284a0c0e0727ff3d70190e5fb958d6f17b10536ba7ca080b0f3087"
     },
     {
       "path": "references/examples/point-acceptance/README.md",
@@ -48,7 +48,7 @@
     },
     {
       "path": "references/plan-guide.md",
-      "sha256": "1860ed0b3670e24eaf335d3a3970bc4b6f291eb672a823d0b2b0f362a2cb83ca"
+      "sha256": "9a129eebbaf8b63d41cd50a55f4f4098b9207414065ceb18c302fc335dd2ba58"
     },
     {
       "path": "references/plan-reading-examples.md",
@@ -68,15 +68,15 @@
     },
     {
       "path": "references/state-schema.md",
-      "sha256": "62a2c58cda5b8d2896597e403e98593a4a640b600168ce6a76e57c3ce5d8c2b3"
+      "sha256": "af4ebe73689de6fa8cad82c3aa16b2093b40654f5b14385d1e2d8a1eb0ea66fb"
     },
     {
       "path": "references/streamlined-execution.md",
-      "sha256": "056e8c9ccb20fb7b55e5a508f15b1f0548edda0097789472071b5d7a464c483a"
+      "sha256": "13f1f2d882795bc7a4cdeb5111dbd619ae201122825f646b39a8d44476de3e51"
     },
     {
       "path": "references/workflow.md",
-      "sha256": "041415c976f493130b1de3e82eb9276436e1117c335b53177069dd7c7f889f02"
+      "sha256": "7f63fbaaff7022e09522e02ce61e3aab56378085ba8e2d94201c56064aacf005"
     },
     {
       "path": "schemas/orchestrator-task-state.schema.json",

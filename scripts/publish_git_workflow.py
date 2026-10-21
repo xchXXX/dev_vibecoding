@@ -20,6 +20,7 @@ def publish(root: Path, home: Path):
         bootstrap = state / 'bootstrap.receipt.json'
         receipt_file = state / 'git-workflow.receipt.json'
         checker = state / 'runtime/git-workflow/check_git_workflow.py'
+        task_entry = checker.with_name('task_workspace.py')
         template = root / 'templates/codex/AGENTS.global.md'
         source = root / 'scripts/check_git_workflow.py'
         rule = root / 'rules/items/workflow/分支与发布管理.md'
@@ -36,17 +37,25 @@ def publish(root: Path, home: Path):
             old_receipt = json.loads(receipt_file.read_text())
             if old_receipt.get('checker_sha256') != sha256_file(checker):
                 raise ValueError('GIT_RUNTIME_DRIFT')
+        if task_entry.exists():
+            if not receipt_file.exists():
+                raise ValueError('TASK_RUNTIME_UNMANAGED')
+            installed_receipt = json.loads(receipt_file.read_text())
+            if installed_receipt.get('task_workspace_sha256') != sha256_file(task_entry):
+                raise ValueError('TASK_RUNTIME_DRIFT')
         rendered = template.read_text(encoding='utf-8-sig').replace('{{HARNESS_ROOT}}', root.as_posix())
         if not rendered.startswith('<!-- ai-harness:managed-global-agents:v1 -->'):
             raise ValueError('TEMPLATE_UNMANAGED')
         content = source.read_text()
+        task_content = (root / 'scripts/task_workspace.py').read_text()
         digest = lambda text: hashlib.sha256(text.encode()).hexdigest()
         updated = {**receipt, 'template_path': str(template), 'template_sha256': sha256_file(template),
                    'target_path': str(agents), 'target_sha256': digest(rendered)}
         own = dict(schema_version=1, harness_root=str(root), checker_path=str(checker),
                    checker_sha256=digest(content), agents_sha256=digest(rendered),
+                   task_workspace_path=str(task_entry), task_workspace_sha256=digest(task_content),
                    rule_path=str(rule), rule_sha256=sha256_file(rule), scope='git-workflow-only')
-        targets = {agents: rendered, checker: content,
+        targets = {agents: rendered, checker: content, task_entry: task_content,
                    bootstrap: json.dumps(updated, ensure_ascii=False, indent=2) + '\n',
                    receipt_file: json.dumps(own, ensure_ascii=False, indent=2) + '\n'}
         before = {p: p.read_text() if p.exists() else None for p in targets}
@@ -62,7 +71,8 @@ def publish(root: Path, home: Path):
                 for path, text in targets.items():
                     if before[path] != text:
                         atomic_write(path, text)
-                if sha256_file(checker) != own['checker_sha256'] or sha256_file(agents) != own['agents_sha256']:
+                if (sha256_file(checker) != own['checker_sha256'] or sha256_file(agents) != own['agents_sha256']
+                        or sha256_file(task_entry) != own['task_workspace_sha256']):
                     raise ValueError('PUBLICATION_VERIFY_FAILED')
             except BaseException:
                 for path, text in before.items():

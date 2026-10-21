@@ -175,3 +175,5 @@ bootstrap/doctor 不修改原生插件配置。一次性迁移在私有备份和
 ## 恢复与登记精简
 
 新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](../skills/global-task-orchestrator/references/streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。
+
+普通施工默认流程和实际身份/工作区绑定见 [任务与工作区合同](modules/git-workflow/contract/task-workspace.md)。CLI 只能检查经过入口的记录与 Git 事实，不能拦截任意平台写入；模型行为须新会话黑盒证明。

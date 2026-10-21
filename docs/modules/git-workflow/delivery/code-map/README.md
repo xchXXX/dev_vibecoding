@@ -9,3 +9,5 @@
 | 本机定向发布 | `scripts/bootstrap-local.py --git-workflow-only` → `scripts/publish_git_workflow.py` |
 | 真实 Git 回归 | `tests/harness/test_git_workflow.py` |
 | 安装隔离与漂移保护 | `tests/harness/test_git_workflow_publication.py` |
+
+任务绑定、只读决策、普通阶段证据入口：scripts/task_workspace.py；公开合同见 ../../contract/task-workspace.md。生成和定向发布分别复用 sync_git_workflow.py、publish_git_workflow.py。实现前本映射表示批准目标，实况见任务记录。

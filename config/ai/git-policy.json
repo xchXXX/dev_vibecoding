@@ -3,7 +3,9 @@
   "remote": "origin",
   "main_branch": "main",
   "task_prefixes": [
-    "codex/"
+    "codex/feat-",
+    "codex/fix-",
+    "codex/ops-"
   ],
   "reserved_branches": {},
   "release_tag_pattern": "release/\\d{4}-\\d{2}-\\d{2}\\.\\d+",

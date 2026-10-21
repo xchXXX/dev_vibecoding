@@ -29,3 +29,5 @@
 - `config/local/`
 - `tests/fixtures/`
 - `scripts/`
+
+普通施工默认采用两个核心工件、文档测试先行和独立 review/验收，规则见 [任务与工作区合同](../../docs/modules/git-workflow/contract/task-workspace.md)。仅只读任务免登记；子代理继承父任务而不重新初始化。

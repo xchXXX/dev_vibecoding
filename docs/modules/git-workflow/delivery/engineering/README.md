@@ -10,3 +10,5 @@
 6. 在新 Codex 运行中使用只读场景验证：识别实际生效规则、保留分支归属、主分支起点、在途未提交文件与清理限制。静态测试和口头复述不足以证明所有后续任务永不违规；远端 CI/保护独立验收。
 
 没有 merge/push/deploy/delete 自动执行器，不新增 shell hook、规则 matcher 或守护进程。清理仍是 report-only。远端网络不可用则保留 pending，不把缓存 refs 当实时远端。
+
+普通任务入口、独立目录用法与版本边界见 [合同](../../contract/task-workspace.md) 和 [示例](../../contract/task-workspace-example.md)。公开入口不替主协调器创建 worktree；发布前验收生成的两个并列脚本，比较旧冻结包和无关安装哈希。

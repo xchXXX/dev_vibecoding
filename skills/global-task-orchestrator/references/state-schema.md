@@ -326,3 +326,5 @@ python3 "$GTO_CONTROLLER" --action finalize-task --repo-root "$repo_root" --task
 ## 只读版本与诊断展示
 
 版本摘要与 diagnostics 仅为 CLI 输出，不新增 state 字段、不保存授权或通过标记。字段和待实现状态唯一见 [简化合同](streamlined-execution.md)。原状态、证据、错误和退出码保持。
+
+任务身份与目录接续：同 task_id 的 Plan/Execute、子代理和复验沿用已绑定工作区、分支与冻结包；不同会话不自动成为新任务，dirty 不触发新建。共享目录的冲突写入串行、Git 由主协调器统一，交接先停止原写入。普通任务核心工件与流程另见 harness 的 docs/modules/git-workflow/contract/task-workspace.md，不叠加到本 GTO 合同。新定位入口不改写 state 或绕过 checkout_binding；相关新增能力仍以安装版本及验收记录为准。

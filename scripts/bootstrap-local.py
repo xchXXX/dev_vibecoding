@@ -202,7 +202,7 @@ def main() -> int:
     parser.add_argument("--force-global-agents", action="store_true")
     parser.add_argument("--skip-sync", action="store_true")
     parser.add_argument("--environment-only", action="store_true", help="Publish only environment runtime and its receipt; preserve skills, config and AGENTS.")
-    parser.add_argument("--git-workflow-only", action="store_true", help="Publish only managed AGENTS and Git checker; preserve other runtime state.")
+    parser.add_argument("--git-workflow-only", action="store_true", help="Publish managed AGENTS, Git checker and task workspace entry; preserve other runtime state.")
     parser.add_argument("--skill", choices=MANAGED_SKILLS, help="Synchronize only one managed skill before the shared environment runtime.")
     parser.add_argument("--skip-rules", action="store_true")
     parser.add_argument("--skip-doctor", action="store_true")

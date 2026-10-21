@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "mode": "ordinary",
+  "task_id": "20261020-task-workspace-governance",
+  "status": "completed",
+  "phase": "acceptance",
+  "branch": "codex/plan-execution-contract",
+  "workspace": "<repo-root>",
+  "coordinator": "01a15217-420a-7963-9f90-06f514890793",
+  "task_document": "docs/tasks/20261020-task-workspace-governance/task.md",
+  "evidence_root": ".artifacts/task-workspace-governance",
+  "binding_origin": "user-confirmed-existing-task",
+  "baseline_head": "33814ae55fc4bd1de067a5d5b802853c7c85e623",
+  "registration": "manual-before-public-entry-implementation",
+  "checkout_binding": "464df4b172bf8fef1c3ce0c7ad3ca036822d0ea1bf5098223c099daef34b4716",
+  "acceptance_points": [
+    "A01",
+    "A02",
+    "A03",
+    "A04",
+    "A05",
+    "A06",
+    "A07",
+    "A08",
+    "A09",
+    "A10",
+    "A11",
+    "A12"
+  ],
+  "stages": [
+    {
+      "stage": "investigation",
+      "evidence": ".artifacts/task-workspace-governance/stages/investigation.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/investigation.json": "9e359db4a86d0ff243f9d2857753fac43a5ade81a9049175d4750fa46f394094",
+        ".artifacts/task-workspace-governance/stages/investigation-and-authorization.txt": "2f883d0327dce7fa49a2af4ee6ded0f922eb853dbe613608ac33301aa0617b2b",
+        ".artifacts/task-workspace-governance/workspace-baseline.log": "85e78d442f50b471f9d50ac37ef799a218ecf6e28449af3e48d13218d6096bc9"
+      }
+    },
+    {
+      "stage": "plan",
+      "evidence": ".artifacts/task-workspace-governance/stages/plan.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/plan.json": "443da62506d8e30ce481c34bb1ac36fd0bf8cc2b725837c1a22a8737de096807",
+        ".artifacts/task-workspace-governance/stages/investigation-and-authorization.txt": "2f883d0327dce7fa49a2af4ee6ded0f922eb853dbe613608ac33301aa0617b2b"
+      }
+    },
+    {
+      "stage": "documentation",
+      "evidence": ".artifacts/task-workspace-governance/stages/documentation.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/documentation.json": "9647f3e2f5921300d7630f2a131fe35b39b50fa0a891fbe4d87a27ab8b6bb951",
+        ".artifacts/task-workspace-governance/documentation-baseline.json": "4c8117558f112d9b68c3ae9f68e253687134d5aab867e2c77557d42f6ba4fc9d"
+      }
+    },
+    {
+      "stage": "tests",
+      "evidence": ".artifacts/task-workspace-governance/stages/tests.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/tests.json": "b7ca8325cf1bcc2d0d76e194434b12bf424ecfda76246b45e61d686486c817b7",
+        ".artifacts/task-workspace-governance/tdd-red.log": "87605a8b0486940de8c3ae0f0ab412aa0f6512a14fce98e970a73236d8a21624",
+        ".artifacts/task-workspace-governance/tdd-red-summary.json": "e0c5eee2d8120ee4084cf6981e167fda193b2ec187caed598f0680aebdf1ad06"
+      }
+    },
+    {
+      "stage": "implementation",
+      "evidence": ".artifacts/task-workspace-governance/stages/implementation.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/implementation.json": "9f53641ef12d38d21cbf1a61dd7a0e5e440871a0d070aea472dd9ffc492a552b",
+        ".artifacts/task-workspace-governance/tdd-green-attempt-1.log": "6be0b20a383cfd6b4882c179adce556e6d0ae652399fdc7a5e75957131991d7b"
+      }
+    },
+    {
+      "stage": "review",
+      "evidence": ".artifacts/task-workspace-governance/stages/review-initial.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/review-initial.json": "15b83b316011ea7804f9895c26005ec556aa637e015c781d35f609badf0cc000",
+        ".artifacts/task-workspace-governance/review-initial.md": "8c86707dff671e0646fef2287763df3966d922d5016f5b641923e55dafdfbc02",
+        ".artifacts/task-workspace-governance/stages/review-dispatch.json": "ce32c6019247b30f3506964c6dd3c53c2afd75b2e174ac98b058cc0346a11557"
+      }
+    },
+    {
+      "stage": "implementation",
+      "evidence": ".artifacts/task-workspace-governance/stages/implementation-revision.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/implementation-revision.json": "e71d4a8b21a2eece656dc5f4ed243ae8b1af6f8ab234733776530363d6b3825f",
+        ".artifacts/task-workspace-governance/revision-red.log": "f24760feaa6c424db37d5040aa6918bf3f1a79384a521da5c21a16d5f63ea258",
+        ".artifacts/task-workspace-governance/revision-green.log": "cbaa5a316b6ba13de5f77ed6a25061769ed0578e0c1bfd7dedc558a0e7e1a110",
+        ".artifacts/task-workspace-governance/portable-revision/independent-acceptance.json": "f71d7b1d75fb5adc9654c4b305c69aa695b11618a51c9ee82766f97ea63098c9"
+      }
+    },
+    {
+      "stage": "review",
+      "evidence": ".artifacts/task-workspace-governance/stages/review-scoped.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/review-scoped.json": "301cd072a4b279ce6d7fa7817815c4cc654591cf46a228fbce4eb639b0d522c4",
+        ".artifacts/task-workspace-governance/review-initial.md": "8c86707dff671e0646fef2287763df3966d922d5016f5b641923e55dafdfbc02",
+        ".artifacts/task-workspace-governance/review-scoped.md": "845e1a2cc7932e6d71558987f2a096f539c27f2125aa905c044acf668ce3aeec",
+        ".artifacts/task-workspace-governance/stages/review-scoped-dispatch.json": "1db6b8de915e6e1eb153580f5264e891551ba39cf99e86ee7e772d126557deba"
+      }
+    },
+    {
+      "stage": "acceptance",
+      "evidence": ".artifacts/task-workspace-governance/stages/acceptance-initial.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/acceptance-initial.json": "e520654e068b1e8bec3e74057efdb1443be485c71e400e4555219bae15d2212e",
+        ".artifacts/task-workspace-governance/blackbox/ordinary/A01-red.json": "22e06472f550a8146f359cf1b13764611cad305a23a6d222adcdf7cbea814b73",
+        ".artifacts/task-workspace-governance/blackbox/ordinary/independent-score.json": "8283973e80bffa3bb370561c7cfa4d1de7a7e3bcce1f93f70c40004a55df27eb",
+        ".artifacts/task-workspace-governance/blackbox/ordinary/independent-acceptance.md": "1e6a3de251c9c1429f6f02c98aab1d3ec97fa5d8c874e9d8034dcf817c267957",
+        ".artifacts/task-workspace-governance/stages/acceptance-initial-dispatch.json": "74c311cb958781dbd344a96d7e7e98e791afe6cc3aaced1abd955e38c4a14582"
+      }
+    },
+    {
+      "stage": "implementation",
+      "evidence": ".artifacts/task-workspace-governance/stages/implementation-approval-boundary.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/implementation-approval-boundary.json": "867297dafc410abc51d36e3e3e2f1bfffae58db0dccf3c3e2233893476364a97",
+        ".artifacts/task-workspace-governance/blackbox/ordinary/A01-red.json": "22e06472f550a8146f359cf1b13764611cad305a23a6d222adcdf7cbea814b73",
+        ".artifacts/task-workspace-governance/blackbox/approval-boundary-retest/independent-score.json": "f914099531ab843551939488329bc794c0d4b511fd8f2393bacaba1dac5031de",
+        ".artifacts/task-workspace-governance/installation-approval-boundary-verification.json": "044d05f37060333f070ec3a4857849fc0b9f22001b9bae10df9500e596549802"
+      }
+    },
+    {
+      "stage": "review",
+      "evidence": ".artifacts/task-workspace-governance/stages/review-approval-boundary.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/review-approval-boundary.json": "4cf19b02b5c5bd66eb14e74fac1810a617698d68762aa061b95b5a16b96aaf58",
+        ".artifacts/task-workspace-governance/review-approval-boundary.md": "810795776786044bc7dd15520fcd3a36b30049f535e8d2cdbe8779da9894d9e5",
+        ".artifacts/task-workspace-governance/stages/review-approval-boundary-dispatch.json": "17c4d496785736a9f05d0ade3f8c88bdeaeb4df59191e7ab63279b9aee3b251c"
+      }
+    },
+    {
+      "stage": "acceptance",
+      "evidence": ".artifacts/task-workspace-governance/stages/acceptance-final.json",
+      "files": {
+        ".artifacts/task-workspace-governance/stages/acceptance-final.json": "bfaad4d493c00714ad349553eceb4ec9478bb7428c114e546cb0386ef9bf6d4d",
+        ".artifacts/task-workspace-governance/blackbox/approval-boundary-retest/first-turn-score.json": "d4b6bc2e92e6b3bfbdc286147a563c3e4e3f53a6e352415cbe86900d2fdbdb30",
+        ".artifacts/task-workspace-governance/blackbox/approval-boundary-retest/independent-score.json": "f914099531ab843551939488329bc794c0d4b511fd8f2393bacaba1dac5031de",
+        ".artifacts/task-workspace-governance/blackbox/approval-boundary-retest/thread-start.json": "6bedb0735f97e1053aa2b73e21ef42a5f37deb3a2edbcba137d4b06371842587",
+        ".artifacts/task-workspace-governance/blackbox/fixtures/gto/baseline-ready.json": "0dcb834fa1da9685f9b3d8321376bbbcff65e79c92ae51a8366488f7fd9303a8",
+        ".artifacts/task-workspace-governance/blackbox/gto/independent-score.json": "701bcb224cfbd6c403dd87865d149475385024567a40e8228921045b279d6d3d",
+        ".artifacts/task-workspace-governance/blackbox/gto/thread-start.json": "1083a1c034e741534ff50a7e2d0e5f9f1e780f17f33bed810540eeb20c23dd26",
+        ".artifacts/task-workspace-governance/blackbox/handoff-a/thread-start.json": "00beacf0e9d92dd86a87dfba4700cde3af3a9a78047d97fce998e675152c06d5",
+        ".artifacts/task-workspace-governance/blackbox/handoff-b/independent-score.json": "5bfa2f8bc384d1a091691d275b8fa70fb6befba530394b482c3f77afa5c87c89",
+        ".artifacts/task-workspace-governance/blackbox/handoff-b/thread-start.json": "ddb2afbd003eec757366af47d285bb5c03b8850939323e7a57120ba8b7462663",
+        ".artifacts/task-workspace-governance/blackbox/ordinary/collaboration.json": "d682637b71ac72dcd6186448320b5bf27882b4ecbac611604ed036c183148aa4",
+        ".artifacts/task-workspace-governance/blackbox/ordinary/events.jsonl": "62b3db0f317e31d4dbcbe68a0a18525f6b415ade976d9acc7d4b9e6d2982be30",
+        ".artifacts/task-workspace-governance/blackbox/ordinary/independent-score.json": "8283973e80bffa3bb370561c7cfa4d1de7a7e3bcce1f93f70c40004a55df27eb",
+        ".artifacts/task-workspace-governance/final-protection.json": "3e1250275bc6e00d7c8877e3ccfaf27a811122c9d96d828b8dd7a3bf7096c2c3",
+        ".artifacts/task-workspace-governance/git-regression.log": "adcf9e802c9c9a318d0b2d8bd896f6859094874563c50f71c8b820c69134d1a4",
+        ".artifacts/task-workspace-governance/installation-approval-boundary-verification.json": "044d05f37060333f070ec3a4857849fc0b9f22001b9bae10df9500e596549802",
+        ".artifacts/task-workspace-governance/portable-revision/independent-acceptance.json": "f71d7b1d75fb5adc9654c4b305c69aa695b11618a51c9ee82766f97ea63098c9",
+        ".artifacts/task-workspace-governance/portable/d0b70d8320ef48ccb3264bd797de3025/independent-acceptance.json": "1a99ef09377680ebb3a234ec6be990916a465208745068200e706055c2077110",
+        ".artifacts/task-workspace-governance/revision-green.log": "cbaa5a316b6ba13de5f77ed6a25061769ed0578e0c1bfd7dedc558a0e7e1a110",
+        ".artifacts/task-workspace-governance/revision-red.log": "f24760feaa6c424db37d5040aa6918bf3f1a79384a521da5c21a16d5f63ea258",
+        ".artifacts/task-workspace-governance/tdd-green-attempt-1.log": "6be0b20a383cfd6b4882c179adce556e6d0ae652399fdc7a5e75957131991d7b",
+        ".artifacts/task-workspace-governance/final-independent-acceptance.json": "1291dedb0f8c3305ceb6fdcaaf8621dd6071b2a28ac9086e05014bff9f05a2cf",
+        ".artifacts/task-workspace-governance/final-independent-acceptance.md": "34e5d60c4266aa4d15721b2d876c847d8ac000b19b1576258c824fe935db7d55",
+        ".artifacts/task-workspace-governance/workspace-preservation.json": "94afd609fcb5cd70c56842a19303e718863d5a5a31d1c569a07e3f18674516b4",
+        ".artifacts/task-workspace-governance/stages/acceptance-final-dispatch.json": "9930aaa491ffef749e88d73bed60b8101af00b6db259e3d98f7d5ad363430ba4"
+      }
+    }
+  ],
+  "adoption_basis": "user-confirmed-current-conversation-continuation"
+}

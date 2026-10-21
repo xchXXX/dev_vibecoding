@@ -143,3 +143,5 @@ bootstrap、sync 和 doctor 只处理受管 Codex 入口、上述 skill、规则
 ## 范围复验变更入口
 
 现行行为与版本边界见[按验收点保留结果与范围复验](../../skills/global-task-orchestrator/references/acceptance-points.md)。首次验收可分范围登记；保留任意历史轮次中仍有效的结果，最终检查完整覆盖，不要求额外整轮全绿。普通任务使用简洁清单，只有显式选择 GTO 才使用控制面。
+
+普通任务最小工件和默认实施顺序唯一见 [任务与工作区合同](../modules/git-workflow/contract/task-workspace.md)，不自动升级 GTO。新流程只适用于包含该入口的版本，历史记录不回写为新规范已通过。

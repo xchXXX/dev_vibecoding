@@ -160,3 +160,5 @@ bootstrap/doctor 不修改原生插件配置。一次性迁移在私有备份和
 - `configure-skill-policy.py`：按 `config/ai/skill-policy.json` 的唯一声明写入受支持的 `[[skills.config]] path` 开关；显式传入已核实的 `--codex-home` 和当前 `--plugin-skills-root`。`--check` 只检查磁盘，不证明运行时加载。保留其他设置与方法技能，不修改插件缓存；升级后重新应用并验证新会话。
 
 项目接入与最小使用示例见 [接入与检查](../docs/harness-usage-examples.md)。版本与诊断新增输出的合同及实施状态见 [简化合同](../skills/global-task-orchestrator/references/streamlined-execution.md)，不另建版本库或自动修复入口。
+
+任务归属新增公开入口 task_workspace.py，普通任务核心工件/阶段证据、GTO 只读定位和发布范围见 [合同](../docs/modules/git-workflow/contract/task-workspace.md)。待实现状态见合同，不将文档列出命令视为功能可用。

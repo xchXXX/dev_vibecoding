@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -50,6 +51,21 @@ def validate(repo_root: Path) -> dict[str, Any]:
     if not task_dirs:
         errors.append("未发现 docs/tasks/<task-id> 长任务文档目录。")
     for task_dir in task_dirs:
+        if (task_dir / "task.json").exists():
+            try:
+                state = json.loads((task_dir / "task.json").read_text(encoding="utf-8-sig"))
+                if (state.get("mode") != "ordinary" or state.get("schema_version") != 1
+                        or state.get("task_id") != task_dir.name):
+                    raise ValueError("invalid ordinary record")
+                path = task_dir / "task.md"
+                valid = path.is_file() and _meaningful(path.read_text(encoding="utf-8-sig"))
+                if not valid:
+                    errors.append(f"{task_dir.name}: missing or empty task.md")
+                results.append({"task_id": task_dir.name, "kind": "ordinary", "ok": valid,
+                                "path": path.relative_to(repo_root).as_posix()})
+                continue
+            except (ValueError, AttributeError):
+                errors.append(f"{task_dir.name}: invalid task.json")
         for file_name, rule in DOC_RULES.items():
             path = task_dir / file_name
             result: dict[str, Any] = {"task_id": task_dir.name, "path": path.relative_to(repo_root).as_posix(), "kind": rule["kind"], "exists": path.is_file()}

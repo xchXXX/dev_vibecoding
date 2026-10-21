@@ -181,3 +181,5 @@ python3 scripts/sync-codex.py --harness-root <root> --codex-home <home> --skill 
 ## 恢复与登记精简
 
 新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](../skills/global-task-orchestrator/references/streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。
+
+任务工作区新增入口及版本边界见 [任务与工作区合同](modules/git-workflow/contract/task-workspace.md)。按既有 sync_git_workflow.py 生成并列 portable 脚本，按 git-workflow-only 定向发布；只安装已验收产物。新会话规则加载单独验收，旧 GTO 冻结包不改写，不能用安装成功代替行为通过。

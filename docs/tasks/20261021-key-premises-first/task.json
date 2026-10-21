@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "mode": "ordinary",
+  "task_id": "20261021-key-premises-first",
+  "status": "completed",
+  "phase": "acceptance",
+  "branch": "codex/plan-execution-contract",
+  "workspace": "<repo-root>",
+  "checkout_binding": "464df4b172bf8fef1c3ce0c7ad3ca036822d0ea1bf5098223c099daef34b4716",
+  "coordinator": "/root",
+  "task_document": "docs/tasks/20261021-key-premises-first/task.md",
+  "acceptance_points": [
+    "RULE",
+    "ENTRY",
+    "INDEX",
+    "PRESERVE"
+  ],
+  "stages": [
+    {
+      "stage": "investigation",
+      "evidence": ".artifacts/20261021-key-premises-first/investigation.json",
+      "files": {
+        ".artifacts/20261021-key-premises-first/investigation.json": "ebf5b8b9cb823b490bb7f3b832b5837f4b264771e6e7da19583e4832d30aa263",
+        ".artifacts/20261021-key-premises-first/investigation.txt": "a46373bbdd78c06a8aba25be85e19a31660c844fcd301fda18acd538eb0a09c4",
+        ".artifacts/20261021-key-premises-first/baseline-hashes.json": "b895d1bc86dfe3faf583e998fce2a96809639639a9b477087d1ad622ad6c09fd",
+        ".artifacts/20261021-key-premises-first/workspace-before.txt": "f4549e9fb1a2d0fe7ba0161d733cf6a08a52d553a554ea4514f3e95f853fca3b"
+      }
+    },
+    {
+      "stage": "plan",
+      "evidence": ".artifacts/20261021-key-premises-first/plan.json",
+      "files": {
+        ".artifacts/20261021-key-premises-first/plan.json": "9c222cc5bd2553e3aeeb22ff05c30c81ee46e807fe587b1d847057fffd7c5a65",
+        ".artifacts/20261021-key-premises-first/authorization.txt": "e33382708061912935959dac0f59a5b4fe271581eec65dfd60d95f99ce9a51d0"
+      }
+    },
+    {
+      "stage": "documentation",
+      "evidence": ".artifacts/20261021-key-premises-first/documentation.json",
+      "files": {
+        ".artifacts/20261021-key-premises-first/documentation.json": "85a1fb6bec9a522d31e43096489cf729866917b7e0fd5f3d8dca30c8ae5f5c18",
+        ".artifacts/20261021-key-premises-first/documentation-snapshot.json": "0c6894fe29448c0d34a66e25e89bd57eff58a03eb400530f05ae45d220a7f024"
+      }
+    },
+    {
+      "stage": "tests",
+      "evidence": ".artifacts/20261021-key-premises-first/tests.json",
+      "files": {
+        ".artifacts/20261021-key-premises-first/tests.json": "29932e45a2322f4c31f554bdba5df1abd26c4622abb691bedde1a721d4c555f6",
+        ".artifacts/20261021-key-premises-first/tests-preparation.md": "0300d97ac4e501ffdad38852b1c708b3cf4f9a64494b1b5ae4891c72421a6695"
+      }
+    },
+    {
+      "stage": "implementation",
+      "evidence": ".artifacts/20261021-key-premises-first/implementation.json",
+      "files": {
+        ".artifacts/20261021-key-premises-first/implementation.json": "6827445b9b11bdf847f5965461a0e5f75bc839399f49c96b26c9f109b14d8fe3",
+        ".artifacts/20261021-key-premises-first/delivery.diff": "eaf891e6deebeda202e572f2b3bdcc7e43a1baa8b694981eb291d49106c15be3",
+        ".artifacts/20261021-key-premises-first/delivery-snapshot.json": "3f771dedb9b1ae86dff8229c1c4ee2b6fb7bbbb49e48b6d903d86108472d4525",
+        ".artifacts/20261021-key-premises-first/preservation.json": "57ee0e8fa0de818bffdeb53fe5aa2b5d9b5427aeb906d12374f95cab186d6272",
+        ".artifacts/20261021-key-premises-first/rule-validation.log": "3e6a109c1b825ffb99b42874dcca3d93d589e1d01fc18aff4849de6ef4e16270"
+      }
+    },
+    {
+      "stage": "review",
+      "evidence": ".artifacts/20261021-key-premises-first/review.json",
+      "files": {
+        ".artifacts/20261021-key-premises-first/review.json": "01e8eb3919e5ca619a5547782549c974c376accb7acd5903e900caccb2517de7",
+        ".artifacts/20261021-key-premises-first/review-report.md": "fc8bda30272b3de98aa1052566af61b02ac4659db7bbe824f9d5153750ac6336",
+        ".artifacts/20261021-key-premises-first/delivery-snapshot.json": "3f771dedb9b1ae86dff8229c1c4ee2b6fb7bbbb49e48b6d903d86108472d4525",
+        ".artifacts/20261021-key-premises-first/review-dispatch.json": "f1c643f3a74f6f4ace041514a788a825a44e9cdcf8a274a7ebc5bdd7d2ad2cff"
+      }
+    },
+    {
+      "stage": "acceptance",
+      "evidence": ".artifacts/20261021-key-premises-first/acceptance.json",
+      "files": {
+        ".artifacts/20261021-key-premises-first/acceptance.json": "92316391b196e5f937f647a7e84f63b0aa058532e2edc0e4cbdd8c9709431634",
+        ".artifacts/20261021-key-premises-first/acceptance-report.md": "5ed57e2bdba9e3adc26e310c38d713b33fd197c17a17f4f8bf7f53a19afa44f9",
+        ".artifacts/20261021-key-premises-first/acceptance-rules-links.log": "3c7f3b7ce1db5177c682cd5adc3782349bd61ce91fde70c964479ff6bc4d1261",
+        ".artifacts/20261021-key-premises-first/acceptance-portable-links.log": "da212eb886e0c0426631ad79c550df9d8e58d8a81e4ec808b4d8988029fef181",
+        ".artifacts/20261021-key-premises-first/acceptance-mechanical.json": "7cd205e920e20f84f86c7850f1490313542b656ac2a0f2c102a0dabf71f6d365",
+        ".artifacts/20261021-key-premises-first/acceptance-entry-scope.json": "40b193fae7782d88d657d398dad0ce74cf11792da36405a9eec03dc315a52d72",
+        ".artifacts/20261021-key-premises-first/rule-validation.log": "3e6a109c1b825ffb99b42874dcca3d93d589e1d01fc18aff4849de6ef4e16270",
+        ".artifacts/20261021-key-premises-first/delivery-snapshot.json": "3f771dedb9b1ae86dff8229c1c4ee2b6fb7bbbb49e48b6d903d86108472d4525",
+        ".artifacts/20261021-key-premises-first/acceptance-final-dispatch.json": "35c2d26b5dc30c7e8c0b6c1b3ad36e2d860f85d3c74bfafc5bfc401fbccb478e",
+        ".artifacts/20261021-key-premises-first/baseline-hashes.json": "b895d1bc86dfe3faf583e998fce2a96809639639a9b477087d1ad622ad6c09fd"
+      }
+    }
+  ],
+  "baseline_head": "33814ae55fc4bd1de067a5d5b802853c7c85e623",
+  "binding_origin": "user-confirmed-existing-task",
+  "adoption_basis": "user-approved-new-task-current-dirty-workspace-preserve-existing-changes"
+}

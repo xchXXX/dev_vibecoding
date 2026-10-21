@@ -62,6 +62,20 @@ GTO 仍以 `docs/ai/tasks/<task-id>/state.json` 及同一冻结合同为真源�
 
 ## CLI
 
+### 显式恢复释放（20261021-task-binding-release）
+
+实现及定向验证已完成：10 项恢复 CLI 测试、28 项原有工作区/分发回归和独立 review 通过；真实消费项目核验与范围限制见 `docs/tasks/20261021-task-binding-release/task.md`。当前公开入口为 harness 真源；未宣称所有项目的生成副本或旧冻结包已更新。
+
+`recover-release` 只解除一个历史任务对本 clone 工作区的占用，不代表任务完成、取消或验收通过。适用于已停止写入、已归档原目录，或用户明确要求释放仍在当前目录登记的历史任务。普通任务和旧冻结 GTO 均不修改原 task.json/state.json、checkout_binding、阶段及证据；GTO 继续保持原冻结合同，未完成状态必须如实报告。不是迁移、接管或重新开始旧任务的入口。
+
+输入为 task-id、coordinator、非空 basis、writes-stopped 和项目相对 evidence JSON。证据必须包括 actor（与 coordinator 相同）、summary、authorization（本项目内的用户授权依据文件）、evidence（非空项目内原始证据路径列表）、original_binding（与索引原行完全一致）、preserved_record（当前目录内原标准任务路径）及 record_sha256。保留记录必须已被 Git 跟踪，task_id/mode 与原绑定一致，checkout_binding 仍匹配原目录；不复制 GTO 控制面。当前目录必须干净；原目录若存在必须就是当前目录，不能远程释放另一个仍存在的工作区。写入停止和用户授权需要操作者核实，CLI 只能校验证据格式与哈希，不能自动证明自然语言授权或进程停止。
+
+工具在既有短锁内核对原行和记录，先原子保存带时间、操作者、依据、原映射、保留记录及全部证据哈希的不可覆盖回执，再原子更新原索引行的 release 引用；回执放 Git common dir 的 ai-harness/task-releases/，索引仍不保存业务/验收状态。不删除原映射，不改 Git refs、业务代码或工作区。写入中断只能留下未生效回执，不能无回执释放；不自动恢复、覆盖或重复执行已释放任务。
+
+inspect 校验回执、保留记录和证据哈希后才排除对应占用，并返回 released_tasks（任务 ID 与原状态）。记录或证据改变、缺失，或已归档原工作区重新出现，均重新阻塞；其他未知/无效绑定照常阻塞。同 ID 的其他活动绑定不能被隐藏。resume/check/record-stage/complete/register-gto/adopt 不得借已释放记录继续写入。旧记录保持不可续写；要恢复旧任务需另行设计与批准恢复合同，本入口不提供。
+
+恢复不需要重跑未受影响的业务测试。释放后的 available 仅证明当前 Git 干净且没有未释放占用，仍不自动授予新任务施工权限。
+
 入口 `python3 scripts/task_workspace.py --repo-root PATH --action ACTION --json`，项目副本为 `modules/tooling/task_workspace.py`。只操作记录，不创建、切换、移动、删除 worktree，不提交/推送。
 
 通用 `--task-id ID`、`--coordinator PLATFORM_ID`；任务号只允许字母数字、连字符、下划线。项目 Git 策略沿用 `config/ai/git-policy.json`。任务字段/本地索引损坏返回 exit 2，归属冲突、门禁缺失返回 exit 1，成功 exit 0；错误只返回机器码和安全说明，不输出凭据。
@@ -77,6 +91,7 @@ GTO 仍以 `docs/ai/tasks/<task-id>/state.json` 及同一冻结合同为真源�
 | record-stage | coordinator、`--stage`、`--evidence`（项目相对 JSON 路径）必填；按下述证据合同追加引用，不覆盖旧记录 |
 | complete | 核对阶段证据和全部必需点、独立身份、未关闭问题；只完成任务记录，不删除分支、目录或证据 |
 | register-gto | task-id 必填；从原 GTO state 检查 task_id、checkout_binding、workspace 分支。只登记定位引用，不写 state，不为 GTO 创建普通工件；GTO阶段/恢复仍调用其冻结入口 |
+| recover-release | task-id、coordinator、basis、writes-stopped、evidence 必填；显式解除历史占用，保留原记录与未完成状态；完整输入和拒绝条件见上节 |
 
 普通 task.json 最小字段为 schema_version=1、mode=ordinary、task_id、status、phase、branch、workspace=`<repo-root>`、coordinator、task_document、acceptance_points（仅点 ID）、stages（阶段证据引用，默认空）。登记后补充 checkout_binding（实际 checkout 路径的摘要，不是明文机器路径），阻止复制活动记录冒充原目录。本地索引保存绝对工作区定位；通用配置和示例不固定机器路径。旧手工记录可通过 adopt 补充默认字段，不丢已有字段。可移植指工具/新消费项目可独立运行，不代表已有活动状态可以无手续搬迁。
 

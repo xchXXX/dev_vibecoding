@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "mode": "ordinary",
+  "task_id": "20261021-task-binding-release",
+  "status": "completed",
+  "phase": "acceptance",
+  "branch": "codex/fix-task-binding-release",
+  "workspace": "<repo-root>",
+  "checkout_binding": "464df4b172bf8fef1c3ce0c7ad3ca036822d0ea1bf5098223c099daef34b4716",
+  "coordinator": "/root",
+  "task_document": "docs/tasks/20261021-task-binding-release/task.md",
+  "acceptance_points": [
+    "audited-release",
+    "fail-closed",
+    "real-recovery"
+  ],
+  "stages": [
+    {
+      "stage": "investigation",
+      "evidence": ".artifacts/20261021-task-binding-release/stages/investigation.json",
+      "files": {
+        ".artifacts/20261021-task-binding-release/stages/investigation.json": "110a922bc96266aa03410592c2a42b4c0fd0fe47a1621798c715d18ad78508e6",
+        ".artifacts/20261021-task-binding-release/snapshots/investigation/investigation.json": "c320da8a3f03bbc991601336464765863ed39bf216bf270555bb592ae9782fc0"
+      }
+    },
+    {
+      "stage": "plan",
+      "evidence": ".artifacts/20261021-task-binding-release/stages/plan.json",
+      "files": {
+        ".artifacts/20261021-task-binding-release/stages/plan.json": "2866c956c612b3bc8052336ea237622803d06a01b957fa005c085d38a1792e09",
+        ".artifacts/20261021-task-binding-release/snapshots/plan/authorization.json": "9d1446095b4556ec870028deac24cf2ca81fe3fbafafcfae886047246e51f353",
+        ".artifacts/20261021-task-binding-release/snapshots/plan/task.md": "62dabf66910f0f668bdf3632999e1cdbc27da5107f7f6c3b97518159110f37c4"
+      }
+    },
+    {
+      "stage": "documentation",
+      "evidence": ".artifacts/20261021-task-binding-release/stages/documentation.json",
+      "files": {
+        ".artifacts/20261021-task-binding-release/stages/documentation.json": "ae52d4dfa347f11b5c99da48477d79cd1ea275ef4a87d55d5b31adc6b21d4d20",
+        ".artifacts/20261021-task-binding-release/snapshots/documentation/task-workspace.md": "b672d65d79e663eeb76eebbaa433313088e83e9f16daaee1dd0365feb6bb082c",
+        ".artifacts/20261021-task-binding-release/snapshots/documentation/README.md": "36da8afe8c0a13579f4194608c76071b688d48deaf5399cebc29883ecad16e4d"
+      }
+    },
+    {
+      "stage": "tests",
+      "evidence": ".artifacts/20261021-task-binding-release/qa/tests.json",
+      "files": {
+        ".artifacts/20261021-task-binding-release/qa/tests.json": "ead2b55c5831b4cbe456f96491b92b00bd93a73218de9016bb65b18830369cf8",
+        ".artifacts/20261021-task-binding-release/qa/red.log": "f3af8ea3ad4e87faa967425ede3983ffbf664ed12bdbc559cc4cd36961b1228d",
+        "tests/harness/test_task_workspace_recovery.py": "f0e0487f013524ee18aa2697cdcd74e60cd2a4e1f368c454e4d38f3d21e07d24"
+      }
+    },
+    {
+      "stage": "implementation",
+      "evidence": ".artifacts/20261021-task-binding-release/stages/implementation.json",
+      "files": {
+        ".artifacts/20261021-task-binding-release/stages/implementation.json": "fb859844225c30d8a64ea41da5796e17d9975c114a3bbc8ed94cf141310149b2",
+        ".artifacts/20261021-task-binding-release/snapshots/implementation/task_workspace.py": "289ae20419d4cf8a1c49fec44cdb4a94cb8db73b00b7104094af8a2cacb88754",
+        ".artifacts/20261021-task-binding-release/qa/green-recovery.log": "98cc1dc3f66e8cc7f945277106fcd568fd3cd50e2de7d265e2a8824b935ea7fa"
+      }
+    },
+    {
+      "stage": "review",
+      "evidence": ".artifacts/20261021-task-binding-release/review/stage.json",
+      "files": {
+        ".artifacts/20261021-task-binding-release/review/stage.json": "0cae90a3f9fbf052134be83d0dc62d57880d176cfd3ae976793881f9c013ba8e",
+        ".artifacts/20261021-task-binding-release/review/report.md": "f028a3dcbd5075e14ac880c5c082c48561f017875636cbcdb4dbf7e4b5e149f2",
+        ".artifacts/20261021-task-binding-release/dispatch/review.json": "7fa78bcb6bce1457e80e9eff5b18648e92ff4675c2bd5e4981a7995664c9d61c"
+      }
+    },
+    {
+      "stage": "acceptance",
+      "evidence": ".artifacts/20261021-task-binding-release/qa/final-acceptance.json",
+      "files": {
+        ".artifacts/20261021-task-binding-release/qa/final-acceptance.json": "a3ba1f85730b473244655cde8155562720e7c69921a62d58710cbf3c2796576d",
+        ".artifacts/20261021-task-binding-release/qa/red.log": "f3af8ea3ad4e87faa967425ede3983ffbf664ed12bdbc559cc4cd36961b1228d",
+        ".artifacts/20261021-task-binding-release/qa/green-recovery.log": "98cc1dc3f66e8cc7f945277106fcd568fd3cd50e2de7d265e2a8824b935ea7fa",
+        ".artifacts/20261021-task-binding-release/qa/regression.log": "709a17e43ea4d481d724d1264c7a1ce863531fb978341a264db9b484abfdd5c3",
+        ".artifacts/20261021-task-binding-release/qa/real-recovery/independent-verification.json": "1a81c0f5f47227f5bd40daf039b66d0199e894e5978ac9bcbf7cdb4cb2f2bf71",
+        ".artifacts/20261021-task-binding-release/qa/real-recovery/inspect-independent.json": "756bf9c5bec9dab107e1e0b7436155b78d8d0e15ab8ffbb452a305fc87a038f2",
+        ".artifacts/20261021-task-binding-release/qa/real-recovery/historical-originals.json": "1d156a550c9f3f04739d697df4cd68b04fe034d00951b8f540f881aada678106",
+        ".artifacts/20261021-task-binding-release/review/report.md": "f028a3dcbd5075e14ac880c5c082c48561f017875636cbcdb4dbf7e4b5e149f2",
+        ".artifacts/20261021-task-binding-release/review/documentation-appendix.md": "53f9ff79a7ed525fd990d42b2c6f8ebb422ea5973131b41aef133da7bb238cdb",
+        ".artifacts/20261021-task-binding-release/qa/verification-script-failure.json": "d4046663f61e931fbc4324b731e64324a091a806e202288d3d17c497bb4250ef",
+        ".artifacts/20261021-task-binding-release/dispatch/qa.json": "4091928c4c34ab920494c56c418d27887f305902100978b9012e644ea260cb13"
+      }
+    }
+  ],
+  "baseline_head": "d63e3bb2a406d72eedb911367a13415bd96537fa",
+  "binding_origin": "new-task"
+}

@@ -49,3 +49,14 @@ python3 "$harness_root/scripts/sync-codex.py" --harness-root "$harness_root" \
 安装后比较真源、安装、receipt；其他受管组件保持，旧任务冻结目录前后哈希一致，并通过新进程恢复确认实际 controller 仍指向原快照。新进程 CLI 成功不证明既有聊天已重新加载；新会话验收单独记录。全局入口变化另用既有定向 bootstrap 发布，不调用完整安装来掩盖缺口。
 
 普通任务从调查到接续、复验和完成的最小操作见 [任务工作区示例](modules/git-workflow/contract/task-workspace-example.md)；字段与版本边界见同目录合同。
+## 已归档任务仍阻塞工作区时
+
+先只读 `scripts/task_workspace.py --repo-root <project> --action inspect --json`。不要手工删除索引或把旧任务改成 completed。已确认用户授权、停止旧写入并保留原始记录后，按[恢复释放合同](modules/git-workflow/contract/task-workspace.md)准备证据，再执行：
+
+```bash
+python3 scripts/task_workspace.py --repo-root <project> --action recover-release \
+  --task-id <old-task-id> --coordinator <platform-id> --writes-stopped \
+  --basis '用户明确授权的释放原因' --evidence .artifacts/<recovery>/release.json --json
+```
+
+再次 inspect 应列出 released_tasks 及原状态；只有无其他占用且 Git 干净时才返回 available。释放不是完成，也不授权续写原任务；旧 GTO 控制面保持原样。

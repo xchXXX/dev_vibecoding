@@ -214,7 +214,10 @@ def result(status: str, written_by: str, written_role: str, **extra: object) -> 
 
 
 def _current_contract():
-    from test_gto_workflow import workflow_contract
+    if __package__:
+        from .test_gto_workflow import workflow_contract
+    else:
+        from test_gto_workflow import workflow_contract
     return workflow_contract()
 
 

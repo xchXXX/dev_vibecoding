@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "mode": "ordinary",
+  "task_id": "20261026-gto-readiness-fastpath",
+  "status": "completed",
+  "phase": "acceptance",
+  "branch": "codex/fix-gto-readiness",
+  "workspace": "<repo-root>",
+  "checkout_binding": "464df4b172bf8fef1c3ce0c7ad3ca036822d0ea1bf5098223c099daef34b4716",
+  "coordinator": "/root",
+  "task_document": "docs/tasks/20261026-gto-readiness-fastpath/task.md",
+  "acceptance_points": [
+    "no-premature-scan",
+    "frozen-gate-preserved",
+    "installed-scope"
+  ],
+  "stages": [
+    {
+      "stage": "investigation",
+      "evidence": ".artifacts/20261026-gto-readiness-fastpath/investigation.json",
+      "files": {
+        ".artifacts/20261026-gto-readiness-fastpath/investigation.json": "dd6b0b75e2fbd3c59385dbc30ed4fd5c0d9059a2a1896edd9cb7e8dfd5b9eac7",
+        ".artifacts/20261026-gto-readiness-fastpath/diagnosis.json": "d158b9af1749850fd66478323c4a9567563956bfb7fede6225de940e091d5fb7",
+        "docs/tasks/20261026-gto-readiness-fastpath/task.md": "8c5af248ab79cb73eaa9aa0fab557c9f8b2417073a8e8aecf9688c95b1cd5451"
+      }
+    },
+    {
+      "stage": "plan",
+      "evidence": ".artifacts/20261026-gto-readiness-fastpath/plan.json",
+      "files": {
+        ".artifacts/20261026-gto-readiness-fastpath/plan.json": "4cc1942c5f72245ca4d2aa0bf1afb21ec8823642e77b7704dda302e3ff23a485",
+        ".artifacts/20261026-gto-readiness-fastpath/diagnosis.json": "d158b9af1749850fd66478323c4a9567563956bfb7fede6225de940e091d5fb7",
+        "docs/tasks/20261026-gto-readiness-fastpath/task.md": "8c5af248ab79cb73eaa9aa0fab557c9f8b2417073a8e8aecf9688c95b1cd5451"
+      }
+    },
+    {
+      "stage": "documentation",
+      "evidence": ".artifacts/20261026-gto-readiness-fastpath/documentation.json",
+      "files": {
+        ".artifacts/20261026-gto-readiness-fastpath/documentation.json": "13366458fd82f7ad5b34f80a2971d889c7246fa843f7d109b29de2fb60e3d1c7",
+        ".artifacts/20261026-gto-readiness-fastpath/diagnosis.json": "d158b9af1749850fd66478323c4a9567563956bfb7fede6225de940e091d5fb7",
+        "docs/tasks/20261026-gto-readiness-fastpath/task.md": "8c5af248ab79cb73eaa9aa0fab557c9f8b2417073a8e8aecf9688c95b1cd5451"
+      }
+    },
+    {
+      "stage": "tests",
+      "evidence": ".artifacts/20261026-gto-readiness-fastpath/tests-stage.json",
+      "files": {
+        ".artifacts/20261026-gto-readiness-fastpath/tests-stage.json": "ab5504bd328c943a58c0fb104c2349cd417ce9a3148c5a861be0c7210ea3e618",
+        ".artifacts/20261026-gto-readiness-fastpath/red-qa/run.json": "f08c9817ccfb737763b6a3c97dc85ba198f1e4a05923b695a6ffaa0c3bc51e33",
+        ".artifacts/20261026-gto-readiness-fastpath/red-qa/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        ".artifacts/20261026-gto-readiness-fastpath/red-qa/stderr.log": "fb990af22041195222f75408c67cc37107987f22545fcf972e186233fdf23028",
+        "tests/harness/test_gto_readiness_fastpath.py": "9c1511975a5dfdf16544439f9a8774735ca14e2bbf058f1ec6caf6686e75ede2"
+      }
+    },
+    {
+      "stage": "implementation",
+      "evidence": ".artifacts/20261026-gto-readiness-fastpath/implementation.json",
+      "files": {
+        ".artifacts/20261026-gto-readiness-fastpath/implementation.json": "3897d5a48b0f3509c7b60c525e3b4bf6a9bf3d779e2ae759a82a8e9e0d40f247",
+        ".artifacts/20261026-gto-readiness-fastpath/green-root/run.json": "95cc31ce0b28cdd201819a3d41004d11d936da65b9528ad7357db51f849e7327",
+        ".artifacts/20261026-gto-readiness-fastpath/green-root/stderr.log": "6a6e09673ae5d8e2112a95e0fa90eb00c65492cd3f7c3fac15a0bceff86fc65f",
+        ".artifacts/20261026-gto-readiness-fastpath/regression-root/run.json": "49e6502464269107b2a3c9ce04e92fac5429cb4852c49592acacca5eb053cfd6",
+        ".artifacts/20261026-gto-readiness-fastpath/regression-root/stderr.log": "aad0a3820d6a41be8df374cb17dd2f36e3818da4945d97d7b01280cd40ec8f3b",
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py": "3a96069c65d293d7d3746a76d1df5e631472211bb9b80e3757cad016c7406862"
+      }
+    },
+    {
+      "stage": "review",
+      "evidence": ".artifacts/20261026-gto-readiness-fastpath/review/review-stage.json",
+      "files": {
+        ".artifacts/20261026-gto-readiness-fastpath/review/review-stage.json": "6e23fd37f0c789cf04c4dfab54bca4e09402eed9805480fbbe7850a6720d2602",
+        ".artifacts/20261026-gto-readiness-fastpath/review/report.md": "5dcc3e3e8ffcbf7074bbc4f51b31e094e137a25062fd4889c426def5b28556ec",
+        ".artifacts/20261026-gto-readiness-fastpath/review/run.json": "d2c651dc652551f318c40ef3eecc214af4caad3e14277dd9b8661fc8b12024b1",
+        ".artifacts/20261026-gto-readiness-fastpath/review/stderr.log": "e88487097048135c7325c83811fe49f0e7eed179908aa4df29dde7402ce68214",
+        ".artifacts/20261026-gto-readiness-fastpath/red-qa/stderr.log": "fb990af22041195222f75408c67cc37107987f22545fcf972e186233fdf23028",
+        ".artifacts/20261026-gto-readiness-fastpath/regression-root/stderr.log": "aad0a3820d6a41be8df374cb17dd2f36e3818da4945d97d7b01280cd40ec8f3b",
+        ".artifacts/20261026-gto-readiness-fastpath/review/dispatch-message.txt": "bc73cda192691b122d99d429530ffbdb1b0d57a000a513ca40cdaa7a7c0a95e1"
+      }
+    },
+    {
+      "stage": "acceptance",
+      "evidence": ".artifacts/20261026-gto-readiness-fastpath/acceptance-stage.json",
+      "files": {
+        ".artifacts/20261026-gto-readiness-fastpath/acceptance-stage.json": "e513cf8ca24f9f63f5a96bd442e06f7a30e339b023d550a46b56e851610e9461",
+        ".artifacts/20261026-gto-readiness-fastpath/installed-qa/result.json": "42365386a4999c3a2abccb34c5c340ce3570b57ad3320ed37a4bd088e81a3490",
+        ".artifacts/20261026-gto-readiness-fastpath/installed-qa/stderr.log": "c287ab3bd50e34f71bcf5616744fef4549982a8d9948dcd7af699684b2aa39c4",
+        ".artifacts/20261026-gto-readiness-fastpath/installed-qa/diagnostic-confirmed.json": "1ab70f63253f882e66d0263223b7272f744aaed0b65adee9ad674cc76df54982",
+        ".artifacts/20261026-gto-readiness-fastpath/sync-result.json": "ba7efc2c8af98277d460d08359fa18afbe41c5909a2a6689568e8e1df58376d7",
+        ".artifacts/20261026-gto-readiness-fastpath/acceptance-dispatch.txt": "1a048ae985130362e6e9918eeacc049839b7c0caf08da29f76595dfe2cb1376d"
+      }
+    }
+  ],
+  "baseline_head": "3526e7c87cd36dc97b9d5308e92d424ba23dcd51",
+  "binding_origin": "user-confirmed-existing-task",
+  "adoption_basis": "Continuation of user-authorized GTO readiness repair: prior repair completed on this branch with known uncommitted changes; correct newly diagnosed premature scan only, preserve prior records and original product task id/state; no commit push merge deploy."
+}

@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "mode": "ordinary",
+  "task_id": "20261026-gto-subtask-readiness",
+  "status": "completed",
+  "phase": "acceptance",
+  "branch": "codex/fix-gto-readiness",
+  "workspace": "<repo-root>",
+  "checkout_binding": "464df4b172bf8fef1c3ce0c7ad3ca036822d0ea1bf5098223c099daef34b4716",
+  "coordinator": "/root",
+  "task_document": "docs/tasks/20261026-gto-subtask-readiness/task.md",
+  "acceptance_points": [
+    "readiness",
+    "safety",
+    "installed-recovery"
+  ],
+  "stages": [
+    {
+      "stage": "investigation",
+      "evidence": ".artifacts/20261026-gto-subtask-readiness/investigation.json",
+      "files": {
+        ".artifacts/20261026-gto-subtask-readiness/investigation.json": "4587e2e1bed5905cf6387d8459c0be683cd6ee4b75a3a9ab225d589159ed1eb4",
+        ".artifacts/20261026-gto-subtask-readiness/original-diagnosis.json": "80100359228740f63d0aa566f50ab1af4f59d20225b006e0a3fa80f15c650635"
+      }
+    },
+    {
+      "stage": "plan",
+      "evidence": ".artifacts/20261026-gto-subtask-readiness/plan.json",
+      "files": {
+        ".artifacts/20261026-gto-subtask-readiness/plan.json": "d9d6495f532fb76dd545b21cb4fab8d21da08d081b2039ab72fa03fe0e90456e",
+        ".artifacts/20261026-gto-subtask-readiness/authorization.json": "efc9a456359aee5ef060a516e2d5a6ff799e399a322ee2b64237d2b154de6df5",
+        "docs/tasks/20261026-gto-subtask-readiness/task.md": "96c5fe7d38d4266e2501b7f39d708674e5ed1c39f6b3cbc0df5fe189f0b7f7f0"
+      }
+    },
+    {
+      "stage": "documentation",
+      "evidence": ".artifacts/20261026-gto-subtask-readiness/documentation.json",
+      "files": {
+        ".artifacts/20261026-gto-subtask-readiness/documentation.json": "1b414930c2fa2bae05675c172a15b2ff19e5f2964b70228ae9c0d9533a056cdc",
+        "skills/global-task-orchestrator/references/workflow.md": "906d2f83fe21d1c19cf147e6a7115d38260e8ffb57df2662c453dec5c45608b0",
+        "docs/tasks/20261026-gto-subtask-readiness/task.md": "96c5fe7d38d4266e2501b7f39d708674e5ed1c39f6b3cbc0df5fe189f0b7f7f0"
+      }
+    },
+    {
+      "stage": "tests",
+      "evidence": ".artifacts/20261026-gto-subtask-readiness/qa-red-stage.json",
+      "files": {
+        ".artifacts/20261026-gto-subtask-readiness/qa-red-stage.json": "4c4916274960e1eecf409ff9349adff4e87a512f11cba53c3292aeb1fe15d471",
+        ".artifacts/20261026-gto-subtask-readiness/red-qa-targeted/run.json": "6db7f6fc764eb420406cad92ad348cacaf086c3d69733258b6b5134b0bec411e",
+        ".artifacts/20261026-gto-subtask-readiness/red-qa-targeted/stderr.log": "8981c371f9826038b7358a943dabba665c03da2bb743591bedf24d1060650a43",
+        "tests/harness/test_gto_subtask_readiness.py": "7b5f0515cfc26770141eed701743774713c2d476686beebe9901e032c308f5ac"
+      }
+    },
+    {
+      "stage": "implementation",
+      "evidence": ".artifacts/20261026-gto-subtask-readiness/implementation.json",
+      "files": {
+        ".artifacts/20261026-gto-subtask-readiness/implementation.json": "14a24c93f7a0b6b41d50fa63da89a38bd31d86ea8072854360ed647a62402a30",
+        ".artifacts/20261026-gto-subtask-readiness/green-root/stderr.log": "721dc16b81272d9d61de4daa9baf1873aa576ffac0b045bb47822ee7eca0ae2b",
+        ".artifacts/20261026-gto-subtask-readiness/regression-root/stderr.log": "8a226fa9c4f018c5354a04087bc553f648695cc4c238ff98c1813a2fefae35fb",
+        ".artifacts/20261026-gto-subtask-readiness/qa-regression-triage.json": "956800646c95afe5f1e0f948166fc5a368b1ecbe3c4e1fda6049b80b63ea2a84",
+        ".artifacts/20261026-gto-subtask-readiness/capability-fixture-qa/run.json": "e73f4953b62e7fcf8f7ef516f7b98f0a0e7e33cbbafc5b648b919eb2aff68168",
+        "skills/global-task-orchestrator/scripts/orchestrator_ctl.py": "abfa010a0a429e60d915338bdff78ab227c7d30941365a1b9dc8f11d72694570"
+      }
+    },
+    {
+      "stage": "review",
+      "evidence": ".artifacts/20261026-gto-subtask-readiness/review/review-stage.json",
+      "files": {
+        ".artifacts/20261026-gto-subtask-readiness/review/review-stage.json": "c4db2204cb7e6dec1242b69c7c0f49275a0a9010738469896da17da36b15d3cf",
+        ".artifacts/20261026-gto-subtask-readiness/review/report.md": "58ed893689e1f1954e8cc745860f255fd5a9de6962efa9dc346b8899eda26baf",
+        ".artifacts/20261026-gto-subtask-readiness/review/test-run.json": "7eadec3ce96d7befd44d9f076310fb357a8f8dd6af49b3260b7f647cf03efd68",
+        ".artifacts/20261026-gto-subtask-readiness/review/stderr.log": "a1fc672b020fa3a5eba67d6033ee8a8d231a11696dbb664daaa340dd863c2cd8",
+        ".artifacts/20261026-gto-subtask-readiness/review/focused-checks.json": "b3cb9361f3906271492b84bc698bb29c0a8ff3e8248af8e0d857a7b06ae2d12f",
+        ".artifacts/20261026-gto-subtask-readiness/review/installed-reference-diff.txt": "30a197a3cc23ec49f60d54901957064555bbc0b0f4488e2458b1d51535bb6c2f",
+        ".artifacts/20261026-gto-subtask-readiness/review/dispatch-message.txt": "f8dbf778b43042efa7e897575303515caf84474d3de178690fca51c7125ab8d3"
+      }
+    },
+    {
+      "stage": "review",
+      "evidence": ".artifacts/20261026-gto-subtask-readiness/review/review-delta-stage.json",
+      "files": {
+        ".artifacts/20261026-gto-subtask-readiness/review/review-delta-stage.json": "9920952f12f06a4856ca87edbf782e0b8d11da27cfaeb5c10e2dcf32b836b456",
+        ".artifacts/20261026-gto-subtask-readiness/review/report-delta.md": "74ce36b25224f80d78db03854aea2bc5231db8e573a9dbdbc6190338688476ab",
+        ".artifacts/20261026-gto-subtask-readiness/qa-regression-triage.json": "956800646c95afe5f1e0f948166fc5a368b1ecbe3c4e1fda6049b80b63ea2a84",
+        ".artifacts/20261026-gto-subtask-readiness/baseline-qa/result.json": "c7140ee554b098ec6dafeb1fcf4cfad007124aa1f7684dc388437858ebb5a76c",
+        ".artifacts/20261026-gto-subtask-readiness/baseline-qa/stderr.log": "3580e212f72c029f68b5891b1b4c49fa81382e46e41f0f5b482cba0472a22910",
+        ".artifacts/20261026-gto-subtask-readiness/capability-fixture-qa/run.json": "e73f4953b62e7fcf8f7ef516f7b98f0a0e7e33cbbafc5b648b919eb2aff68168",
+        ".artifacts/20261026-gto-subtask-readiness/capability-fixture-qa/stderr.log": "a381dfee82749c6fdf1702f69d76cec05a23e07317b248b47e8feb4e0283d0ca",
+        ".artifacts/20261026-gto-subtask-readiness/review/dispatch-delta-message.txt": "5389a8773d0cc4c74b7c9c2f1aad384d9242015495debe3da9b7b645fc045638"
+      }
+    },
+    {
+      "stage": "acceptance",
+      "evidence": ".artifacts/20261026-gto-subtask-readiness/acceptance/acceptance-stage.json",
+      "files": {
+        ".artifacts/20261026-gto-subtask-readiness/acceptance/acceptance-stage.json": "612e02da60ed5fddf9c303f48798ae1b5a406d11fbcbafc321d5301427585091",
+        ".artifacts/20261026-gto-subtask-readiness/installed-scope-summary.json": "119326943065cfc54a0b9b68b0619ed72a5c1a142abebdc6e2e5b5b868ef85aa",
+        ".artifacts/20261026-gto-subtask-readiness/installed-qa/run.json": "3840a002ceefdf8e3f5670ace6006f0619186581e3eb16683719046c02119775",
+        ".artifacts/20261026-gto-subtask-readiness/installed-qa/stderr.log": "321f95d8c78bc2a06959f2f23760ab6c069b2f18a7a7bdd55b2d5183a6db9a2f",
+        ".artifacts/20261026-gto-subtask-readiness/installed-capability-qa/run.json": "54751015d38bbaaa6a5996d0ae6b75abfe5c51012db6160ded994eefa9d5400b",
+        ".artifacts/20261026-gto-subtask-readiness/installed-capability-qa/operations.json": "4786caedd071c28275824872ef280f79bee9cfc83ec775ae779b6c58ea546285",
+        ".artifacts/20261026-gto-subtask-readiness/qa-regression-triage.json": "956800646c95afe5f1e0f948166fc5a368b1ecbe3c4e1fda6049b80b63ea2a84",
+        ".artifacts/20261026-gto-subtask-readiness/acceptance/product-verification.json": "09e716bde30cd6b1f48192b8739387ec4e4ac9e167380973da7ae856436b67cb",
+        ".artifacts/20261026-gto-subtask-readiness/acceptance/product-bind.json": "46959222a766d17120a311d27d4dcf9f6d50c043b339a68d363b5f90b15d72d3",
+        ".artifacts/20261026-gto-subtask-readiness/acceptance/dispatch.txt": "ea531776d591943985028d579b5372695ca8d23db863b3c3f015a8356b179470",
+        ".artifacts/20261026-gto-subtask-readiness/acceptance/product-resume.json": "047b884ef4ff045f0923cace118ffa7f077473eb4d9a55724eda37a073ba4bec",
+        ".artifacts/20261026-gto-subtask-readiness/acceptance/product-preflight.json": "26f6f36adb53c6cf3659af2c95a6f83ad9a3d816ba6936eec709c80534249b03"
+      }
+    }
+  ],
+  "baseline_head": "3526e7c87cd36dc97b9d5308e92d424ba23dcd51",
+  "binding_origin": "new-task"
+}

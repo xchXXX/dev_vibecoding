@@ -181,6 +181,7 @@ def _write_state(paths: dict[str, Path], state: dict[str, Any]) -> None:
     errors = _state_model_errors(repo, state)
     if errors:
         raise ControlError(*errors)
+    _refresh_subtask_readiness(repo, state)
     rendered = _render_artifacts(state["task_id"], state["title"], state)
     action = state.get("next_action", {}).get("kind", "not_initialized")
     task_body = (
@@ -2887,6 +2888,37 @@ def _verified_brief_path(repo: Path, raw: Any, expected_sha256: str) -> str:
     return relative
 
 
+def _unfinished_dependencies(repo: Path, state: dict[str, Any], task: dict[str, Any]) -> list[str]:
+    tasks = {item['subtask_id']: item for item in state['subtasks']}
+    candidate = state.get('acceptance_gate', {}).get('current_candidate')
+    unfinished = []
+    for ident in task.get('dependencies', []):
+        dependency = tasks.get(ident, {})
+        if dependency.get('status') == 'completed':
+            continue
+        if (state.get('workflow_revision') == 3 and task.get('stage') == 'final_documentation'
+                and dependency.get('stage') == 'expensive_acceptance'
+                and isinstance(candidate, dict) and candidate.get('status') == 'frozen'
+                and candidate.get('candidate_id')
+                and not _current_acceptance_pass_errors(repo, state)):
+            continue
+        unfinished.append(ident)
+    return unfinished
+
+
+def _refresh_subtask_readiness(repo: Path, state: dict[str, Any]) -> None:
+    """Derive readiness during normal writes, never reopen work or dispatch templates."""
+    if (state.get('workflow_revision') != 3 or state.get('status') != 'active'
+            or state.get('coordinator_blocker') or state.get('current_phase') == 'planning'):
+        return
+    for task in state['subtasks']:
+        if (task.get('status') != 'pending' or task.get('dispatch') is not None
+                or task.get('result') is not None or task.get('stage') == 'expensive_acceptance'):
+            continue
+        if not _unfinished_dependencies(repo, state, task):
+            task['status'] = 'ready'
+
+
 def _bind(args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
     subtask = _find_subtask(state, args.SubtaskId)
     errors = _capability_errors(paths["state.json"].parents[4], state, subtask, args.PlatformAgentId)
@@ -2905,15 +2937,7 @@ def _bind(args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any
             raise ControlError(f"subtask {args.SubtaskId} must be ready before dispatch")
         _require_stage_gate(paths["state.json"].parents[4], state, subtask.get("stage"), args.SubtaskId)
         brief_path = _verified_brief_path(paths["state.json"].parents[4], args.BriefPath, args.BriefSha256)
-    statuses = {
-        item.get("subtask_id"): item.get("status")
-        for item in state.get("subtasks", [])
-        if isinstance(item, dict)
-    }
-    unfinished = [dep for dep in subtask.get("dependencies", []) if statuses.get(dep) != "completed"
-                  and not (state.get("workflow_revision") == 3 and subtask.get("stage") == "final_documentation"
-                           and _find_subtask(state, dep).get("stage") == "expensive_acceptance"
-                           and not _current_acceptance_pass_errors(paths["state.json"].parents[4], state))]
+    unfinished = _unfinished_dependencies(paths["state.json"].parents[4], state, subtask)
     if unfinished:
         raise ControlError("subtask dependencies are not completed: " + ", ".join(unfinished))
     if state.get('workflow_revision') == 3:
@@ -3735,6 +3759,12 @@ def _preflight(repo: Path, paths: dict[str, Path], state: dict[str, Any], subtas
                          for t in state['subtasks'] if t.get('status') in {'ready', 'in_progress'}}
     if subtask_id:
         selected = _find_subtask(state, subtask_id)
+        if selected.get('status') not in {'ready', 'in_progress'}:
+            raise ControlError(f'subtask {subtask_id} must be ready or in progress for preflight')
+        unfinished = _unfinished_dependencies(repo, state, selected)
+        if unfinished:
+            raise ControlError('subtask dependencies are not completed: ' + ', '.join(unfinished))
+        _require_stage_gate(repo, state, selected.get('stage'), subtask_id)
         capability_failures = _capability_errors(repo, state, selected)
         if capability_failures:
             raise ControlError(*capability_failures)

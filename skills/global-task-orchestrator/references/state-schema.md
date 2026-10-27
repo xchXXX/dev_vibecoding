@@ -309,7 +309,9 @@ python3 "$GTO_CONTROLLER" --action finalize-task --repo-root "$repo_root" --task
 
 最终业务通过按[当前有效的逐点覆盖](acceptance-points.md)聚合，允许任意历史候选来源；preparation 前提事实不补业务覆盖，缺必需的正式黑盒通过时不得绑定最终文档或 finalize。控制器只校验这些结构及证据关联，不认证会话隔离、根因或真实用户授权本身。
 
-六工件保存针对可捕获 OSError 做局部一致性保护：状态替换或事件追加失败时恢复该次写入前的六工件，并保留结构化诊断。该保护不承诺硬杀、断电或恢复写入再次失败时的持久事务语义。
+六工件保存针对可捕获 OSError 做局部一致性保护：状态替换或事件追加失败时恢复该次写入前的控制文档，事件日志按持锁时记录的原字节长度截回，不为每条命令复制完整历史日志，并保留结构化诊断。该保护不承诺硬杀、断电或恢复写入再次失败时的持久事务语义。
+
+`validate`、`build-review-brief`、`capture-capability-context` 与既有只读入口使用稳定读取阶段，不获取写锁或建立回滚备份。仅修改六工件的命令在锁外执行原有校验与生成，暂存写集；提交时持任务锁，逐字节核对 state/控制文档/命令输入，以独立读取重验准备阶段消费的文件摘要、目录清单及 Git 状态，冲突拒绝并要求从当前状态重试，不自动重放授权动作。此锁不能冻结业务文件，独立前后校验不能共享旧内容缓存。首次创建和结果草稿仍沿用各自写入路径。运行快照冻结在锁外向本任务唯一 `.artifacts/gto/<task>/.staging/` 子目录捕获 runtime 与 candidate 归档，提交前独立复核候选指纹及源 runtime 清单；锁内强验已存在的最终目录且绝不覆盖，缺失目录才原子 rename 发布，随后提交控制工件。失败恢复控制文档和事件；已发布但未被 state 引用的不可变目录可保留，不能声称全资源回滚。仅清理本次自有 staging。完整历史诊断由 `acceptance-status --audit-history` 显式请求，默认仍强校验当前采用的历史来源和失败屏障。
 
 ## 运行绑定与能力证明
 
@@ -328,3 +330,8 @@ python3 "$GTO_CONTROLLER" --action finalize-task --repo-root "$repo_root" --task
 版本摘要与 diagnostics 仅为 CLI 输出，不新增 state 字段、不保存授权或通过标记。字段和待实现状态唯一见 [简化合同](streamlined-execution.md)。原状态、证据、错误和退出码保持。
 
 任务身份与目录接续：同 task_id 的 Plan/Execute、子代理和复验沿用已绑定工作区、分支与冻结包；不同会话不自动成为新任务，dirty 不触发新建。共享目录的冲突写入串行、Git 由主协调器统一，交接先停止原写入。普通任务核心工件与流程另见 harness 的 docs/modules/git-workflow/contract/task-workspace.md，不叠加到本 GTO 合同。新定位入口不改写 state 或绕过 checkout_binding；相关新增能力仍以安装版本及验收记录为准。
+
+
+## 20261027 性能改进
+
+性能演进（20261027）：任务状态仍为唯一结论真源；操作内缓存和可重建定位索引不是状态。新增运行因果协议必须有明确版本；旧冻结状态、运行包和回执不原地迁移。

@@ -6,6 +6,7 @@ Manifests inventory evidence; the task state remains the only workflow ledger.
 from __future__ import annotations
 
 import argparse
+import contextlib
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -18,6 +19,7 @@ import subprocess
 import sys
 import time
 import uuid
+from verification_context import scoped, cached, read_bytes, file_digest, children, operation
 
 
 def digest(value):
@@ -26,40 +28,55 @@ def digest(value):
     return hashlib.sha256(raw).hexdigest()
 
 
-def _contents(root):
+def _tree_paths(root):
     if any(p.is_symlink() for p in (root, *root.parents)) or not root.is_dir():
         raise ValueError('snapshot source must be a real directory')
-    files = {}
-    for path in sorted(root.rglob('*')):
-        if path.is_symlink():
-            raise ValueError('snapshot must not contain symlinks')
-        relative = path.relative_to(root).as_posix()
-        if '__pycache__' in path.parts or path.suffix == '.pyc' or relative == '.snapshot.json':
-            continue
-        if path.is_file():
-            files[relative] = path.read_bytes()
+    def walk(directory):
+        for path in children(directory):
+            if path.is_symlink():
+                raise ValueError('snapshot must not contain symlinks')
+            relative = path.relative_to(root).as_posix()
+            if path.name == '__pycache__' or path.suffix in {'.pyc', '.pyo'} or relative == '.snapshot.json':
+                continue
+            if path.is_dir():
+                yield from walk(path)
+            elif path.is_file():
+                yield relative, path
+    return walk(root)
+
+
+def _contents(root):
+    files = {relative: read_bytes(path) for relative, path in _tree_paths(root)}
     if not files:
         raise ValueError('snapshot source is empty')
     return files
 
 
+@scoped
+@cached
 def tree_manifest(root):
-    files = {p: digest(b) for p, b in _contents(Path(root)).items()}
+    files = {relative: file_digest(path) for relative, path in _tree_paths(Path(root))}
+    if not files:
+        raise ValueError('snapshot source is empty')
     return {'schema_version': 1, 'files': files, 'sha256': digest(files)}
 
 
+@scoped
 def freeze_tree(source, destination):
-    contents = _contents(Path(source))
-    files = {p: digest(b) for p, b in contents.items()}
-    manifest = {'schema_version': 1, 'files': files, 'sha256': digest(files)}
+    source = Path(source)
+    manifest = tree_manifest(source)
     destination = Path(destination)
     if any(p.is_symlink() for p in (destination, *destination.parents)):
         raise ValueError("snapshot destination must not contain symlinks")
     destination.mkdir(parents=True, exist_ok=False)
-    for relative, content in contents.items():
+    for relative in manifest['files']:
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(content)
+        # Copy one stream at a time, then independently verify the published
+        # bytes against the prepared inventory; never retain the entire tree.
+        with (source / relative).open('rb') as reader, target.open('wb') as writer:
+            while chunk := reader.read(1024 * 1024):
+                writer.write(chunk)
     (destination / '.snapshot.json').write_text(json.dumps(manifest, indent=2) + '\n')
     verify_tree(destination, manifest)
     return manifest
@@ -118,43 +135,52 @@ def acceptance_evidence_paths(result):
 def execution_times(manifest, *, allow_legacy_clock_reversal=False):
     """Validate the explicit evidence protocol; monotonic duration is run-local."""
     version = manifest.get('schema_version')
-    if type(version) is not int or version not in {1, 2}:
+    if type(version) is not int or version not in {1, 2, 3}:
         raise ValueError('unsupported execution time protocol')
     started, finished = (datetime.fromisoformat(manifest[key]) for key in ('started_at', 'finished_at'))
     if started.tzinfo is None or finished.tzinfo is None:
         raise ValueError('execution time requires a timezone')
-    if version == 2:
+    if version == 3:
+        from causal_history import validate_start
+        elapsed = manifest.get('elapsed_ns')
+        if type(elapsed) is not int or elapsed < 0 or 'completed_before' in manifest:
+            raise ValueError('invalid execution time/causal evidence')
+        validate_start(manifest.get('causal_start'), manifest.get('binding', {}).get('task_id'))
+    elif version == 2:
         elapsed, before = manifest.get('elapsed_ns'), manifest.get('completed_before')
         if (type(elapsed) is not int or elapsed < 0 or not isinstance(before, list)
                 or any(not isinstance(h, str) or not re.fullmatch('[0-9a-f]{64}', h) for h in before)
-                or len(before) != len(set(before))):
+                or len(before) != len(set(before)) or 'causal_start' in manifest):
             raise ValueError('invalid execution time/causal evidence')
-    elif ('elapsed_ns' in manifest or 'completed_before' in manifest
+    elif ('elapsed_ns' in manifest or 'completed_before' in manifest or 'causal_start' in manifest
           or (finished < started and not allow_legacy_clock_reversal)):
         raise ValueError('original execution chronology is invalid')
     return started, finished
 
 
-def _completed_before(cwd, task_id):
-    """Capture terminal original bytes before starting the child, across run roots."""
-    if not task_id:
-        return []
-    seals = set()
-    for path in (Path(cwd) / '.artifacts').rglob('manifest.json'):
-        try:
-            if any(p.is_symlink() for p in (path, *path.parents)):
-                continue
-            raw = path.read_bytes()
-            manifest = json.loads(raw)
-            if (manifest.get('binding', {}).get('task_id') == task_id
-                    and manifest.get('status') in {'passed', 'failed', 'interrupted', 'invalidated'}):
-                seals.add(digest(raw))
-        except (OSError, ValueError, TypeError, AttributeError):
-            continue  # Missing causal proof remains conservative at adoption.
-    return sorted(seals)
+def _import_registered_runs(repo, state):
+    """Import exact registered legacy sources; never discover unregistered history."""
+    from causal_history import publish_completed
+    seen = set()
+    for attempt in state.get('acceptance_gate', {}).get('attempts', []):
+        ref = attempt.get('run_evidence')
+        if not isinstance(ref, dict) or ref.get('sha256') in seen:
+            continue
+        path = retained_file(repo, ref['path'])
+        raw = path.read_bytes()
+        if digest(raw) != ref['sha256']:
+            raise ValueError('registered causal manifest hash changed')
+        manifest = json.loads(raw)
+        execution_times(manifest, allow_legacy_clock_reversal=True)
+        if manifest['schema_version'] in {1, 2}:
+            publish_completed(repo, state['task_id'], path)
+        seen.add(ref['sha256'])
 
 
-def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_paths=()):
+def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_paths=(), finalizer=None,
+                metrics=None):
+    monotonic_start = time.monotonic_ns()
+    metrics = metrics if metrics is not None else {}
     retained_root = Path(retained_root)
     if any(p.is_symlink() for p in (retained_root, *retained_root.parents)):
         raise ValueError('retained run path must not contain symlinks')
@@ -164,10 +190,14 @@ def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_
         raise ValueError('command must be a nonempty argv list, without secrets')
     run = retained_root / ('run-' + uuid.uuid4().hex)
     run.mkdir(parents=True, exist_ok=False)
-    before = _completed_before(cwd, binding.get('task_id'))
-    monotonic_start = time.monotonic_ns()
-    manifest = {'schema_version': 2, 'binding': binding, 'command': command,
-                'completed_before': before,
+    from causal_history import capture_start, publish_completed
+    task_id = binding.get('task_id')
+    capturing = time.monotonic_ns()
+    before = capture_start(cwd, task_id) if task_id is not None else {
+        'task_id': None, 'sequence': 0, 'head': None}
+    metrics['capture_ns'] = time.monotonic_ns() - capturing
+    manifest = {'schema_version': 3, 'binding': binding, 'command': command,
+                'causal_start': before,
                 'cwd': str(Path(cwd).resolve()), 'status': 'running', 'exit_code': None,
                 'started_at': datetime.now(timezone.utc).isoformat(),
                 'environment': {'host': platform.node(), 'platform': platform.platform(),
@@ -182,11 +212,17 @@ def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_
                 manifest['exit_code'] = process.wait(timeout=timeout)
                 manifest['status'] = 'passed' if process.returncode == 0 else 'failed'
             except (subprocess.TimeoutExpired, KeyboardInterrupt):
-                os.killpg(process.pid, signal.SIGTERM)
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGTERM)
                 try:
                     process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
+                    pass
+                finally:
+                    # A terminated leader does not prove its descendants exited.
+                    # Always finish cleaning our process group before sealing logs.
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(process.pid, signal.SIGKILL)
                     process.wait()
                 manifest['exit_code'] = process.returncode
                 manifest['status'] = 'interrupted'
@@ -197,23 +233,35 @@ def run_command(retained_root, command, *, cwd, binding, timeout=None, evidence_
         manifest['evidence_files'] = {}
         for relative in evidence_paths:
             try:
-                manifest['evidence_files'][relative] = digest(retained_file(cwd, relative).read_bytes())
+                manifest['evidence_files'][relative] = file_digest(retained_file(cwd, relative))
             except (ValueError, OSError) as exc:
                 manifest['status'] = 'failed'
                 manifest['error'] = str(exc)
+        if finalizer is not None:
+            try:
+                finalizer(manifest)
+            except Exception as exc:
+                manifest['status'] = 'invalidated'
+                manifest['error'] = 'run finalization failed: ' + str(exc)
+        manifest['files'] = {name: file_digest(run / name)
+                             for name in ('stdout.log', 'stderr.log') if (run / name).is_file()}
         manifest['finished_at'] = datetime.now(timezone.utc).isoformat()
         manifest['elapsed_ns'] = time.monotonic_ns() - monotonic_start
-        manifest['files'] = {name: digest((run / name).read_bytes())
-                             for name in ('stdout.log', 'stderr.log') if (run / name).is_file()}
+        publishing = time.monotonic_ns()
         _write_manifest(run / 'manifest.json', manifest)
+        if task_id is not None:
+            publish_completed(cwd, task_id, run / 'manifest.json')
+        metrics['publication_ns'] = time.monotonic_ns() - publishing
+        metrics['run_total_ns'] = time.monotonic_ns() - monotonic_start
     return run
 
 
+@scoped
 def verify_run(run, binding, *, repo=None):
     run = Path(run)
     if any(p.is_symlink() for p in (run, *run.parents)):
         raise ValueError('run evidence path must not contain symlinks')
-    manifest = json.loads((run / 'manifest.json').read_text())
+    manifest = json.loads(read_bytes(run / 'manifest.json'))
     if manifest.get('binding') != binding:
         raise ValueError('run binding does not match candidate/runtime')
     if manifest.get('status') not in {'passed', 'failed', 'interrupted', 'invalidated'}:
@@ -223,11 +271,11 @@ def verify_run(run, binding, *, repo=None):
         raise ValueError('run evidence inventory is incomplete')
     for name, expected in manifest['files'].items():
         path = run / name
-        if path.is_symlink() or not path.is_file() or digest(path.read_bytes()) != expected:
+        if path.is_symlink() or not path.is_file() or file_digest(path) != expected:
             raise ValueError('run evidence hash mismatch: ' + name)
     for relative, expected in manifest.get('evidence_files', {}).items():
         path = retained_file(repo or Path(manifest['cwd']), relative)
-        if digest(path.read_bytes()) != expected:
+        if file_digest(path) != expected:
             raise ValueError('business evidence hash mismatch: ' + relative)
     return manifest
 
@@ -245,6 +293,7 @@ def acceptance_binding(state, subtask_id):
             'subtask_id': subtask_id, 'written_by': task['dispatch']['platform_agent_id']}
 
 
+@scoped
 def acceptance_run_errors(repo, state, subtask, result):
     try:
         acceptance = result.get('expensive_acceptance', {})
@@ -257,7 +306,7 @@ def acceptance_run_errors(repo, state, subtask, result):
         path = repo / relative
         if any(p.is_symlink() for p in (path, *path.parents)):
             raise ValueError('run manifest path must not contain symlinks')
-        if digest(path.read_bytes()) != reference['sha256']:
+        if digest(read_bytes(path)) != reference['sha256']:
             raise ValueError('run manifest hash mismatch')
         binding_subtask = subtask['subtask_id']
         preparation_id = acceptance.get('source_preparation_attempt_id')
@@ -274,7 +323,7 @@ def acceptance_run_errors(repo, state, subtask, result):
                 raise ValueError('formal observation adoption requires the original completed preparation and executor')
             for row in acceptance.get('point_results', []):
                 for ref in row['evidence_refs']:
-                    observation = json.loads(retained_file(repo, ref).read_bytes())
+                    observation = json.loads(read_bytes(retained_file(repo, ref)))
                     if (not isinstance(observation, dict)
                             or not {'acceptance_id', 'status', 'input', 'actual', 'expected'} <= set(observation)
                             or observation['acceptance_id'] != row['acceptance_id']
@@ -365,6 +414,8 @@ def copy_installed_gto(host_codex, isolated_codex):
 
 
 def main():
+    cli_started = time.monotonic_ns()
+    metrics = {}
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--action', choices=('freeze', 'run', 'verify'), required=True)
     parser.add_argument('--source', type=Path)
@@ -374,6 +425,7 @@ def main():
     parser.add_argument('--subtask-id')
     parser.add_argument('--run-dir', type=Path)
     parser.add_argument('--timeout', type=float)
+    parser.add_argument('--profile', action='store_true', help='Include diagnostic timing, outside evidence.')
     parser.add_argument('--evidence-path', action='append', default=[])
     parser.add_argument('command', nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -413,18 +465,23 @@ def main():
                 result = {'ok': True, 'status': manifest['status'], 'exit_code': manifest['exit_code']}
             else:
                 command = args.command[1:] if args.command[:1] == ['--'] else args.command
+                _import_registered_runs(repo, state)
+                def finalize(manifest):
+                    drift = ctl._candidate_staleness_errors(repo, state)
+                    if drift:
+                        manifest['status'] = 'invalidated'
+                        manifest['invalidated_by'] = drift
                 run = run_command(repo / '.artifacts/gto' / args.task_id / 'runs', command,
-                                  cwd=repo, binding=binding, timeout=args.timeout, evidence_paths=args.evidence_path)
+                                  cwd=repo, binding=binding, timeout=args.timeout,
+                                  evidence_paths=args.evidence_path, finalizer=finalize, metrics=metrics)
                 manifest = verify_run(run, binding)
-                drift = ctl._candidate_staleness_errors(repo, state)
-                if drift:
-                    manifest['status'] = 'invalidated'
-                    manifest['invalidated_by'] = drift
-                    _write_manifest(run / 'manifest.json', manifest)
                 result = {'ok': manifest['status'] == 'passed', 'run_dir': str(run),
                           'status': manifest['status'], 'exit_code': manifest['exit_code']}
     except Exception as exc:
         result = {'ok': False, 'errors': [str(exc)]}
+    if args.profile:
+        metrics['cli_total_ns'] = time.monotonic_ns() - cli_started
+        result['performance'] = metrics
     print(json.dumps(result, ensure_ascii=False))
     return 0 if result.get('ok') else 2
 

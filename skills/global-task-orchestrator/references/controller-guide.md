@@ -213,7 +213,7 @@ review/fail、验收失败时不执行这段通过分支。先让发现者登记
 
 字段与行为唯一见[范围复验合同](acceptance-points.md)。公开入口顺序如下：
 
-1. `acceptance-status` 查询当前覆盖与需要执行的点，不启动业务。`evidence_warnings` 单独列出历史留存完整性问题；未采用辅助记录损坏只修归档，实际采用证据无效才使对应点失效，参见[唯一合同](acceptance-points.md)。
+1. `acceptance-status` 查询当前覆盖与需要执行的点，不启动业务。加 `--audit-history` 时，`evidence_warnings` 单独列出历史留存完整性问题；默认 `history_audited=false`，空警告不表示历史已完整审计；未采用辅助记录损坏只修归档，实际采用证据无效才使对应点失效，参见[唯一合同](acceptance-points.md)。
 2. `create-subtask-attempt` 缺省选择对应范围仍需执行的点；可用 `--result-json-file` 明确 `scope_acceptance_ids`。
 3. 核实实际执行者、输入夹具、机械测试、采集和结果格式，再按原 `bind-dispatch` 执行。缺少某项能力仅阻塞对应范围。
 4. 使用 [prepare-result](streamlined-execution.md) 从封存摘要生成并预检，再 `record-subtask-result`。手工填写时将 `point_results` 放入 `expensive_acceptance`，先 `validate-result` 再登记。登记失败修载荷、复用原始证据，不重新调用业务。
@@ -227,3 +227,12 @@ review/fail、验收失败时不执行这段通过分支。先让发现者登记
 新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。
 
 任务身份与目录接续：同 task_id 的 Plan/Execute、子代理和复验沿用已绑定工作区、分支与冻结包；不同会话不自动成为新任务，dirty 不触发新建。共享目录的冲突写入串行、Git 由主协调器统一，交接先停止原写入。普通任务核心工件与流程另见 harness 的 docs/modules/git-workflow/contract/task-workspace.md，不叠加到本 GTO 合同。新定位入口不改写 state 或绕过 checkout_binding；相关新增能力仍以安装版本及验收记录为准。
+
+
+## 20261027 性能改进
+
+性能合同（20261027）：一个稳定读取阶段共用候选/source/runtime清单和验证上下文；摘要中的清单与指纹同源。只读摘要与能力上下文不持写锁、不做写回滚备份；状态变更提交必须复核版本和相关输入。旧冻结运行包不升级。门禁不因性能优化跳过。
+
+命令可加 `--profile`，成功 JSON 额外返回 `performance`：`elapsed_ns` 是整次调用耗时，`prepare_ns` 是锁外准备耗时，`commit_ns` 包含等待与提交，`lock_wait_ns/lock_hold_ns` 分别表示任务写锁等待与持有时间；普通稳定读取及暂存事务还提供 `prepare_io/commit_io`。默认不增加输出字段，计时不能单独代替输入读取次数与门禁验证。首次创建及结果草稿仍走各自路径，未分拆的阶段计数为零不代表没有工作。快照冻结的复制和归档生成已进入锁外 staging，锁内保留独立候选/runtime重检及不可变目录发布。锁内强重验仍需读取消费证据，成本随实际证据字节数增长。
+
+历史诊断使用 `--action acceptance-status --audit-history`；其他动作传入 `--audit-history` 会拒绝。此参数只扩大诊断范围，不放宽当前采用来源、真实后续失败或候选完整性检查。

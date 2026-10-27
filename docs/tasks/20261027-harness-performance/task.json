@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "mode": "ordinary",
+  "task_id": "20261027-harness-performance",
+  "status": "completed",
+  "phase": "acceptance",
+  "branch": "codex/fix-harness-performance",
+  "workspace": "<repo-root>",
+  "checkout_binding": "85c3949dc15f84ca10f31e7b1d4876f34dd11ea175cbafdcbd14bc680feb40d4",
+  "coordinator": "/root",
+  "task_document": "docs/tasks/20261027-harness-performance/task.md",
+  "acceptance_points": [
+    "scan",
+    "evidence",
+    "locks",
+    "history",
+    "workspace",
+    "cfm",
+    "tooling",
+    "preservation"
+  ],
+  "stages": [
+    {
+      "stage": "investigation",
+      "evidence": ".artifacts/20261027-harness-performance/stage-investigation.json",
+      "files": {
+        ".artifacts/20261027-harness-performance/stage-investigation.json": "7931ec3f7fe1ffa477be2ab4ff3291848af5798e5f3c273e76d475286cc338a3",
+        ".artifacts/20261027-harness-performance/investigation-results.json": "0bf9b9b3fbd777ac9b17fd70b19a6e437027af3df19f250d9f5d6e8c855aa13a",
+        ".artifacts/20261027-harness-performance/preserved-baseline.json": "f1cb1855fb2cc0cb9920d1311cab85b6dddca6c5f9c9c62dd973c79538e9acd9"
+      }
+    },
+    {
+      "stage": "plan",
+      "evidence": ".artifacts/20261027-harness-performance/stage-plan.json",
+      "files": {
+        ".artifacts/20261027-harness-performance/stage-plan.json": "d43653d6afac48b232fef4c8bc9e91a7105285515c26f827f32590f01aab3023",
+        ".artifacts/20261027-harness-performance/authorization.txt": "1743b081540d95e6bce0179c311edcc7970216e9c41d4f3d021c711767f79c1a",
+        ".artifacts/20261027-harness-performance/approved-plan.md": "19d14f91bd389295ab245204a8393775280f83ee6b1953ed8f9e71323d1cae6b"
+      }
+    },
+    {
+      "stage": "documentation",
+      "evidence": ".artifacts/20261027-harness-performance/stage-documentation.json",
+      "files": {
+        ".artifacts/20261027-harness-performance/stage-documentation.json": "b286b4e70affbecb6b2e63efc4319f87c261ac0d544531bea60eebdc7f6910c8",
+        ".artifacts/20261027-harness-performance/documentation-snapshot.json": "a96b7c66ce1b5d746c16377a37995ba52baea100aa7dd35cccc14694d73a21b9"
+      }
+    },
+    {
+      "stage": "tests",
+      "evidence": ".artifacts/20261027-harness-performance/stage-tests.json",
+      "files": {
+        ".artifacts/20261027-harness-performance/stage-tests.json": "4e699488cd097fc68a237b19bef1a4227d139409d127746c0919090a6d1851c3",
+        ".artifacts/20261027-harness-performance/qa/red-report.md": "755b47859a893e59fd9e48a42e0aac278395f55294f8059fa8e319ee692b4869",
+        ".artifacts/20261027-harness-performance/qa/red-complete.log": "21b58567afb483b4ac797f78c266314a456e8e39a8ea45b6f07c25600333a920",
+        ".artifacts/20261027-harness-performance/qa/red-supplement.log": "b66a93e6cd06593555b1ec1af51b541f77575d3c4271ef2750c5676d67894ff9",
+        ".artifacts/20261027-harness-performance/qa/red-causality.log": "e28d273c29ceafdfea274836390a7b1983c8b87bf911fee379541e779bc57c7f"
+      }
+    },
+    {
+      "stage": "implementation",
+      "evidence": ".artifacts/20261027-harness-performance/stage-implementation.json",
+      "files": {
+        ".artifacts/20261027-harness-performance/stage-implementation.json": "56de9332eccc921361665bba21385b76008e83b1bd622393d0ae46b04cddde2f",
+        ".artifacts/20261027-harness-performance/implementation-source-manifest.json": "797b1921af680aab609f3663369d8fe3c677290aaa9a8f31bbef28ebaf65730f",
+        ".artifacts/20261027-harness-performance/qa/last-helper-green.log": "2dddb50b681bc4bd0ea15d67756ca6da9db0ea22ece1666d2f3368cdb3b5938c",
+        ".artifacts/20261027-harness-performance/qa/freeze-transaction-green.log": "bd214219f556f92e352b91d33dc3761ca990b1a829abd5c4abada2ddb2d575d1",
+        ".artifacts/20261027-harness-performance/qa/publication-check-fixed.log": "49acf5884340d82d416cea33281edcb65c6c3ef421b09631b0cd06315a4d699a",
+        ".artifacts/20261027-harness-performance/qa/probe-entry-green.log": "987c603d5bb18bfc96e89026216197f281582323962b7336a4ee50d267590900",
+        ".artifacts/20261027-harness-performance/qa/runtime-descendant-green.log": "cac15cbd2ffa9931ea0ffcc2976aa9ef24e1b0331e8efc2877b20980177cd332"
+      }
+    },
+    {
+      "stage": "review",
+      "evidence": ".artifacts/20261027-harness-performance/stage-review.json",
+      "files": {
+        ".artifacts/20261027-harness-performance/stage-review.json": "f13b6e593ee40516c53657667970d202f454dbf522c0f72294172bc97cfb1832",
+        ".artifacts/20261027-harness-performance/review/round-1.md": "7569a7b39f152cb73a43c1a3b56bee5c9ea5bb95da08e6f843ed094beedf5bf6",
+        ".artifacts/20261027-harness-performance/review/round-2.md": "6855e3b0af47e197f4b92f47ee9e7adbd21de62ca7a3f53ed3dff81563f480fb",
+        ".artifacts/20261027-harness-performance/review/round-3.md": "e5f9eabe3cea0e6934527e149811ae0f6f2699348674a128a262ac57da2757d2",
+        ".artifacts/20261027-harness-performance/dispatch-review-acceptance.json": "9e29cfa2a19c87ad9712e23ed4d19216581b3c6ad72bb356ea91c04c4617bb69"
+      }
+    },
+    {
+      "stage": "review",
+      "evidence": ".artifacts/20261027-harness-performance/stage-review-final.json",
+      "files": {
+        ".artifacts/20261027-harness-performance/stage-review-final.json": "50c74e65ae4bbab91c9bce5c75903c5595813a42ef827f32005c67a24adee1f7",
+        ".artifacts/20261027-harness-performance/review/round-1.md": "7569a7b39f152cb73a43c1a3b56bee5c9ea5bb95da08e6f843ed094beedf5bf6",
+        ".artifacts/20261027-harness-performance/review/round-2.md": "6855e3b0af47e197f4b92f47ee9e7adbd21de62ca7a3f53ed3dff81563f480fb",
+        ".artifacts/20261027-harness-performance/review/round-3.md": "e5f9eabe3cea0e6934527e149811ae0f6f2699348674a128a262ac57da2757d2",
+        ".artifacts/20261027-harness-performance/review/round-4.md": "9644566ba3105c5f81a2d1871ae3ffa171636c52b4fc529484824c4ca8702752",
+        ".artifacts/20261027-harness-performance/dispatch-review-acceptance.json": "9e29cfa2a19c87ad9712e23ed4d19216581b3c6ad72bb356ea91c04c4617bb69"
+      }
+    },
+    {
+      "stage": "acceptance",
+      "evidence": ".artifacts/20261027-harness-performance/qa/stage-acceptance.json",
+      "files": {
+        ".artifacts/20261027-harness-performance/qa/stage-acceptance.json": "64def135e8c3cf124e9cc77684ae41467954ca12fbaa509638ca50a2cde25770",
+        ".artifacts/20261027-harness-performance/qa/acceptance-report.md": "527e25c4a58c70158c9d21898bbf709edf81fb9c0e1e9f865e8dfb6a3b05e1f7",
+        ".artifacts/20261027-harness-performance/review/round-4.md": "9644566ba3105c5f81a2d1871ae3ffa171636c52b4fc529484824c4ca8702752",
+        ".artifacts/20261027-harness-performance/final-source-manifest.json": "b59715c4bd79ff86cf58b0f5da135b59002711da0c3178b833a937eb0bc744b0",
+        ".artifacts/20261027-harness-performance/qa/final-source-after-check.json": "15b44b1e9d4f58f86ede6c214e022a6928561722593b5fdee756ba4817a7a159",
+        ".artifacts/20261027-harness-performance/preservation-final-check.json": "1e522e5128c0bee811126e3a7fd79d207629dbd16f0ddff25f82e0a774156db5",
+        ".artifacts/20261027-harness-performance/qa/gto-snapshot-first.log": "83217603fe0a83d9653cde6098326913d7d7befafb7090d05dd1b42b1d7ee59c",
+        ".artifacts/20261027-harness-performance/qa/gto-final-targeted.log": "69c4c7b9238eed98d233daf633e810320d0a1cd5bdb0eed5c0bf32f87ce1a793",
+        ".artifacts/20261027-harness-performance/qa/wsl-stable-source.log": "1c89f338ac90acc5933fd40552863cea4d9bf5eed6174fcb77b5fa27e3e78669",
+        ".artifacts/20261027-harness-performance/qa/cfm-pending-final.json": "0081a339e8e2382264fdd94a6f4a9d925cdeab9fe66d99780c58de8034c542a2",
+        ".artifacts/20261027-harness-performance/qa/diff-check-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        ".artifacts/20261027-harness-performance/dispatch-review-acceptance.json": "9e29cfa2a19c87ad9712e23ed4d19216581b3c6ad72bb356ea91c04c4617bb69",
+        ".artifacts/20261027-harness-performance/qa/green-stage1.log": "0ef07560ca59e6b21e114653d2bf496e54107e829fed50e292b529f96dc08e3a",
+        ".artifacts/20261027-harness-performance/qa/strong-stage.log": "edd476900cafa2724b7568bf71d59c238a74a11fa6c8ce24840bf4cdf4161e8d",
+        ".artifacts/20261027-harness-performance/qa/candidate-before.json": "9c9d737d8b3048960c48f1454cc50daf3e24dc073cffd9bfc28705c28b222dbf",
+        ".artifacts/20261027-harness-performance/qa/candidate-after.json": "ed39822cd04f972842d877d98c0b92ebfc115baec112e28ea6ec9756b029c104",
+        ".artifacts/20261027-harness-performance/qa/brief-before.json": "55eac3b630ecfa35c3b4c3bd98fd6e97e398bb41c91bfb178be381e324e15922",
+        ".artifacts/20261027-harness-performance/qa/brief-after.json": "fe835b8afb0afce247b72925a90d90e2398bf28d3be146ba322cfc9a7aada2e7",
+        ".artifacts/20261027-harness-performance/qa/readonly-final-green.log": "e94d4df6e826c9181ddf346dcfcf47913919dda7bb1e170fa76ec9a0255eea08",
+        ".artifacts/20261027-harness-performance/qa/freeze-transaction-green.log": "bd214219f556f92e352b91d33dc3761ca990b1a829abd5c4abada2ddb2d575d1",
+        ".artifacts/20261027-harness-performance/qa/last-helper-red.log": "5f9054bbe11872abe5f1b43a369e6fd27d1d5a2c365c3e3eec344fd42aa5d54a",
+        ".artifacts/20261027-harness-performance/qa/last-helper-green.log": "2dddb50b681bc4bd0ea15d67756ca6da9db0ea22ece1666d2f3368cdb3b5938c",
+        ".artifacts/20261027-harness-performance/qa/init-event-red.log": "d829c2c2dabbbc5f12e7c5769768c464906cc48a1352776302f68993ccbf88b4",
+        ".artifacts/20261027-harness-performance/qa/init-event-green.log": "2ed040f7508e47561bbc8f4075e8c9425b0f81e5e315e5fa942029674cbfe9c9",
+        ".artifacts/20261027-harness-performance/qa/gto-snapshot2-impact.log": "c09b9c8bf7fc8fad7beda6e302d42e8731e651804fad895916ed040004b4aea5",
+        ".artifacts/20261027-harness-performance/qa/runtime-descendant-red.log": "1ec072a8cc16e6095b3d05b0da1a9404d33ac52834bf5a0750f5ed766c3a3428",
+        ".artifacts/20261027-harness-performance/qa/runtime-descendant-green.log": "cac15cbd2ffa9931ea0ffcc2976aa9ef24e1b0331e8efc2877b20980177cd332",
+        ".artifacts/20261027-harness-performance/qa/workspace-before.json": "28ed2e8c559fc17cc93a84a4350067881c4c1af0b8c8d34fe0457ac797b21dea",
+        ".artifacts/20261027-harness-performance/qa/workspace-after.json": "e3c224d652e86ed4d93be8a1d742e56622d70d122b5518ba8dde43a1d194d48b",
+        ".artifacts/20261027-harness-performance/qa/measure_workspace.py": "66375e5991a536fdefb9c06441654ffb6e3e17c982cb53d04b6afe5b88596b38",
+        ".artifacts/20261027-harness-performance/stage-implementation.json": "56de9332eccc921361665bba21385b76008e83b1bd622393d0ae46b04cddde2f",
+        ".artifacts/20261027-harness-performance/qa/cfm-boundaries.log": "122f69d4d92ebddd6cc70528372618e762373a50ca5bcfd5e7c282fa409d9816",
+        ".artifacts/20261027-harness-performance/qa/cfm-migrated-contract.log": "cc66cab56f61a0449e3a182febbbb0b80c6276dff77032faa70d6a83c621b3f1",
+        ".artifacts/20261027-harness-performance/qa/cfm-capacity-red.log": "43decbd3e9effe361f8f6e2bfe26fc56551e668fa9c3f28246a4d9d2e9c79a46",
+        ".artifacts/20261027-harness-performance/qa/cfm-capacity-green.log": "84b9169f8a77ae0c56666c4cf1969657539148e7ec767d54a412f10409497a12",
+        ".artifacts/20261027-harness-performance/qa/publication-check-fixed.log": "49acf5884340d82d416cea33281edcb65c6c3ef421b09631b0cd06315a4d699a",
+        ".artifacts/20261027-harness-performance/qa/probe-entry-green.log": "987c603d5bb18bfc96e89026216197f281582323962b7336a4ee50d267590900",
+        ".artifacts/20261027-harness-performance/qa/isolated-package.log": "0df80d27248076b9253e58459a39c4710c2d0cf8b6926af1bea895d108dccdf9",
+        ".artifacts/20261027-harness-performance/qa/final-source-check.json": "15b44b1e9d4f58f86ede6c214e022a6928561722593b5fdee756ba4817a7a159",
+        ".artifacts/20261027-harness-performance/qa/final-snapshot-source-comparison.json": "2a42381069bd36664f7c44c5ae15736aae52ecbb9ce32da85e520927cf77d153",
+        ".artifacts/20261027-harness-performance/qa/gto-snapshot-1-manifest.json": "1ab2356375e4fd0a677a2b913ec39eaee8da96e72cb29c729333861aad404eb6",
+        ".artifacts/20261027-harness-performance/qa/gto-snapshot-2-manifest.json": "8f4882ec43ef1a0872b8fa5ee901978e12e3de4a71bb7bc553940ff3df429dc6",
+        ".artifacts/20261027-harness-performance/qa/gto-snapshot-3-manifest.json": "bc6ce67a87b4a5138a5ea0ad149d177b8e265ab6117c7aa6d328562820a4d273"
+      }
+    }
+  ],
+  "baseline_head": "3526e7c87cd36dc97b9d5308e92d424ba23dcd51",
+  "binding_origin": "new-task"
+}

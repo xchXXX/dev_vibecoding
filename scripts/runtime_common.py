@@ -9,10 +9,74 @@ import os
 import re
 import shutil
 import subprocess
+import signal
+import time
 import tempfile
 import tomllib
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
+
+_probe_deadline = ContextVar("probe_deadline", default=None)
+
+
+class ProbeBudgetExpired(subprocess.TimeoutExpired):
+    def __str__(self):
+        return "probe_budget_exhausted: " + super().__str__()
+
+
+@contextmanager
+def probe_budget(seconds):
+    """Scope one shared deadline; nested scopes cannot extend their parent."""
+    deadline = time.monotonic() + seconds
+    previous = _probe_deadline.get()
+    token = _probe_deadline.set(min(previous, deadline) if previous is not None else deadline)
+    try:
+        yield
+    finally:
+        _probe_deadline.reset(token)
+
+
+def run_probe(args, *, timeout=30.0, deadline=None, **kwargs):
+    """Bound a probe and its descendants by the earlier monotonic deadline."""
+    shared_deadline = _probe_deadline.get()
+    if shared_deadline is not None:
+        deadline = min(deadline, shared_deadline) if deadline is not None else shared_deadline
+    remaining = timeout
+    if deadline is not None:
+        remaining = min(timeout, deadline - time.monotonic()) if timeout is not None else deadline - time.monotonic()
+    if remaining is None or remaining <= 0:
+        if shared_deadline is not None and time.monotonic() >= shared_deadline:
+            raise ProbeBudgetExpired(args, remaining or 0)
+        raise subprocess.TimeoutExpired(args, remaining or 0)
+    check = kwargs.pop("check", False)
+    capture = kwargs.pop("capture_output", False)
+    input_data = kwargs.pop("input", None)
+    if capture:
+        kwargs.update(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if input_data is not None:
+        kwargs["stdin"] = subprocess.PIPE
+    kwargs["start_new_session"] = True
+    process = subprocess.Popen(args, **kwargs)
+    try:
+        wait = min(remaining, deadline - time.monotonic()) if deadline is not None else remaining
+        if wait <= 0:
+            raise subprocess.TimeoutExpired(args, wait)
+        stdout, stderr = process.communicate(input_data, timeout=wait)
+    except BaseException as error:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.communicate()
+        if isinstance(error, subprocess.TimeoutExpired) and shared_deadline is not None and time.monotonic() >= shared_deadline:
+            raise ProbeBudgetExpired(args, remaining, output=error.output, stderr=error.stderr) from error
+        raise
+    result = subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
+    if check:
+        result.check_returncode()
+    return result
 
 
 MANAGED_SKILLS = (
@@ -194,15 +258,22 @@ def command_available(package: dict[str, Any]) -> bool:
     probe = package.get("probe")
     if probe:
         try:
-            result = subprocess.run(probe, text=True, capture_output=True, check=False)
-        except OSError:
+            result = run_probe(probe, text=True, capture_output=True, check=False)
+        except ProbeBudgetExpired:
+            raise
+        except (OSError, subprocess.TimeoutExpired):
             return False
         if result.returncode:
             return False
     expected_version = package.get("version")
     if not expected_version:
         return True
-    result = subprocess.run([command, "--version"], text=True, capture_output=True, check=False)
+    try:
+        result = run_probe([command, "--version"], text=True, capture_output=True, check=False)
+    except ProbeBudgetExpired:
+        raise
+    except (OSError, subprocess.TimeoutExpired):
+        return False
     return result.returncode == 0 and expected_version in result.stdout
 
 

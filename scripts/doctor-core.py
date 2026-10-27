@@ -5,6 +5,7 @@ import json
 import re
 import shutil
 import subprocess
+from runtime_common import run_probe, probe_budget, ProbeBudgetExpired
 import sys
 import tempfile
 import os
@@ -151,7 +152,7 @@ def _read_json_object(path: Path) -> tuple[dict[str, Any] | None, str | None]:
         return None, "missing"
     try:
         payload = json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError) as error:
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
         return None, str(error)
     if not isinstance(payload, dict):
         return None, "root_not_object"
@@ -189,7 +190,7 @@ def _installed_gto_validation(repo_root: Path, codex_home: Path, *, compare_sour
         contract_path = fixture_root / ".tmp" / "contract.json"
         contract_path.parent.mkdir(parents=True, exist_ok=True)
         contract_path.write_text(json.dumps(_runtime_validation_contract(source_controller.parents[1])), encoding="utf-8")
-        initialized = subprocess.run(
+        initialized = run_probe(
             [
                 sys.executable, str(source_controller), "--action", "init-task",
                 "--repo-root", str(fixture_root), "--task-id", task_id,
@@ -203,7 +204,7 @@ def _installed_gto_validation(repo_root: Path, codex_home: Path, *, compare_sour
         if initialized.returncode:
             payload.update(returncode=initialized.returncode, stdout=initialized.stdout, stderr=initialized.stderr)
             return payload
-        validated = subprocess.run(
+        validated = run_probe(
             [
                 sys.executable, str(controller), "--action", "validate",
                 "--repo-root", str(fixture_root), "--task-id", task_id, "--json",
@@ -225,20 +226,22 @@ def _installed_gto_validation(repo_root: Path, codex_home: Path, *, compare_sour
     return payload
 
 
+@probe_budget(300)
 def _contract_gate(repo_root: Path) -> dict[str, Any]:
     command = [sys.executable, "-m", "unittest", "-q", *STRICT_CONTRACT_TESTS]
     try:
         environment = dict(os.environ)
         environment["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-        completed = subprocess.run(
+        completed = run_probe(
             command,
+            timeout=300,
             cwd=repo_root,
             text=True,
             capture_output=True,
             check=False,
             env=environment,
         )
-    except OSError as error:
+    except (OSError, subprocess.TimeoutExpired) as error:
         return {
             "ok": False,
             "tests": list(STRICT_CONTRACT_TESTS),
@@ -246,6 +249,7 @@ def _contract_gate(repo_root: Path) -> dict[str, Any]:
             "returncode": None,
             "stdout": "",
             "stderr": str(error),
+            "category": "probe_budget_exhausted" if isinstance(error, ProbeBudgetExpired) else "probe_failed",
         }
     return {
         "ok": completed.returncode == 0,
@@ -419,6 +423,7 @@ def _docker_safe_start_audit(repo_root: Path, codex_home: Path) -> dict[str, Any
     }
 
 
+@probe_budget(120)
 def audit(
     repo_root: Path,
     codex_home: Path,
@@ -433,21 +438,23 @@ def audit(
     receipt_issues: list[dict[str, str]] = []
     skills: list[dict[str, Any]] = []
     schemas: list[dict[str, Any]] = []
+    inventories = {}
     receipt_path = codex_home / ".ai-harness" / "codex-sync.receipt.json"
     receipt: dict[str, Any] | None = None
     if receipt_path.is_file():
         try:
             parsed = json.loads(receipt_path.read_text(encoding="utf-8-sig"))
             receipt = parsed if isinstance(parsed, dict) else None
-        except (OSError, json.JSONDecodeError) as error:
+        except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
             receipt_issues.append({"type": "receipt_invalid", "path": str(receipt_path), "error": str(error)})
     else:
         receipt_issues.append({"type": "receipt_missing", "path": str(receipt_path)})
     for name in MANAGED_SKILLS:
         source_root = repo_root / "skills" / name
         runtime_root = codex_home / "skills" / name
-        source_hashes = _files(source_root)
+        source_hashes = _files(source_root) if name in selected_skills else {}
         runtime_hashes = _files(runtime_root)
+        inventories[name] = source_hashes if name in selected_skills else runtime_hashes
         if name in selected_skills:
             expected_hashes = source_hashes
             if not source_hashes:
@@ -501,9 +508,7 @@ def audit(
         actual = {
             (name, f"{name}/{relative}", digest)
             for name in MANAGED_SKILLS
-            for relative, digest in _files(
-                (repo_root / "skills" / name) if name in selected_skills else (codex_home / "skills" / name)
-            ).items()
+            for relative, digest in inventories[name].items()
         }
         if expected != actual:
             receipt_issues.append({"type": "receipt_managed_files_mismatch", "path": str(receipt_path)})
@@ -551,6 +556,7 @@ def audit(
     }
 
 
+@probe_budget(120)
 def audit_environment(repo_root: Path, codex_home: Path, baseline_path: Path | None = None) -> dict[str, Any]:
     """Environment-only audit never executes managed skills or their schemas."""
     receipt, error = _read_json_object(codex_home / ".ai-harness/bootstrap.receipt.json")
@@ -603,7 +609,9 @@ def main() -> int:
             if not contract_gate["ok"]:
                 payload["ok"] = False
                 payload["errors"] = sorted({*payload.get("errors", []), "contract_gate_failed"})
-    except (OSError, ValueError) as error:
+    except ProbeBudgetExpired as error:
+        payload = {"ok": False, "errors": ["probe_budget_exhausted"], "detail": str(error)}
+    except (OSError, subprocess.TimeoutExpired, ValueError) as error:
         payload = {"ok": False, "errors": [str(error)]}
     return emit(payload, as_json=args.json, success_message="Codex managed runtime audit passed")
 

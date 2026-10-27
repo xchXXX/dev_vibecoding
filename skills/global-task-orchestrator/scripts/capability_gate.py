@@ -8,6 +8,7 @@ import platform
 import sys
 
 from runtime_evidence import digest
+from verification_context import scoped, read_bytes, file_digest
 
 
 def _file(repo, relative):
@@ -27,10 +28,11 @@ def _context(repo, declaration):
     return {'host': platform.node(), 'session_id': session,
             'interpreter': str(Path(sys.executable).resolve()), 'python': sys.version,
             'tool': declaration['tool'],
-            'dependencies': {p: digest(_file(repo, p).read_bytes())
+            'dependencies': {p: file_digest(_file(repo, p))
                              for p in declaration['binding_paths']}}
 
 
+@scoped
 def capture_context(repo, declaration, executor_id=None):
     context = _context(repo, declaration)
     if executor_id:
@@ -39,12 +41,13 @@ def capture_context(repo, declaration, executor_id=None):
             'declaration_sha256': digest(declaration)}
 
 
-def _proof(repo, declaration, reference, context):
+def _proof(repo, declaration, reference, context, *, raw=None):
     if not isinstance(reference, dict) or set(reference) != {'path', 'sha256'}:
         raise ValueError('capability evidence must be a path/sha256 file reference')
     if not reference['path'].startswith('.artifacts/'):
         raise ValueError('capability evidence must be retained in .artifacts')
-    raw = _file(repo, reference['path']).read_bytes()
+    path = _file(repo, reference['path'])
+    raw = read_bytes(path) if raw is None else raw
     if digest(raw) != reference['sha256']:
         raise ValueError('capability evidence hash changed')
     proof = json.loads(raw)
@@ -63,6 +66,7 @@ def _proof(repo, declaration, reference, context):
     return proof
 
 
+@scoped
 def capability_receipt(repo, task, payload):
     if not isinstance(payload, dict):
         raise ValueError('capability receipt payload must be an object')
@@ -71,11 +75,12 @@ def capability_receipt(repo, task, payload):
     if declaration is None:
         raise ValueError('capability is not declared in the approved assignment')
     context = _context(repo, declaration)
-    proof_data = json.loads(_file(repo, payload.get('evidence', {}).get('path', '')).read_text())
+    raw = read_bytes(_file(repo, payload.get('evidence', {}).get('path', '')))
+    proof_data = json.loads(raw)
     executor = proof_data.get('context', {}).get('executor_id')
     if executor:
         context['executor_id'] = executor
-    proof = _proof(repo, declaration, payload.get('evidence'), context)
+    proof = _proof(repo, declaration, payload.get('evidence'), context, raw=raw)
     return {'subtask_id': task['subtask_id'], 'capability_id': declaration['capability_id'],
             'declaration_sha256': digest(declaration), 'context': context,
             'status': proof['status'], 'evidence': payload['evidence'],
@@ -98,6 +103,7 @@ def scoped_declarations(state, task):
     return [d for d in declarations if d['capability_id'] in needed]
 
 
+@scoped
 def capability_errors(repo, state, task, executor_id=None):
     errors = []
     try:

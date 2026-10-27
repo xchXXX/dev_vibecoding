@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import fcntl
 import json
 import os
 import shutil
 import subprocess
+from runtime_common import run_probe
 import sys
 import tempfile
 import tomllib
@@ -18,8 +20,25 @@ from runtime_common import MANAGED_SKILLS, MANAGED_WSL_RUNTIME_FILES, RETIRED_MA
 
 
 MANAGED_MARKER = "<!-- ai-harness:managed-global-agents:v1 -->"
+
+
+def _source_generation(root):
+    files = {path.relative_to(root).as_posix(): sha256_file(path)
+            for directory in ("scripts", "skills", "schemas", "rules", "templates", "config", "tests", "docs")
+            for path in sorted((root / directory).rglob("*"))
+            if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
+            and not path.is_relative_to(root / "docs/tasks") and not path.is_relative_to(root / "docs/ai/tasks")}
+    files.update({path.name: sha256_file(path) for path in root.glob("*.md") if path.is_file()})
+    return files
+
+
+def _doctor_module(root):
+    spec = importlib.util.spec_from_file_location("bootstrap_doctor", root / "scripts/doctor-core.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 def _run(script: Path, arguments: list[str]) -> dict[str, Any]:
-    process = subprocess.run([sys.executable, str(script), *arguments, "--json"], text=True, capture_output=True, check=False)
+    process = run_probe([sys.executable, str(script), *arguments, "--json"], timeout=300, text=True, capture_output=True, check=False)
     try:
         payload = json.loads(process.stdout)
     except json.JSONDecodeError:
@@ -162,8 +181,10 @@ def _environment_transaction(root: Path, codex_home: Path):
         raise
 
 
-def _sync_wsl_environment_runtime(root: Path, codex_home: Path) -> tuple[bool, list[dict[str, str]], list[str]]:
-    previous, _ = _environment_preflight(root, codex_home)
+def _sync_wsl_environment_runtime(root: Path, codex_home: Path, *, previous=None, prepared=None) -> tuple[bool, list[dict[str, str]], list[str]]:
+    if previous is None:
+        previous, _ = _environment_preflight(root, codex_home)
+    verified_targets = {row['target_path']: row['target_sha256'] for row in previous.get('managed_runtime_files', [])}
     runtime_root = codex_home / '.ai-harness/runtime/wsl-environment'
     owned = {str(runtime_root / rel) for rel, _ in MANAGED_WSL_RUNTIME_FILES}
     owned.update(str(runtime_root / rel) for rel in RETIRED_MANAGED_WSL_RUNTIME_FILES)
@@ -178,20 +199,23 @@ def _sync_wsl_environment_runtime(root: Path, codex_home: Path) -> tuple[bool, l
             retired_files_removed.append(str(target))
     for relative, source_relative in MANAGED_WSL_RUNTIME_FILES:
         source, target = root / source_relative, runtime_root / relative
-        digest = sha256_file(source)
-        if not target.is_file() or sha256_file(target) != digest:
+        digest = prepared[source_relative] if prepared is not None else sha256_file(source)
+        target_digest = verified_targets.get(str(target)) if target.is_file() else None
+        if target_digest != digest:
             target.parent.mkdir(parents=True, exist_ok=True)
             descriptor, name = tempfile.mkstemp(prefix='.' + target.name + '.', dir=target.parent)
             os.close(descriptor)
             temporary = Path(name)
             try:
                 shutil.copy2(source, temporary)
+                if sha256_file(temporary) != digest:
+                    raise ValueError('publication_source_changed')
                 temporary.replace(target)
             finally:
                 temporary.unlink(missing_ok=True)
             changed = True
         managed_files.append({'source_path': str(source), 'target_path': str(target),
-                              'source_sha256': digest, 'target_sha256': sha256_file(target)})
+                              'source_sha256': digest, 'target_sha256': digest})
     return changed, managed_files, retired_files_removed
 
 
@@ -240,7 +264,7 @@ def main() -> int:
                         raise ValueError("WINDOWS_NATIVE_TRANSITION_HOLD")
                     receipt_path = codex_home / ".ai-harness/bootstrap.receipt.json"
                     with _environment_transaction(root, codex_home) as previous:
-                        changed, files, retired = _sync_wsl_environment_runtime(root, codex_home)
+                        changed, files, retired = _sync_wsl_environment_runtime(root, codex_home, previous=previous)
                         template = root / "templates/codex/AGENTS.global.md"
                         agents = codex_home / "AGENTS.md"
                         # Adopt only a proven, already-rendered managed entry; never rewrite active instructions.
@@ -255,7 +279,44 @@ def main() -> int:
                         return emit({"ok": True, "scope": "environment-only", "runtime_changed": changed,
                             "managed_runtime_files": files, "retired_runtime_files_removed": retired,
                             "receipt_path": str(receipt_path)}, as_json=args.json)
+            scripts = Path(__file__).parent
+            if not args.skip_rules:
+                _run(scripts / "generate_rules_index.py", ["--repo-root", str(root)])
+                payload["completed_steps"].append("rules_generate")
+                _run(scripts / "validate_rules.py", ["--repo-root", str(root)])
+                payload["completed_steps"].append("rules_validate")
+            generation = _source_generation(root)
+            doctor = _doctor_module(root) if not args.skip_doctor else None
+            contract_gate = None
+            if doctor is not None and args.skill in {None, 'global-task-orchestrator'}:
+                contract_gate = doctor._contract_gate(root)
+                if not contract_gate['ok']:
+                    raise RuntimeError(contract_gate.get('category', 'contract_gate_failed'))
+            if generation != _source_generation(root):
+                raise ValueError('publication_source_changed')
             codex_home.mkdir(parents=True, exist_ok=True)
+            lock_path = codex_home / '.ai-harness/codex-sync.lock'
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            lock = publication.enter_context(lock_path.open('a+', encoding='utf-8'))
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            if (codex_home / '.ai-harness/windows-native-transition.hold').exists():
+                raise ValueError('WINDOWS_NATIVE_TRANSITION_HOLD')
+            if generation != _source_generation(root):
+                raise ValueError('publication_source_changed')
+            spec = importlib.util.spec_from_file_location('bootstrap_sync', scripts / 'sync-codex.py')
+            sync = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(sync)
+            selected = [args.skill] if args.skill else list(MANAGED_SKILLS)
+            prepared = {name: {relative[len('skills/' + name + '/'):]: digest
+                        for relative, digest in generation.items() if relative.startswith('skills/' + name + '/')}
+                        for name in selected}
+            rollback = [codex_home / 'AGENTS.md', codex_home / 'hooks.json',
+                        codex_home / '.ai-harness/bootstrap.receipt.json']
+            if not args.skip_sync:
+                rollback += [codex_home / 'skills' / name for name in selected]
+                rollback += [codex_home / '.ai-harness/codex-sync.receipt.json',
+                             codex_home / 'schemas/orchestrator-task-state.schema.json']
+            publication.enter_context(sync._publication_backup(rollback, lock_path.parent))
             updated, backup_path, target = _write_global_agents(root, codex_home, args.force_global_agents)
             payload.update(harness_root={"path": str(root), "source": root_source}, codex_home=str(codex_home), updated=updated, backup_path=backup_path)
             payload["completed_steps"].append("global_agents")
@@ -270,24 +331,17 @@ def main() -> int:
             if args.skip_sync and args.skill:
                 raise ValueError("--skill cannot be combined with --skip-sync")
             if not args.skip_sync:
-                sync_arguments = ["--harness-root", str(root), "--codex-home", str(codex_home)]
-                if args.skill:
-                    sync_arguments.extend(["--skill", args.skill])
-                sync_payload = _run(scripts / "sync-codex.py", sync_arguments)
+                sync_payload = sync.synchronize(root, codex_home, skills=[args.skill] if args.skill else None, _locked=True, _prepared=prepared)
+                if not sync_payload.get('ok'):
+                    raise RuntimeError('sync_failed: ' + json.dumps(sync_payload))
                 payload["sync"] = sync_payload
                 payload["completed_steps"].append("sync")
                 if sync_payload.get("changed_managed_skills"):
                     restart_reasons.append("managed_skill_runtime_changed")
                 if sync_payload.get("changed_schema_files"):
                     restart_reasons.append("managed_schema_runtime_changed")
-            lock_path = codex_home / '.ai-harness/codex-sync.lock'
-            lock_path.parent.mkdir(parents=True, exist_ok=True)
-            lock = publication.enter_context(lock_path.open('a+', encoding='utf-8'))
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-            if (codex_home / '.ai-harness/windows-native-transition.hold').exists():
-                raise ValueError('WINDOWS_NATIVE_TRANSITION_HOLD')
             if not args.skip_sync:
-                publication.enter_context(_environment_transaction(root, codex_home))
+                runtime_previous = publication.enter_context(_environment_transaction(root, codex_home))
             managed_runtime_files: list[dict[str, str]] = []
             previous_receipt_path = codex_home / ".ai-harness" / "bootstrap.receipt.json"
             if args.skip_sync and previous_receipt_path.is_file():
@@ -295,7 +349,7 @@ def main() -> int:
                 if isinstance(previous_receipt, dict) and isinstance(previous_receipt.get("managed_runtime_files"), list):
                     managed_runtime_files = previous_receipt["managed_runtime_files"]
             if not args.skip_sync:
-                wsl_runtime_changed, managed_runtime_files, retired_runtime_files_removed = _sync_wsl_environment_runtime(root, codex_home)
+                wsl_runtime_changed, managed_runtime_files, retired_runtime_files_removed = _sync_wsl_environment_runtime(root, codex_home, previous=runtime_previous, prepared=generation)
                 payload["retired_runtime_files_removed"] = retired_runtime_files_removed
                 payload["managed_runtime_files"] = managed_runtime_files
                 payload["completed_steps"].append("wsl_environment_runtime")
@@ -303,11 +357,7 @@ def main() -> int:
                     restart_reasons.append("managed_wsl_environment_runtime_changed")
                 payload["restart_reasons"] = restart_reasons
                 payload["restart_required"] = bool(restart_reasons)
-            if not args.skip_rules:
-                _run(scripts / "generate_rules_index.py", ["--repo-root", str(root)])
-                payload["completed_steps"].append("rules_generate")
-                _run(scripts / "validate_rules.py", ["--repo-root", str(root)])
-                payload["completed_steps"].append("rules_validate")
+
             payload["windows_external_capabilities"] = inspect_windows_external_capabilities(
                 codex_home, root / "config/ai/windows-external-capabilities.json")
             payload["completed_steps"].append("windows_external_readonly_check")
@@ -324,13 +374,16 @@ def main() -> int:
             payload.update(receipt_path=str(receipt_path))
             payload["completed_steps"].append("receipt")
             if not args.skip_doctor:
-                doctor_arguments = ["--root", str(root), "--codex-home", str(codex_home), "--strict"]
-                if args.skill:
-                    doctor_arguments.extend(["--skill", args.skill])
-                _run(scripts / "doctor-core.py", doctor_arguments)
+                audited = doctor.audit(root, codex_home, managed_skill=args.skill)
+                audited['contract_gate'] = contract_gate
+                if not audited['ok']:
+                    raise RuntimeError('bootstrap_doctor_failed: ' + json.dumps(audited.get('errors', [])))
+                payload['doctor'] = audited
                 payload["completed_steps"].append("doctor")
             payload["restart_reasons"] = restart_reasons
             payload["restart_required"] = bool(restart_reasons)
+            if generation != _source_generation(root):
+                raise ValueError('publication_source_changed')
             payload["ok"] = True
     except (Exception, KeyboardInterrupt, SystemExit) as error:
         payload["issues"].append(type(error).__name__ + ": " + str(error))

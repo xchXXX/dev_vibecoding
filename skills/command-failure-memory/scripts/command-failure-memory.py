@@ -10,6 +10,7 @@ import os
 import pathlib
 import re
 import stat
+import sqlite3
 import sys
 import tempfile
 import time
@@ -398,6 +399,24 @@ def ensure_active_capacity(
     *,
     excluded_case_ids: Optional[set[str]] = None,
 ) -> Optional[Dict[str, Any]]:
+    connection = storage.get("connection")
+    if connection is not None:
+        if connection.execute("SELECT COUNT(*) FROM cases WHERE tier='active'").fetchone()[0] < MAX_CASE_COUNT:
+            return None
+        excluded = excluded_case_ids or set()
+        for (raw,) in connection.execute("SELECT payload FROM cases WHERE tier='active' ORDER BY cold_rank, cold_time, case_id"):
+            case = json.loads(raw)
+            if case["case_id"] in excluded:
+                continue
+            if str(case.get("solution", "")).strip() and int(case.get("stats", {}).get("verify_count", 0)) <= 0:
+                continue
+            case.update(storage_tier="archived", archived_at=get_iso_timestamp(),
+                        archive_reason="capacity_cold" if str(case.get("solution", "")).strip() else "capacity_unresolved")
+            changed_cases[case["case_id"]] = case
+            put_case_in_catalog(catalog, case)
+            sql_put_case(connection, case)
+            return case
+        raise MemoryErrorRuntime("active case capacity reached and no stable cold case can be archived.")
     if get_active_case_count(catalog["by_id"]) < MAX_CASE_COUNT:
         return None
     return archive_cold_active_case(
@@ -602,6 +621,13 @@ def get_case_catalog(storage: Dict[str, str]) -> Dict[str, Any]:
 
 
 def load_case_data(storage: Dict[str, str], entry: Dict[str, Any]) -> Dict[str, Any]:
+    if storage.get("connection") is not None:
+        row = storage["connection"].execute("SELECT payload FROM cases WHERE case_id=?", (entry["case_id"],)).fetchone()
+        if row is None:
+            raise MemoryErrorRuntime("case missing from storage")
+        case = json.loads(row[0])
+        assert_valid_case_data(case)
+        return case
     case_path = resolve_case_file_path(storage["cases_root"], entry["case_id"])
     case_data = read_json_object(case_path, None)
     if not isinstance(case_data, dict):
@@ -666,6 +692,10 @@ def put_case_in_catalog(catalog: Dict[str, Any], case_data: Dict[str, Any]) -> N
 def save_case_catalog(
     storage: Dict[str, str], catalog: Dict[str, Any], changed_cases: Dict[str, Dict[str, Any]]
 ) -> None:
+    if storage.get("connection") is not None:
+        for case in changed_cases.values():
+            sql_put_case(storage["connection"], case)
+        return
     for case_id in sorted(changed_cases):
         case_data = changed_cases[case_id]
         assert_valid_case_data(case_data)
@@ -677,6 +707,12 @@ def save_case_catalog(
 
 
 def get_failure_events_data(storage: Dict[str, str]) -> Dict[str, Any]:
+    if storage.get("connection") is not None:
+        sql, parameters = "SELECT payload FROM pending", ()
+        if storage.get("selection") is not None:
+            sql += " WHERE project_id=? AND signature=?"
+            parameters = storage["selection"]
+        return {"events": [json.loads(row[0]) for row in storage["connection"].execute(sql, parameters)]}
     data = read_json_object(storage["failure_events_path"], get_empty_failure_data())
     events = data.get("events")
     data["events"] = limit_failure_events(events if isinstance(events, list) else [])
@@ -684,6 +720,13 @@ def get_failure_events_data(storage: Dict[str, str]) -> Dict[str, Any]:
 
 
 def save_failure_events_data(storage: Dict[str, str], data: Dict[str, Any]) -> None:
+    if storage.get("connection") is not None:
+        project, signature = storage["selection"]
+        connection = storage["connection"]
+        connection.execute("DELETE FROM pending WHERE project_id=? AND signature=?", (project, signature))
+        for event in data["events"]:
+            connection.execute("INSERT INTO pending VALUES(?,?,?)", (event["project_id"], event["signature"], canonical_json(event)))
+        return
     data["schema_version"] = "1.0"
     data["updated_at"] = get_iso_timestamp()
     data["events"] = limit_failure_events(list(data.get("events", [])))
@@ -722,6 +765,132 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", dest="Json", action="store_true")
     parser.add_argument("-h", "--help", action="help")
     return parser
+
+
+def canonical_json(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def sql_put_case(connection, case):
+    assert_valid_case_data(case)
+    connection.execute("INSERT OR REPLACE INTO cases VALUES(?,?,?,?,?,?)", (
+        case["case_id"], case["signature"], case["storage_tier"],
+        2 if str(case.get("solution", "")).strip() else 0,
+        get_timestamp_sort_key(str(case.get("last_hit_at") or case.get("last_verified_at") or case.get("updated_at") or case["created_at"])),
+        canonical_json(case)))
+
+
+def sql_catalog(storage):
+    connection = storage["connection"]
+    query, values = "SELECT payload FROM cases", ()
+    if storage.get("signatures"):
+        query += " WHERE signature IN (?,?)"
+        values = storage["signatures"]
+    entries = [case_to_index_entry(json.loads(row[0])) for row in connection.execute(query, values)]
+    catalog = {"index_data": {"cases": entries}, "by_id": {}, "by_signature": {}}
+    for entry in entries:
+        catalog["by_id"][entry["case_id"]] = entry
+        catalog["by_signature"].setdefault(entry["signature"], []).append(entry)
+    return catalog
+
+
+def open_store(storage):
+    path = resolve_path_within_root(storage["memory_root"], "memory.sqlite3")
+    connection = sqlite3.connect(path, timeout=MEMORY_LOCK_TIMEOUT_MS / 1000)
+    connection.execute("PRAGMA foreign_keys=ON")
+    connection.execute("CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    format_row = connection.execute("SELECT value FROM metadata WHERE key='format'").fetchone()
+    if format_row is not None:
+        if format_row[0] != "sqlite-v2":
+            connection.close()
+            raise MemoryErrorRuntime("unsupported storage format")
+        return connection
+
+    def migrate():
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            if connection.execute("SELECT value FROM metadata WHERE key='format'").fetchone() is not None:
+                connection.commit()
+                return
+            connection.execute("CREATE TABLE IF NOT EXISTS cases (case_id TEXT PRIMARY KEY, signature TEXT NOT NULL, tier TEXT NOT NULL, cold_rank INTEGER NOT NULL, cold_time REAL NOT NULL, payload TEXT NOT NULL)")
+            connection.execute("CREATE INDEX IF NOT EXISTS case_signature ON cases(signature)")
+            connection.execute("CREATE INDEX IF NOT EXISTS case_capacity ON cases(tier,cold_rank,cold_time,case_id)")
+            connection.execute("CREATE TABLE IF NOT EXISTS pending (project_id TEXT NOT NULL, signature TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(project_id,signature))")
+            source_files = [pathlib.Path(storage['index_path']), pathlib.Path(storage['failure_events_path'])]
+            source_files += sorted(pathlib.Path(storage['cases_root']).glob('*.json'))
+            for path in source_files:
+                resolve_path_within_root(storage['memory_root'], path.relative_to(storage['memory_root']).as_posix())
+            content = {p.relative_to(storage['memory_root']).as_posix(): p.read_bytes() for p in source_files if p.exists()}
+            index = json.loads(content['index.json'].decode('utf-8-sig')) if 'index.json' in content else get_empty_index_data()
+            if not isinstance(index, dict) or not isinstance(index.get('cases'), list):
+                raise MemoryErrorRuntime('migration index invalid')
+            entries = index['cases']
+            if any(not isinstance(entry, dict) or not CASE_ID_PATTERN.fullmatch(str(entry.get('case_id', '')))
+                   or not HEX64_PATTERN.fullmatch(str(entry.get('signature', ''))) for entry in entries):
+                raise MemoryErrorRuntime('migration index invalid')
+            keys = [entry['case_id'] for entry in entries]
+            actual = {p.stem for p in source_files[2:]}
+            if len(set(keys)) != len(keys) or actual != set(keys):
+                raise MemoryErrorRuntime('migration case inventory mismatch')
+            cases = []
+            for entry in sorted(entries, key=lambda item: item['case_id']):
+                case = json.loads(content['cases/' + entry['case_id'] + '.json'].decode('utf-8-sig'))
+                if not isinstance(case, dict):
+                    raise MemoryErrorRuntime('migration case invalid')
+                case.setdefault('storage_tier', get_storage_tier(entry))
+                assert_valid_case_data(case)
+                if case['case_id'] != entry['case_id'] or case['signature'] != entry['signature']:
+                    raise MemoryErrorRuntime('migration case metadata mismatch')
+                cases.append(case)
+            pending = json.loads(content['runtime/failure-events.json'].decode('utf-8-sig')) if 'runtime/failure-events.json' in content else get_empty_failure_data()
+            if not isinstance(pending, dict) or not isinstance(pending.get('events'), list):
+                raise MemoryErrorRuntime('migration pending invalid')
+            events = pending['events']
+            for event in events:
+                if (not isinstance(event, dict) or not HEX64_PATTERN.fullmatch(str(event.get('signature', '')))
+                        or not isinstance(event.get('project_id'), str) or not event['project_id']):
+                    raise MemoryErrorRuntime('migration pending invalid')
+            manifest = {relative: hashlib.sha256(raw).hexdigest() for relative, raw in content.items()}
+            fingerprint = get_string_sha256(canonical_json(manifest))
+            backup = pathlib.Path(resolve_path_within_root(storage["memory_root"], "migration-backups/" + fingerprint))
+            backup.mkdir(parents=True, exist_ok=True)
+            for relative, raw in content.items():
+                target = backup / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if target.exists() and target.read_bytes() != raw:
+                    raise MemoryErrorRuntime("migration backup mismatch")
+                target.write_bytes(raw)
+            for case in cases:
+                sql_put_case(connection, case)
+            for event in events:
+                connection.execute("INSERT INTO pending VALUES(?,?,?)", (event["project_id"], event["signature"], canonical_json(event)))
+            imported_cases = [json.loads(row[0]) for row in connection.execute("SELECT payload FROM cases ORDER BY case_id")]
+            imported_events = [json.loads(row[0]) for row in connection.execute("SELECT payload FROM pending ORDER BY project_id,signature")]
+            expected = {"cases": cases, "pending": sorted(events, key=lambda x: (x["project_id"], x["signature"]))}
+            observed = {"cases": imported_cases, "pending": imported_events}
+            counts = {"cases": len(cases), "active": sum(c["storage_tier"] == "active" for c in cases),
+                      "archived": sum(c["storage_tier"] == "archived" for c in cases), "pending": len(events)}
+            if canonical_json(expected) != canonical_json(observed):
+                raise MemoryErrorRuntime("migration content verification failed")
+            for relative, raw in content.items():
+                if pathlib.Path(storage["memory_root"], relative).read_bytes() != raw:
+                    raise MemoryErrorRuntime("migration source changed")
+            if {p.stem for p in pathlib.Path(storage['cases_root']).glob('*.json')} != actual:
+                raise MemoryErrorRuntime('migration source inventory changed')
+            migration = {"counts": counts, "sha256": get_string_sha256(canonical_json(expected)), "source_files": manifest}
+            write_json_object(str(backup / "manifest.json"), migration)
+            connection.execute("INSERT INTO metadata VALUES('migration',?)", (canonical_json(migration),))
+            connection.execute("INSERT INTO metadata VALUES('format','sqlite-v2')")
+            connection.commit()
+        except BaseException:
+            connection.rollback()
+            raise
+    try:
+        invoke_with_memory_lock(storage["memory_root"], migrate)
+    except BaseException:
+        connection.close()
+        raise
+    return connection
 
 
 def main() -> int:
@@ -797,7 +966,7 @@ def main() -> int:
                 }
             event["last_query_at"] = now
             save_failure_events_data(storage, events_data)
-            catalog = get_case_catalog(storage)
+            catalog = sql_catalog(storage)
             changed_cases: Dict[str, Dict[str, Any]] = {}
             suggestions: List[Dict[str, Any]] = []
             exact_entries = matching_case_entries(storage, catalog, sig["signature"], args.CommandText, args.ErrorText)
@@ -830,6 +999,11 @@ def main() -> int:
                 )
                 changed_cases[case_data["case_id"]] = case_data
                 put_case_in_catalog(catalog, case_data)
+                if reactivated:
+                    # The next hit must see this activation in its capacity
+                    # count. Keep it inside the current transaction so a later
+                    # failure still rolls back the complete query.
+                    sql_put_case(storage["connection"], case_data)
             if suggestions:
                 save_case_catalog(storage, catalog, changed_cases)
             return {
@@ -847,7 +1021,7 @@ def main() -> int:
             if not str(args.Resolution).strip():
                 raise MemoryErrorRuntime("resolution is required for record-success.")
             sig = get_case_signature(args.CommandText, args.ErrorText)
-            catalog = get_case_catalog(storage)
+            catalog = sql_catalog(storage)
             changed_cases: Dict[str, Dict[str, Any]] = {}
             case_data = None
             existing_entries = matching_case_entries(storage, catalog, sig["signature"], args.CommandText, args.ErrorText)
@@ -861,6 +1035,8 @@ def main() -> int:
                     raise MemoryErrorRuntime(f"invalid scope_kind: {args.ScopeKind}")
                 ensure_active_capacity(storage, catalog, changed_cases)
                 case_id = new_case_id(sig["signature"], catalog["by_id"])
+                while storage["connection"].execute("SELECT 1 FROM cases WHERE case_id=?", (case_id,)).fetchone():
+                    case_id = "CASE-" + os.urandom(8).hex()
                 confidence = (
                     get_normalized_scope_confidence(args.ScopeConfidence)
                     if args.ScopeConfidence is not None
@@ -930,7 +1106,7 @@ def main() -> int:
                 "memory_root": memory_root,
             }
 
-        catalog = get_case_catalog(storage)
+        catalog = sql_catalog(storage)
         events_data = get_failure_events_data(storage)
         active_case_count = get_active_case_count(catalog["by_id"])
         return {
@@ -946,7 +1122,25 @@ def main() -> int:
             "cases": list(catalog["index_data"].get("cases", [])),
         }
 
-    payload = invoke_with_memory_lock(memory_root, run_action)
+    connection = open_store(storage)
+    storage['connection'] = connection
+    if args.Action != 'inspect':
+        signature = get_case_signature(args.CommandText, args.ErrorText)['signature']
+        storage['selection'] = (project, signature)
+        storage['signatures'] = (signature, get_legacy_case_signature(args.CommandText, args.ErrorText))
+    try:
+        connection.execute('BEGIN IMMEDIATE' if args.Action != 'inspect' else 'BEGIN')
+        payload = run_action()
+        payload['storage_format'] = 'sqlite-v2'
+        payload['database_path'] = str(pathlib.Path(memory_root) / 'memory.sqlite3')
+        if args.Action == 'inspect':
+            payload['migration'] = json.loads(connection.execute("SELECT value FROM metadata WHERE key='migration'").fetchone()[0])
+        connection.commit()
+    except BaseException:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
 

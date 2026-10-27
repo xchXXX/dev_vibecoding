@@ -10,26 +10,34 @@ import json
 import re
 
 from runtime_evidence import digest, retained_file, execution_times
+from verification_context import scoped, cached, read_bytes, file_digest
 
 
 def overlap(a, b):
     return a == b or a.startswith(b.rstrip('/') + '/') or b.startswith(a.rstrip('/') + '/')
 
 
+@scoped
+@cached
 def definitions(gate):
     items = {p['acceptance_id']: p for p in gate['acceptance_items']}
     if len(items) != len(gate['acceptance_items']):
         raise ValueError('acceptance point IDs must be unique')
+    completed = {}
     def visit(ident, stack):
         if ident not in items or ident in stack:
             raise ValueError('acceptance depends_on is unknown or cyclic: ' + ident)
+        if ident in completed:
+            return completed[ident]
         result = {ident}
         for dep in items[ident].get('depends_on', []):
             result.update(visit(dep, stack | {ident}))
+        completed[ident] = result
         return result
     return items, {ident: visit(ident, set()) for ident in items}
 
 
+@cached
 def snapshots(gate, records):
     items, dependencies = definitions(gate)
     fallback = [p for k in ('code_paths', 'config_paths', 'runtime_input_paths')
@@ -107,12 +115,14 @@ def normalize(gate, attempt, evidence, findings):
     evidence['scope_acceptance_ids'] = list(arranged)
 
 
+@scoped
 def seal(repo, attempt, evidence):
     attempt['point_evidence_hashes'] = {
-        ref: digest(safe_file(repo, ref).read_bytes())
+        ref: file_digest(safe_file(repo, ref))
         for row in evidence['point_results'] for ref in row['evidence_refs']}
 
 
+@cached
 def run_manifest(repo, state, attempt, *, allow_legacy_clock_reversal=False):
     """Verify the shared execution envelope, without consuming unrelated files."""
     source = next(t for t in state['subtasks'] if t['subtask_id'] == attempt['subtask_id'])
@@ -126,7 +136,7 @@ def run_manifest(repo, state, attempt, *, allow_legacy_clock_reversal=False):
         if evidence_attempt.get('kind') != 'preparation' or evidence_attempt.get('outcome') != 'pass':
             raise ValueError('formal observation preparation source is invalid')
     reference = attempt.get('run_evidence', {})
-    raw = safe_file(repo, reference['path']).read_bytes()
+    raw = read_bytes(safe_file(repo, reference['path']))
     if digest(raw) != reference['sha256']:
         raise ValueError('run manifest hash changed')
     manifest = json.loads(raw)
@@ -142,17 +152,21 @@ def run_manifest(repo, state, attempt, *, allow_legacy_clock_reversal=False):
     parent = reference['path'].rsplit('/', 1)[0]
     native = {parent + '/' + name: h for name, h in manifest['files'].items()}
     for ref, h in native.items():
-        if digest(safe_file(repo, ref).read_bytes()) != h:
+        if file_digest(safe_file(repo, ref)) != h:
             raise ValueError('run output hash changed')
     execution_times(manifest, allow_legacy_clock_reversal=allow_legacy_clock_reversal)
     return manifest
 
 
+@scoped
 def observed_after(repo, state, attempt, other):
     current = run_manifest(repo, state, attempt)
     previous = run_manifest(repo, state, other, allow_legacy_clock_reversal=True)
     if attempt['run_evidence']['sha256'] == other['run_evidence']['sha256']:
         return False
+    if current['schema_version'] == 3:
+        from causal_history import causal_after
+        return causal_after(repo, current, other['run_evidence']['sha256'])
     if current['schema_version'] == 2:
         return other['run_evidence']['sha256'] in current['completed_before']
     if previous['schema_version'] == 1:
@@ -171,6 +185,7 @@ def failed_point(attempt, ident):
             and ident in attempt.get('scope_acceptance_ids', []))
 
 
+@scoped
 def failure_barrier(repo, state, attempt, ident, *, verified_batch_unit=False):
     for other in state['acceptance_gate'].get('attempts', []):
         if verified_batch_unit and other['attempt_id'] == attempt['attempt_id']:
@@ -185,6 +200,7 @@ def failure_barrier(repo, state, attempt, ident, *, verified_batch_unit=False):
     return False
 
 
+@scoped
 def verify_observation(repo, state, attempt, row):
     source = next(t for t in state['subtasks'] if t['subtask_id'] == attempt['subtask_id'])
     if source.get('result', {}).get('expensive_acceptance', {}).get('point_results') != attempt.get('point_results'):
@@ -196,12 +212,14 @@ def verify_observation(repo, state, attempt, row):
     if not row['evidence_refs']:
         raise ValueError('executed point has no evidence')
     for ref in row['evidence_refs']:
-        h = digest(safe_file(repo, ref).read_bytes())
+        h = file_digest(safe_file(repo, ref))
         if h != attempt.get('point_evidence_hashes', {}).get(ref) or h != covered.get(ref):
             raise ValueError('point evidence hash changed or is absent from original run')
 
 
-def coverage(repo, state, records):
+@scoped
+@cached
+def coverage(repo, state, records, *, audit_history=False):
     gate = state['acceptance_gate']
     current = snapshots(gate, records)
     ordered = list(reversed(gate.get('attempts', [])))
@@ -243,6 +261,8 @@ def coverage(repo, state, records):
         points[ident] = fallback
     from acceptance_batches import point_coverage
     for ident in current:
+        if points[ident]['status'] == 'pass':
+            continue
         receipt = point_coverage(repo, state, ident, lambda _repo, _state: records)
         if receipt and points[ident]['status'] != 'pass':
             if receipt['status'] == 'pass' or points[ident]['status'] in {'missing', 'not_run', 'blocked'}:
@@ -256,9 +276,11 @@ def coverage(repo, state, records):
     rerun = sorted(i for i, item in points.items() if item['status'] != 'pass')
     return {'ok': True, 'complete': not rerun and all(f.get('status') == 'closed' for f in state.get('findings', {}).values()),
             'points': points, 'rerun_acceptance_ids': rerun,
-            'evidence_warnings': evidence_warnings(repo, state, records)}
+            'history_audited': audit_history,
+            'evidence_warnings': evidence_warnings(repo, state, records) if audit_history else []}
 
 
+@scoped
 def evidence_warnings(repo, state, records):
     """Historical retention diagnostics never rewrite receipts or launch checks."""
     warnings = []
@@ -273,7 +295,7 @@ def evidence_warnings(repo, state, records):
                                  'reason': 'UTC clock reversed; original times retained, causal evidence used.'})
             for ref, expected in manifest.get('evidence_files', {}).items():
                 try:
-                    if digest(safe_file(repo, ref).read_bytes()) != expected:
+                    if file_digest(safe_file(repo, ref)) != expected:
                         raise ValueError('historical evidence hash changed')
                 except (ValueError, OSError) as exc:
                     warnings.append({'source_attempt_id': attempt['attempt_id'], 'path': ref, 'reason': str(exc)})
@@ -290,7 +312,7 @@ def impact_applies(repo, gate, attempt, ident, snapshot):
                 and receipt['point_snapshots'].get(ident) == snapshot
                 and receipt['source_snapshots'].get(ident) == attempt.get('point_snapshots', {}).get(ident)):
             try:
-                if all(digest(safe_file(repo, ref).read_bytes()) == h
+                if all(file_digest(safe_file(repo, ref)) == h
                        for ref, h in receipt['evidence_hashes'].items()):
                     return True
             except (ValueError, OSError):
@@ -298,6 +320,7 @@ def impact_applies(repo, gate, attempt, ident, snapshot):
     return False
 
 
+@scoped
 def record_impact(repo, state, payload, records):
     fields = {'written_by', 'written_role', 'source_attempt_id', 'point_ids',
               'changed_paths', 'reason', 'evidence_refs'}
@@ -331,6 +354,6 @@ def record_impact(repo, state, payload, records):
         raise ValueError('impact judgment requires evidence')
     receipt = {**deepcopy(payload), 'source_snapshots': {i: source['point_snapshots'][i] for i in ids},
                'point_snapshots': {i: current[i] for i in ids},
-               'evidence_hashes': {p: digest(safe_file(repo, p).read_bytes()) for p in payload['evidence_refs']}}
+               'evidence_hashes': {p: file_digest(safe_file(repo, p)) for p in payload['evidence_refs']}}
     gate.setdefault('impact_receipts', []).append(receipt)
     return receipt

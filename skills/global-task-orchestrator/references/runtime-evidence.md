@@ -2,10 +2,13 @@
 
 ## 时间倒退与执行先后
 
-新运行 manifest 使用 `schema_version=2`。保留原始带时区 `started_at/finished_at`，即使墙钟倒退也不改写；`elapsed_ns` 为本次运行单调时钟测得的非负整数，仅用于耗时，不比较不同运行的单调读数。`completed_before` 为启动业务进程前已终结的同任务 manifest 原字节 SHA256 集合；从消费项目 `.artifacts` 下收集，跨准备/正式运行子目录及候选，排除其他任务、未完成记录和符号链接，不在结束时补扫。沿用现有证据文件，不新增服务、数据库或计数账本。
+新运行 manifest 使用 `schema_version=3`。保留原始带时区 `started_at/finished_at`，即使墙钟倒退也不改写；`elapsed_ns` 为本次运行单调时钟测得的非负整数，仅用于耗时，不比较不同运行的单调读数。`causal_start={task_id,sequence,head}` 是业务进程启动前在任务内短锁下捕获的固定大小完成水位；空链为 `sequence=0,head=null`。它不随历史条数增长，也不能在结束或登记时补填。
 
-只有 A 的原始 manifest 摘要出现在 B 的 `completed_before` 中，才能用该关系认定 B 后于 A；准备采用沿用原 manifest，不因登记刷新先后。新协议无因果边、并行或来源无法核验时，不使用 UTC 猜测顺序，真实失败保守阻挡通过。双方均为旧 v1 时仅沿用合法 UTC 顺序；新旧混合须有摘要因果边。协议版本及新字段必须完整有效，不能缺字段就降级。墙钟倒退在诊断中可见，但有完整新协议证据时不否定真实功能观察。
+完成链保存在消费项目 `.artifacts/gto/<task_id>/causal/`：内容寻址 `nodes/<sha256>.json` 保存任务、递增序号、前驱节点摘要、原始 terminal manifest 相对路径及 SHA256；`head.json` 指向已发布节点。先原子发布 terminal manifest，再持短锁追加节点及更新 head；运行中不持锁。链节点是不可变因果原始证据，state 仍是结论和覆盖真源。派生定位索引可重建，但不可按墙钟、目录枚举或后来登记顺序改造历史节点或过去的 start。新 CLI 可以仅从 state 中已登记 attempt 的精确 run 引用核验并导入旧 terminal manifest；导入只影响之后启动的运行，不恢复未登记来源的顺序。新运行不递归扫描 `.artifacts`。
 
+只有从 B 原始 `causal_start.head` 开始，验证同任务、逐节点摘要、连续递减序号和前驱链接，找到 A 原始 manifest 摘要，才能认定 B 后于 A。校验成本可随两者距离增长；节点及 manifest 因果元数据总存储为线性。准备采用沿用原 manifest，不因登记刷新先后。缺失/损坏链、并行、跨任务或来源无法核验时保守视为无因果边，不使用 UTC 猜测顺序，真实失败继续阻挡通过。head、节点、manifest 及父路径均拒绝符号链接；无法验证的索引不能被自动修复成因果证明。
+
+旧 v2 保持原 `completed_before` 摘要集合验证，旧 v1 仍只在双方均为 v1 时沿用合法 UTC 顺序；混合协议由新运行自己的可核验证据证明前驱。协议版本及新字段必须完整有效，不能缺字段就降级。墙钟倒退在诊断中可见，但有完整新协议证据时不否定真实功能观察。
 旧倒序 manifest 没有单调耗时和前驱证明，继续保留无效原因与原始输出，不能补造字段、改原时间或回执哈希来转成功。后续新观察若核验该旧来源原字节及绑定、且自身启动前包含它的摘要，可以证明自己晚于该旧失败；这不恢复旧通过的有效性。现有冻结任务不静默迁移；旧失败现场只用于诊断，不反复重跑旧示例来覆盖历史。
 
 本页是 GTO 的并发、能力证明、运行快照与证据留存操作说明真源。字段结构以同包 schema 为准，流程见 [任务流程](workflow.md)。普通任务是否采用这些机制，由主代理按授权和实际风险判断，不据此创建 GTO 控制面。
@@ -51,7 +54,7 @@ CLI 快照通过只证明脚本版本；全局 Skill 配置与安装发布后，
 
 ## 直接保留原始证据
 
-临时输入、一次性脚本放 `.tmp`；所有验收运行从第一条输出开始直接写 `.artifacts/gto/<task_id>/runs/`。`runtime_evidence.run_command` 每次分配独立 run，保留精确 argv、候选/工具绑定、实际解释器与宿主信息、时间、退出码、stdout/stderr 哈希。不把秘密放入 argv、绑定或日志。通过、失败、中断都保留；进程被外部强杀后留下 running 的记录须调查，不得改写为通过。
+临时输入、一次性脚本放 `.tmp`；所有验收运行从第一条输出开始直接写 `.artifacts/gto/<task_id>/runs/`。`runtime_evidence.run_command` 每次分配独立 run，保留精确 argv、候选/工具绑定、实际解释器与宿主信息、时间、退出码、stdout/stderr 哈希。不把秘密放入 argv、绑定或日志。通过、失败、中断都保留；超时或中断先向本次独立进程组发送 TERM，在最多 5 秒宽限后强制清理仍存活的组成员，即使主进程已经退出，也不得遗留忽略 TERM 的子进程。进程被外部强杀后留下 running 的记录须调查，不得改写为通过。
 
 `verify_run` 复核绑定、文件完整性和哈希；它验证完整留存，不把 failed/interrupted 当成业务通过。验收结果必填 `expensive_acceptance.run_evidence={path,sha256}`，引用相应 manifest；控制器验证 task、candidate、runtime、attempt、subtask 和实际验收代理身份与本轮一致，并复核 stdout/stderr 和 `evidence_files` 所列全部业务证据哈希；结果引用不在清单内会被拒绝。pass/partial_pass 只接受退出码 0 的 passed 运行，失败运行可作为失败事实留存。提交及当前结论消费均重新校验，state 仍是结论和覆盖真源。追加的新运行使用新目录，业务报告也使用每轮独立的文件路径；不能覆盖旧失败来获得通过。自动更新的控制文档不能作为不可变原始验收报告，报告须单独留存。分批历史记录保留与当前候选可用性分别判断。
 
@@ -61,7 +64,7 @@ CLI 快照通过只证明脚本版本；全局 Skill 配置与安装发布后，
 
 恢复脚本与工具定位入口的版本摘要、来源和 unknown 状态见 [简化合同](streamlined-execution.md#版本分发与验证)。展示复用现有 tree_manifest 和安装 receipt，不增加版本状态，不覆盖本页的冻结校验；旧快照仍由其原控制器执行。
 
-仅缓存当前 schema 字节对应的解析结果和 validator，限进程内、有限容量；文件字节改变即重新编译。任务 state、候选、能力上下文、证据哈希和批准状态每次重新检查。性能报告分别列冷启动与同进程重复调用，不把微基准当端到端节省。
+Schema 的解析结果和 validator 仅按当前字节在进程内有限缓存，文件字节改变即重新编译。候选、能力和证据的读取复用另限同一次稳定检查阶段；原始字节缓存预算为 16 MiB，大日志流式计算摘要，超出预算的原始字节不继续驻留。每条命令及独立提交阶段重新检查任务 state、候选、能力、证据和批准状态，提交前不能凭 mtime/size 认定内容可信。性能报告分别列冷启动与同进程重复调用，不把微基准当端到端节省。
 
 
 固定入口执行并留存命令输出：
@@ -82,3 +85,8 @@ python3 "$frozen_skill/scripts/runtime_evidence.py" --action verify --repo-root 
 ## 恢复与登记精简
 
 新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。
+
+
+## 20261027 性能改进
+
+性能演进（20261027）：新增运行采用本页 v3 任务内完成链和紧凑因果证明，替代全仓发现与重复祖先集合。`causal_history.capture_start` 捕获水位，`publish_completed` 发布完成节点，`causal_after` 仅验证起点链；`by-manifest/<sha256>.json` 只作重复导入提示，不证明顺序。CLI 在捕获水位前精确导入 state 已登记的旧 v1/v2 run 引用。通用 `run_command` 无 task_id 时使用 `{task_id:null,sequence:0,head:null}` 空水位，不建链、不能贡献因果证明；验收 CLI 仍要求任务绑定。候选漂移检查通过可选 finalizer 在首次 terminal 发布之前完成，检查异常保留 invalidated 原始输出。旧v1/v2证据原样保留，不能补造先后关系。缓存仅限单次稳定读取阶段，输入或状态变化必须失效，独立前后检查不复用。`elapsed_ns` 从 run_command 入口计到证据和输出摘要完成，包含捕获因果水位的锁等待与 finalizer；因 manifest 本身不可在发布后重写，此字段不包含 manifest/完成链的发布。`runtime_evidence.py --profile` 另输出 `performance`，其中 `run_total_ns` 包含发布，`cli_total_ns` 还包含入口验证、精确历史导入和最终 verify；这些诊断不参与证据判定。控制器的 I/O 与锁分项由其 `--profile` 输出。

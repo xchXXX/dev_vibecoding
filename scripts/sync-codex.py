@@ -8,10 +8,49 @@ import shutil
 import tempfile
 import tomllib
 import hashlib
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 from runtime_common import MANAGED_SKILLS, emit, resolve_codex_home, resolve_repo_root, sha256_file, write_json
+
+
+@contextmanager
+def _publication_backup(paths, directory):
+    raw = tempfile.mkdtemp(prefix="sync-rollback-", dir=directory)
+    keep = False
+    try:
+        saved = []
+        for index, path in enumerate(paths):
+            backup = Path(raw) / str(index)
+            existed = path.exists()
+            if existed:
+                if path.is_dir():
+                    shutil.copytree(path, backup, symlinks=True)
+                else:
+                    shutil.copy2(path, backup)
+            saved.append((path, backup, existed))
+        try:
+            yield
+        except BaseException:
+            failures = []
+            for path, backup, existed in reversed(saved):
+                try:
+                    if path.is_dir() and not path.is_symlink():
+                        shutil.rmtree(path)
+                    else:
+                        path.unlink(missing_ok=True)
+                    if existed:
+                        backup.replace(path)
+                except OSError as error:
+                    failures.append(str(error))
+            if failures:
+                keep = True
+                raise RuntimeError("publication_restore_failed: " + raw + ": " + "; ".join(failures))
+            raise
+    finally:
+        if not keep:
+            shutil.rmtree(raw)
 
 
 def _source_files(source: Path) -> list[Path]:
@@ -57,7 +96,7 @@ def _replace_tree(source: Path, target: Path) -> None:
             shutil.rmtree(backup)
 
 
-def synchronize(harness_root: Path, codex_home: Path, skills: list[str] | None = None) -> dict[str, Any]:
+def synchronize(harness_root: Path, codex_home: Path, skills: list[str] | None = None, *, _locked=False, _prepared=None) -> dict[str, Any]:
     if (codex_home / ".ai-harness/windows-native-transition.hold").exists():
         return {"ok": False, "errors": ["WINDOWS_NATIVE_TRANSITION_HOLD: complete the native migration before publishing"]}
     if skills is not None and (
@@ -77,11 +116,20 @@ def synchronize(harness_root: Path, codex_home: Path, skills: list[str] | None =
     managed_schema_files: list[dict[str, str]] = []
     changed_managed_skills: list[str] = []
     changed_schema_files: list[str] = []
+    prepared = _prepared if _prepared is not None else {name: _tree_hashes(harness_root / "skills" / name) for name in selected}
+    receipt_path = codex_home / ".ai-harness" / "codex-sync.receipt.json"
+    receipt_before = receipt_path.read_bytes() if receipt_path.exists() else None
     with lock_path.open("a+", encoding="utf-8") as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        if not _locked:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
         if (codex_home / ".ai-harness/windows-native-transition.hold").exists():
             raise ValueError("WINDOWS_NATIVE_TRANSITION_HOLD")
         receipt_path = codex_home / ".ai-harness" / "codex-sync.receipt.json"
+        if (receipt_path.read_bytes() if receipt_path.exists() else None) != receipt_before:
+            raise ValueError("publication_generation_changed")
+        for name in selected:
+            if _tree_hashes(harness_root / "skills" / name) != prepared[name]:
+                raise ValueError("publication_source_changed")
         previous: dict[str, Any] = {}
         if skills is not None and not receipt_path.is_file():
             return {"ok": False, "errors": ["partial sync requires an existing installation receipt; use full sync for initial installation"]}
@@ -119,51 +167,61 @@ def synchronize(harness_root: Path, codex_home: Path, skills: list[str] | None =
                     return {"ok": False, "errors": ["packaged GTO schema missing; retain legacy schema"]}
                 managed_schema_files = [row for row in managed_schema_files if row is not rows[0]]
                 retiring_legacy = True
-        for name in selected:
-            source = harness_root / "skills" / name
-            target = codex_home / "skills" / name
-            if _tree_hashes(source) != _tree_hashes(target):
-                changed_managed_skills.append(name)
-            _replace_tree(source, target)
-            for path in _source_files(source):
-                relative = path.relative_to(source).as_posix()
-                managed_files.append({
-                    "skill": name,
-                    "source": f"skills/{name}/{relative}",
-                    "target": f"{name}/{relative}",
-                    "sha256": sha256_file(path),
-                })
-        receipt = {
-            **(previous if skills is not None else {}),
-            "schema_version": "3.0",
-            "harness_root": str(harness_root),
-            "codex_home": str(codex_home),
-            "managed_skills": (list(dict.fromkeys([*previous.get('managed_skills', []), *selected]))
-                               if skills is not None else list(MANAGED_SKILLS)),
-            "managed_files": managed_files,
-            "managed_schema_files": managed_schema_files,
-        }
+        changes = [name for name in selected if prepared[name] != _tree_hashes(codex_home / 'skills' / name)]
+        backups = [codex_home / 'skills' / name for name in changes]
+        if changes or retiring_legacy:
+            backups.append(receipt_path)
         if retiring_legacy:
-            # Keep the original file until the atomic receipt commit succeeds.
-            # Both paths are protected by the sync lock; failed commits restore it.
-            temporary = Path(tempfile.mkdtemp(prefix='retired-gto-schema-', dir=lock_path.parent))
-            backup = temporary / legacy.name
-            try:
-                legacy.replace(backup)
+            backups.append(legacy)
+        with _publication_backup(backups, lock_path.parent):
+            for name in selected:
+                source = harness_root / "skills" / name
+                target = codex_home / "skills" / name
+                if name in changes:
+                    changed_managed_skills.append(name)
+                    _replace_tree(source, target)
+                    if _tree_hashes(target) != prepared[name]:
+                        raise ValueError("publication_source_changed")
+                for relative, digest in prepared[name].items():
+                    managed_files.append({
+                        "skill": name,
+                        "source": f"skills/{name}/{relative}",
+                        "target": f"{name}/{relative}",
+                        "sha256": digest,
+                    })
+            receipt = {
+                **(previous if skills is not None else {}),
+                "schema_version": "3.0",
+                "harness_root": str(harness_root),
+                "codex_home": str(codex_home),
+                "managed_skills": (list(dict.fromkeys([*previous.get('managed_skills', []), *selected]))
+                                   if skills is not None else list(MANAGED_SKILLS)),
+                "managed_files": managed_files,
+                "managed_schema_files": managed_schema_files,
+            }
+            if retiring_legacy:
+                # Keep the original file until the atomic receipt commit succeeds.
+                # Both paths are protected by the sync lock; failed commits restore it.
+                temporary = Path(tempfile.mkdtemp(prefix='retired-gto-schema-', dir=lock_path.parent))
+                backup = temporary / legacy.name
                 try:
+                    legacy.replace(backup)
+                    try:
+                        write_json(receipt_path, receipt)
+                    except BaseException:
+                        backup.replace(legacy)
+                        raise
+                    backup.unlink()
+                finally:
+                    # If restoration fails, retain the only original bytes for recovery.
+                    if not backup.exists():
+                        temporary.rmdir()
+                changed_schema_files.append(legacy_relative)
+            else:
+                if previous != receipt:
                     write_json(receipt_path, receipt)
-                except BaseException:
-                    backup.replace(legacy)
-                    raise
-                backup.unlink()
-            finally:
-                # If restoration fails, retain the only original bytes for recovery.
-                if not backup.exists():
-                    temporary.rmdir()
-            changed_schema_files.append(legacy_relative)
-        else:
-            write_json(receipt_path, receipt)
-        fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+        if not _locked:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
     return {
         "ok": True, "harness_root": str(harness_root), "codex_home": str(codex_home),
         "managed_skills": receipt['managed_skills'], "synchronized_skills": list(selected),

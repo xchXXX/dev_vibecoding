@@ -177,13 +177,15 @@ class RunCaptureChronologyTest(ChronologyFixture):
             second = self.runtime.run_command(self.repo / '.artifacts/formal-runs',
                 [sys.executable, '-c', script], cwd=self.repo, binding={**binding, 'candidate_id': 'candidate-B'})
         old, new = json.loads(first_raw), json.loads((second / 'manifest.json').read_bytes())
-        self.assertEqual(2, old['schema_version'], old)
+        self.assertEqual(3, old['schema_version'], old)
         for manifest in (old, new):
             self.assertIs(type(manifest['elapsed_ns']), int)
             self.assertGreaterEqual(manifest['elapsed_ns'], 0)
             self.assertLess(manifest['finished_at'], manifest['started_at'])
-        self.assertEqual([first_hash], new['completed_before'])
-        self.assertNotIn(self.runtime.digest((self.repo / late).read_bytes()), new['completed_before'])
+        from causal_history import causal_after
+        self.assertNotIn('completed_before', new)
+        self.assertTrue(causal_after(self.repo, new, first_hash))
+        self.assertFalse(causal_after(self.repo, new, self.runtime.digest((self.repo / late).read_bytes())))
         self.assertEqual(first_raw, (first / 'manifest.json').read_bytes())
 
 

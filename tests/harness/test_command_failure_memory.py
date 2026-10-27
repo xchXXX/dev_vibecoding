@@ -6,6 +6,7 @@ import io
 import json
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -39,6 +40,17 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
         self.addCleanup(self.tempdir.cleanup)
         self.codex_home = Path(self.tempdir.name) / "codex-home"
         self.memory_root = self.codex_home / "memories" / "command-failure-memory"
+
+    def stored_case(self, case_id):
+        # Migrated JSON files are immutable historical inputs, SQLite is current truth.
+        with sqlite3.connect(self.memory_root / 'memory.sqlite3') as connection:
+            row = connection.execute('SELECT payload FROM cases WHERE case_id=?', (case_id,)).fetchone()
+        self.assertIsNotNone(row)
+        return json.loads(row[0])
+
+    def stored_pending(self):
+        with sqlite3.connect(self.memory_root / 'memory.sqlite3') as connection:
+            return [json.loads(row[0]) for row in connection.execute('SELECT payload FROM pending')]
 
     def invoke(self, action: str, **values: str) -> tuple[subprocess.CompletedProcess[str], dict]:
         args = self.action_args(action, **values)
@@ -166,7 +178,7 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
             self.assertEqual(succeeded.returncode, 0, succeeded.stderr)
             self.assertEqual(success["created_new_case"], ordinal == 1)
             case_ids.append(success["case_id"])
-            body = json.loads((self.memory_root / "cases" / f"{success['case_id']}.json").read_text())
+            body = self.stored_case(success["case_id"])
             self.assertEqual(success["stats"], body["stats"])
             observed_counts.append(body["stats"]["verify_count"])
             inspected, snapshot = self.invoke("inspect")
@@ -192,7 +204,7 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(len(payload["suggestions"]), 1)
         self.assertEqual(payload["suggestions"][0]["solution"], resolution)
-        body = json.loads((self.memory_root / "cases" / f"{case_ids[0]}.json").read_text())
+        body = self.stored_case(case_ids[0])
         self.assertEqual(body["solution"], resolution)
 
     def test_cli_temporary_directory_noise_has_one_failure_signature(self) -> None:
@@ -371,7 +383,8 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        stored = json.loads(events_path.read_text(encoding="utf-8"))["events"]
+        stored = self.stored_pending()
+        self.assertEqual(events, json.loads(events_path.read_text(encoding="utf-8"))["events"], "migration must preserve original JSON")
         self.assertEqual(len(stored), 129)
         self.assertEqual({entry["command_signature"] for entry in stored}, {entry["command_signature"] for entry in events} | {"the 129th pending command"})
 
@@ -521,6 +534,8 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
     def test_inspect_uses_index_without_loading_case_bodies(self) -> None:
         cases = [self.seed_v1_case(index) for index in range(32)]
         self.seed_v1_index(cases)
+        migrated, migration = self.invoke("inspect")
+        self.assertEqual(migrated.returncode, 0, migrated.stderr)
         original_read = BACKEND.read_json_object
         case_reads: list[str] = []
 
@@ -551,6 +566,8 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
         failed, _ = self.invoke("record-failure", project="target-project", command=command, error=error)
         self.assertEqual(failed.returncode, 0, failed.stderr)
 
+        migrated, migration = self.invoke("inspect")
+        self.assertEqual(migrated.returncode, 0, migrated.stderr)
         original_read = BACKEND.read_json_object
         original_write = BACKEND.write_json_object
         case_reads: list[str] = []
@@ -577,8 +594,9 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
         expected_path = str(self.memory_root / "cases" / f"{target['case_id']}.json")
         self.assertEqual(code, 0, query_error)
         self.assertEqual([item["case_id"] for item in payload["suggestions"]], [target["case_id"]])
-        self.assertEqual(case_reads, [expected_path])
-        self.assertEqual(case_writes, [expected_path])
+        self.assertEqual(case_reads, [], "warm query must not reread archived JSON")
+        self.assertEqual(1, self.stored_case(target["case_id"])["stats"]["hit_count"])
+        self.assertEqual(case_writes, [], "SQLite updates must not dual-write legacy JSON")
 
     def test_full_active_set_archives_cold_case_and_archive_hit_reactivates_it(self) -> None:
         # Break caught: reaching 1024 active cases rejects a valid new verified solution.
@@ -602,6 +620,8 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
             )
         self.seed_v1_index(cases)
 
+        migrated, migration = self.invoke("inspect")
+        self.assertEqual(migrated.returncode, 0, migrated.stderr)
         original_read = BACKEND.read_json_object
         original_write = BACKEND.write_json_object
         case_reads: list[str] = []
@@ -634,8 +654,8 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
         self.assertEqual(record_code, 0, record_error)
         self.assertTrue(record_payload["created_new_case"])
         self.assertLess(record_elapsed, 5.0)
-        self.assertEqual(len(case_reads), 1)
-        self.assertEqual(len(case_writes), 2)
+        self.assertEqual(len(case_reads), 0)
+        self.assertEqual(len(case_writes), 0)
 
         inspect_code, inspect_error, inspect_payload = self.invoke_with_fast_fixture_paths("inspect")
         self.assertEqual(inspect_code, 0, inspect_error)
@@ -683,9 +703,7 @@ class CommandFailureMemoryContractTests(unittest.TestCase):
         self.assertEqual(inspected["archived_case_count"], 1)
         archived = [entry for entry in inspected["cases"] if entry["storage_tier"] == "archived"]
         self.assertEqual(len(archived), 1)
-        archived_body = json.loads(
-            (self.memory_root / "cases" / f"{archived[0]['case_id']}.json").read_text(encoding="utf-8")
-        )
+        archived_body = self.stored_case(archived[0]["case_id"])
         self.assertEqual(archived_body["solution"], "")
         self.assertEqual(archived_body["archive_reason"], "capacity_unresolved")
 

@@ -98,7 +98,9 @@ class CapabilityCliTest(unittest.TestCase):
     state = base.ControlPlaneContractTest.state
 
     def test_probe_receipt_and_subtask_preflight_are_real_cli_and_read_only(self):
-        contract = workflow.workflow_contract()
+        from test_gto_initial_test_routing import initial_contract
+        # Two ready root testers isolate capability checks from dependency gates.
+        contract = initial_contract(2)
         dependent = contract['subtasks'][0]
         requirement = {'capability_id': 'browser', 'tool': 'test-browser', 'probe': 'read probe page',
                        'binding_paths': ['dependency.lock'], 'max_age_seconds': 60}

@@ -65,3 +65,12 @@ project doctor 的输入是项目环境声明和当前项目目录，只负责 L
 - `TEMP`、`TMP`、`TMPDIR` 指向 Windows 挂载路径，或 Node/Python 工件来自 Windows 时，应在项目测试之前归类为环境问题。
 - Docker Desktop WSL Integration、Windows 浏览器和账号/网络访问默认只能检查必要证据或提示交接。经用户明确授权安装的 Docker 安全启动器仅可修改它自己的 HKCU Run/按用户安装位置键、脚本副本和已知残留 socket 目录，不修改 Docker Desktop UI 设置。
 - 受管 `AGENTS.md`、skills 或 schema 变更后，已启动会话不会热更新；需依据 bootstrap receipt 结论新建任务或重启 Codex。
+
+
+## 20261027 性能改进
+
+性能合同（20261027）：外部探针具有分项deadline和总预算，超时清理子进程组并返回明确类别；同轮manifest复用但不跨命令盲信守护进程健康。源侧准备与测试不持发布锁，发布锁内核对预期代际并原子提交；故障保持回滚。
+
+入口预算使用 `runtime_common.probe_budget(seconds)` 的操作级绝对单调时钟期限。project doctor 一轮以及 machine doctor 的 `audit` / `audit_environment` 各共享 120 秒探针预算；每个普通探针仍至多 30 秒，后续探针只能使用剩余预算。machine doctor 的 strict 源侧合同测试另有 300 秒预算，不占用或缩短环境检查预算；组合入口这两个阶段的探针预算合计至多 420 秒，不将文件 I/O 或发布回滚宣称为可强制中断。
+
+`run_probe` 取显式 deadline、当前操作预算和单探针 timeout 的最早边界。预算耗尽不再启动新进程；运行中耗尽会杀进程组。预算异常兼容 `subprocess.TimeoutExpired`，明确标记 `probe_budget_exhausted`；doctor 对该类别单独报告，不能误报成缺依赖或声明无效。上下文退出恢复此前预算，嵌套预算不能延长外层期限。

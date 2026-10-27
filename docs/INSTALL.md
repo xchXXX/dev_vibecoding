@@ -183,3 +183,16 @@ python3 scripts/sync-codex.py --harness-root <root> --codex-home <home> --skill 
 新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](../skills/global-task-orchestrator/references/streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。
 
 任务工作区新增入口及版本边界见 [任务与工作区合同](modules/git-workflow/contract/task-workspace.md)。按既有 sync_git_workflow.py 生成并列 portable 脚本，按 git-workflow-only 定向发布；只安装已验收产物。新会话规则加载单独验收，旧 GTO 冻结包不改写，不能用安装成功代替行为通过。
+
+
+## 20261027 性能改进
+
+性能发布合同（20261027）：文件树无变化时不复制/替换受管目录；同轮源/安装清单复用。范围doctor不读取无关源包，仍核验未选中安装包的回执完整性。开发、隔离分发通过不等于共享安装或新会话加载已通过。
+
+源码入口采用以下接口；本次源码验收结果见 `docs/tasks/20261027-harness-performance/task.md`，后续发布见该任务的 `release.md`，实际安装版本以本机回执及发布验收为准。bootstrap 在单一发布锁内调用 sync 与安装 audit，并保留整批发布回滚；源侧 strict 测试已移出该锁。
+
+- 探针通过 `runtime_common.run_probe` 执行，接受单探针 `timeout` 和绝对单调时钟 `deadline`，取较早边界；到期终止整个进程组并回收父进程，报告超时失败，不留下后台子进程继续工作。项目环境和机器探针均适用。
+- 实际 doctor 入口的共享探针预算、strict 测试独立预算及超时分类唯一见 [doctor 与启动边界](modules/wsl-environment/design/doctor-and-startup-boundaries.md#20261027-性能改进)；`deadline` API 的存在不单独构成入口总预算已接入的证明。
+- bootstrap 的规则生成、规则校验和 strict 源侧合同测试在发布锁外完成。准备阶段记录源文件内容清单，测试结束及取得发布锁后重新核对同一代源码（包含测试和执行的工具代码）；变化时拒绝发布，不复用上一代测试结果。安装包内容检查及实际安装入口验证仍在锁内完成，并与已验证源侧结果合成原 strict 结论；不增加跳过源侧门禁的公开参数。
+- sync 先计算源清单并复用其摘要构造回执，内容相同的受管目录不调用替换。目标清单不能跨独立发布事务缓存；发布时复核 hold 和回执代际，冲突失败保留既有安装。替换与回执提交失败须恢复本次已变更内容，不能留下混代安装。
+- 清单复用仅限单次稳定读取阶段；内容变更、增删文件和链接换向不能被长期 mtime/size 缓存掩盖。隔离制品与实际共享安装的代际分别报告。

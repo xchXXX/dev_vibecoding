@@ -196,3 +196,15 @@ class ConvergenceArtifactTest(unittest.TestCase):
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertTrue(json.loads(completed.stdout)['ok'])
         self.assertTrue((self.repo / f'docs/ai/tasks/{legacy.TASK_ID}/state.json').is_file())
+        # The copied package must also resolve its new verification/causal modules
+        # from an unrelated working directory when validating and resuming.
+        for script, arguments in (
+            ('orchestrator_ctl.py', ['--action', 'validate']),
+            ('start_session.py', []),
+        ):
+            checked = subprocess.run([
+                sys.executable, '-B', str(installed / 'scripts' / script), *arguments,
+                '--repo-root', str(self.repo), '--task-id', legacy.TASK_ID, '--json'],
+                cwd=self.input_dir, text=True, capture_output=True, timeout=45)
+            self.assertEqual(0, checked.returncode, checked.stdout + checked.stderr)
+            self.assertTrue(json.loads(checked.stdout)['ok'])

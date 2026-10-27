@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+from contextvars import ContextVar
 import copy
 import datetime as dt
 import hashlib
@@ -16,9 +17,11 @@ from functools import lru_cache
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -29,6 +32,8 @@ if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 from runtime_evidence import freeze_tree, tree_manifest, verify_tree, acceptance_run_errors
+from verification_context import (operation, scoped, cached, memo, read_bytes,
+                                  read_text, file_digest, watch, children)
 import acceptance_points as point_acceptance
 from capability_gate import capability_errors as _capability_errors, capability_receipt as _capability_receipt, capture_context as _capture_capability_context, scoped_declarations as _scoped_capabilities
 
@@ -99,7 +104,7 @@ def _json_file_arg(raw: str | None, label: str) -> Any:
     if raw is None:
         raise ControlError(f"{label} is required")
     try:
-        text = Path(raw).read_text(encoding="utf-8")
+        text = read_text(Path(raw), encoding="utf-8")
     except (OSError, UnicodeError) as exc:
         raise ControlError(f"{label} cannot be read: {exc}") from exc
     try:
@@ -121,12 +126,43 @@ def _task_paths(repo: Path, task_id: str) -> dict[str, Path]:
     }
 
 
-def _atomic_write(path: Path, text: str) -> None:
+_prepared_writes = ContextVar('gto_prepared_writes', default=None)
+_run_metrics = ContextVar('gto_run_metrics', default=None)
+_freeze_staging = ContextVar('gto_freeze_staging', default=None)
+
+
+def _metric_elapsed(name: str, started: int) -> None:
+    metrics = _run_metrics.get()
+    if metrics is not None:
+        metrics[name] = metrics.get(name, 0) + time.perf_counter_ns() - started
+
+
+def _control_read_bytes(path: Path) -> bytes:
+    prepared = _prepared_writes.get()
+    pending = [item for item in prepared or () if item[1] == path]
+    if not pending:
+        return read_bytes(path)
+    latest_write = next((i for i in range(len(pending) - 1, -1, -1)
+                         if pending[i][0] == 'write'), None)
+    if latest_write is None:
+        raw, start = read_bytes(path), 0
+    else:
+        value = pending[latest_write][2]
+        raw, start = value if isinstance(value, bytes) else value.encode('utf-8'), latest_write + 1
+    return raw + b''.join((json.dumps(value, ensure_ascii=False, separators=(',', ':')) + '\n').encode('utf-8')
+                          for kind, _, value in pending[start:] if kind == 'event')
+
+
+def _atomic_write(path: Path, text: str | bytes) -> None:
+    prepared = _prepared_writes.get()
+    if prepared is not None:
+        prepared.append(('write', path, text))
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
-            stream.write(text)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(text.encode('utf-8') if isinstance(text, str) else text)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
@@ -138,7 +174,7 @@ def _atomic_write(path: Path, text: str) -> None:
 def _upsert_markdown_section(path: Path, heading: str, body: str, fallback: str) -> str:
     if not path.is_file():
         return fallback
-    text = path.read_text(encoding="utf-8")
+    text = _control_read_bytes(path).decode('utf-8')
     section = f"{heading}\n\n{body.rstrip()}\n"
     pattern = re.compile(rf"(?ms)^{re.escape(heading)}\n.*?(?=^## |\Z)")
     if pattern.search(text):
@@ -148,6 +184,7 @@ def _upsert_markdown_section(path: Path, heading: str, body: str, fallback: str)
 
 @contextlib.contextmanager
 def _task_lock(repo: Path, task_id: str) -> Iterator[None]:
+    waiting = time.perf_counter_ns()
     lock_path = repo / "docs" / "ai" / "tasks" / task_id / ".control.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+b") as stream:
@@ -160,19 +197,25 @@ def _task_lock(repo: Path, task_id: str) -> Iterator[None]:
                 stream.flush()
             stream.seek(0)
             msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+            _metric_elapsed('lock_wait_ns', waiting)
+            acquired = time.perf_counter_ns()
             try:
                 yield
             finally:
                 stream.seek(0)
                 msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+                _metric_elapsed('lock_hold_ns', acquired)
         else:
             import fcntl
 
             fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+            _metric_elapsed('lock_wait_ns', waiting)
+            acquired = time.perf_counter_ns()
             try:
                 yield
             finally:
                 fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+                _metric_elapsed('lock_hold_ns', acquired)
 
 
 def _write_state(paths: dict[str, Path], state: dict[str, Any]) -> None:
@@ -181,6 +224,7 @@ def _write_state(paths: dict[str, Path], state: dict[str, Any]) -> None:
     errors = _state_model_errors(repo, state)
     if errors:
         raise ControlError(*errors)
+    _refresh_subtask_readiness(repo, state)
     rendered = _render_artifacts(state["task_id"], state["title"], state)
     action = state.get("next_action", {}).get("kind", "not_initialized")
     task_body = (
@@ -205,6 +249,14 @@ def _write_state(paths: dict[str, Path], state: dict[str, Any]) -> None:
 
 def _append_event(path: Path, task_id: str, event: str, **data: Any) -> None:
     record = {"timestamp": _now(), "task_id": task_id, "event": event, **data}
+    prepared = _prepared_writes.get()
+    if prepared is not None:
+        prepared.append(('event', path, record))
+        return
+    _append_event_record(path, record)
+
+
+def _append_event_record(path: Path, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8", newline="\n") as stream:
         stream.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
@@ -213,13 +265,21 @@ def _append_event(path: Path, task_id: str, event: str, **data: Any) -> None:
 
 
 @contextlib.contextmanager
-def _preserve_artifacts_on_io_failure(paths: dict[str, Path]) -> Iterator[None]:
+def _preserve_artifacts_on_io_failure(paths: dict[str, Path], *, touched: set[Path] | None = None,
+                                      replaces_events: bool = False) -> Iterator[None]:
     """Keep one command's six artifacts together if a write or event append fails.
 
     The caller holds the task lock. Deliberate ControlError outcomes (for example
     a recorded workspace conflict) retain their documented persisted evidence.
     """
-    before = {path: path.read_bytes() if path.is_file() else None for path in paths.values()}
+    event_path = paths['events.jsonl']
+    event_size = event_path.stat().st_size if event_path.is_file() else None
+    # Initialization may replace a retained log from an interrupted init. Only
+    # append transactions can safely restore history by truncating its suffix.
+    event_before = event_path.read_bytes() if replaces_events and event_size is not None else None
+    before = {path: path.read_bytes() if path.is_file() else None
+              for name, path in paths.items()
+              if name != 'events.jsonl' and (touched is None or path in touched)}
     try:
         yield
     except OSError as failure:
@@ -232,13 +292,25 @@ def _preserve_artifacts_on_io_failure(paths: dict[str, Path]) -> Iterator[None]:
                     _atomic_write(path, content.decode('utf-8'))
             except (OSError, UnicodeError) as restore_error:
                 unrecovered.append(f'{path.name}: {restore_error}')
+        try:
+            if event_size is None:
+                event_path.unlink(missing_ok=True)
+            elif replaces_events:
+                _atomic_write(event_path, event_before)
+            else:
+                with event_path.open('r+b') as stream:
+                    stream.truncate(event_size)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+        except OSError as restore_error:
+            unrecovered.append(f'events.jsonl: {restore_error}')
         detail = 'previous six-artifact contents restored' if not unrecovered else 'restoration incomplete: ' + '; '.join(unrecovered)
         raise ControlError(f'persistent artifact write failed: {failure}; {detail}') from failure
 
 
 def _load_state(paths: dict[str, Path]) -> dict[str, Any]:
     try:
-        value = json.loads(paths["state.json"].read_text(encoding="utf-8"))
+        value = json.loads(_control_read_bytes(paths["state.json"]))
     except FileNotFoundError as exc:
         raise ControlError("state.json does not exist") from exc
     except json.JSONDecodeError as exc:
@@ -769,12 +841,12 @@ def _artifact_errors(paths: dict[str, Path], state: dict[str, Any]) -> list[str]
     hashes = state.get("artifact_sha256", {})
     for name in ("task.md", "plan.md", "execution.md", "acceptance.md"):
         path = paths[name]
-        if path.is_file() and _sha(path.read_bytes()) != hashes.get(name):
+        if path.is_file() and _sha(_control_read_bytes(path)) != hashes.get(name):
             errors.append(f"{name} does not match the approved contract")
     errors.extend(_artifact_projection_errors(paths, state))
     events = paths["events.jsonl"]
     if events.is_file():
-        for number, line in enumerate(events.read_text(encoding="utf-8").splitlines(), 1):
+        for number, line in enumerate(_control_read_bytes(events).decode('utf-8').splitlines(), 1):
             try:
                 event = json.loads(line)
             except json.JSONDecodeError:
@@ -788,7 +860,7 @@ def _artifact_errors(paths: dict[str, Path], state: dict[str, Any]) -> list[str]
 def _artifact_projection_errors(paths: dict[str, Path], state: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     action = state.get("next_action", {}).get("kind", "not_initialized")
-    task_text = paths["task.md"].read_text(encoding="utf-8") if paths["task.md"].is_file() else ""
+    task_text = _control_read_bytes(paths["task.md"]).decode('utf-8') if paths["task.md"].is_file() else ""
     for projection in (
         f"- status: `{state.get('status')}`",
         f"- current_phase: `{state.get('current_phase')}`",
@@ -797,7 +869,7 @@ def _artifact_projection_errors(paths: dict[str, Path], state: dict[str, Any]) -
         if projection not in task_text:
             errors.append(f"task.md current projection is stale: {projection}")
     conclusion = _completion_conclusion(state)
-    acceptance_text = paths["acceptance.md"].read_text(encoding="utf-8") if paths["acceptance.md"].is_file() else ""
+    acceptance_text = _control_read_bytes(paths["acceptance.md"]).decode('utf-8') if paths["acceptance.md"].is_file() else ""
     if conclusion not in acceptance_text:
         errors.append("acceptance.md current conclusion is stale; preserve the controller-managed exact marker: " + conclusion)
     return errors
@@ -885,7 +957,7 @@ def _schema_validator(raw: bytes, definition: str | None):
 def _canonical_schema_errors(state: dict[str, Any], *, definition: str | None = None) -> list[str]:
     schema_path = Path(__file__).resolve().parents[1] / "schemas" / "orchestrator-task-state.schema.json"
     try:
-        raw = schema_path.read_bytes()
+        raw = read_bytes(schema_path)
     except OSError as exc:
         raise ControlError(f"canonical state schema is unavailable: {exc}") from exc
     # Key by current schema bytes: cache compiled metadata, never task/evidence facts.
@@ -1536,6 +1608,8 @@ def _identity(dispatch: dict[str, Any]) -> dict[str, str]:
 
 
 
+@scoped
+@cached
 def _source_manifest(repo: Path, state: dict[str, Any]) -> list[dict[str, str]]:
     declared: set[str] = set()
     for subtask in state.get("subtasks", []):
@@ -1579,10 +1653,21 @@ def _source_manifest(repo: Path, state: dict[str, Any]) -> list[dict[str, str]]:
     )
     files: set[Path] = set()
     missing: list[str] = []
+    def source_files(directory):
+        for path in children(directory):
+            if path.name in {'.git', '__pycache__'} or path.suffix in {'.pyc', '.pyo'}:
+                continue
+            watch(path)
+            if path.is_file():
+                yield path
+            elif path.is_dir() and not path.is_symlink():
+                yield from source_files(path)
     for raw in sorted(declared):
         normalized_raw = Path(raw).as_posix()
-        if normalized_raw in control_artifacts:
+        if (normalized_raw in control_artifacts or '__pycache__' in Path(raw).parts
+                or Path(raw).suffix in {'.pyc', '.pyo'}):
             continue
+        watch(repo / raw)
         candidate = (repo / raw).resolve()
         try:
             candidate.relative_to(repo)
@@ -1592,9 +1677,7 @@ def _source_manifest(repo: Path, state: dict[str, Any]) -> list[dict[str, str]]:
         if candidate.is_file():
             files.add(candidate)
         elif candidate.is_dir():
-            for path in candidate.rglob("*"):
-                if not path.is_file() or ".git" in path.parts or "__pycache__" in path.parts:
-                    continue
+            for path in source_files(candidate):
                 resolved = path.resolve()
                 try:
                     relative = resolved.relative_to(repo).as_posix()
@@ -1607,7 +1690,7 @@ def _source_manifest(repo: Path, state: dict[str, Any]) -> list[dict[str, str]]:
         else:
             missing.append(raw)
     manifest = [
-        {"path": path.relative_to(repo).as_posix(), "sha256": _sha(path.read_bytes())}
+        {"path": path.relative_to(repo).as_posix(), "sha256": file_digest(path)}
         for path in sorted(files)
     ]
     manifest.extend({"path": raw, "sha256": "missing"} for raw in missing)
@@ -1783,14 +1866,14 @@ def _accept_artifact_update(
         errors.append("approval is stale because the six-point contract changed")
     errors.extend(_artifact_projection_errors(paths, state))
     for name in ("task.md", "plan.md", "execution.md", "acceptance.md"):
-        if paths[name].is_file() and args.TaskId not in paths[name].read_text(encoding="utf-8"):
+        if paths[name].is_file() and args.TaskId not in _control_read_bytes(paths[name]).decode('utf-8'):
             errors.append(f"{name} does not identify task {args.TaskId}")
     if errors:
         raise ControlError(*errors)
 
     artifact_order = ("task.md", "plan.md", "execution.md", "acceptance.md")
     previous = state.get("artifact_sha256", {})
-    refreshed = {name: _sha(paths[name].read_bytes()) for name in artifact_order}
+    refreshed = {name: _sha(_control_read_bytes(paths[name])) for name in artifact_order}
     changed = [name for name in artifact_order if previous.get(name) != refreshed[name]]
     state["artifact_sha256"] = refreshed
     _write_state(paths, state)
@@ -1809,10 +1892,14 @@ def _accept_artifact_update(
     }
 
 
-def _candidate_path_records(repo: Path, kind: str, relative: str) -> list[dict[str, str]]:
+def _candidate_path_records(repo: Path, kind: str, relative: str, *, excluded=()) -> list[dict[str, str]]:
     records: list[dict[str, str]] = []
 
     def visit(path: Path, logical: str, ancestors: set[Path]) -> None:
+        if (logical in excluded or '__pycache__' in Path(logical).parts
+                or Path(logical).suffix in {'.pyc', '.pyo'}):
+            return
+        watch(path)
         try:
             resolved = path.resolve(strict=True)
         except FileNotFoundError:
@@ -1832,33 +1919,36 @@ def _candidate_path_records(repo: Path, kind: str, relative: str) -> list[dict[s
         if resolved.is_dir():
             if resolved in ancestors:
                 raise ControlError(f"candidate input directory cycle is not allowed: {logical}")
-            children = sorted(path.iterdir(), key=lambda item: item.name)
-            if not children:
+            entries = tuple(child for child in children(path)
+                            if child.name != '__pycache__' and child.suffix not in {'.pyc', '.pyo'}
+                            and f"{logical.rstrip('/')}/{child.name}" not in excluded)
+            if not entries:
                 records.append({"kind": kind, "path": logical, "target": target, "sha256": "directory"})
-            for child in children:
+            for child in entries:
                 visit(child, f"{logical.rstrip('/')}/{child.name}", ancestors | {resolved})
             return
         if not resolved.is_file():
             raise ControlError(f"candidate input must be a file or directory: {logical}")
-        records.append({"kind": kind, "path": logical, "target": target, "sha256": _sha(resolved.read_bytes())})
+        records.append({"kind": kind, "path": logical, "target": target,
+                        "sha256": file_digest(resolved)})
 
     visit(repo / relative, relative, set())
     return records
 
 
+@scoped
+@cached
 def _candidate_records(repo: Path, state: dict[str, Any]) -> dict[str, str]:
     """Content inventory shared by integration, review coverage and acceptance."""
     inputs = state['acceptance_gate']['candidate_inputs']
     excluded = _workspace_control_paths(state)
-    records: dict[str, str] = {}
+    declarations = []
     for field in ('code_paths', 'config_paths', 'runtime_input_paths', 'document_paths'):
         for raw in inputs.get(field, []):
             relative = _safe_relative_path(raw)
             if relative is None:
                 raise ControlError(f'candidate input path is unsafe: {raw}')
-            for record in _candidate_path_records(repo, field, relative):
-                if record['path'] not in excluded:
-                    records[record['path']] = _sha(record)
+            declarations.append((relative, field))
     # Point dependencies are inputs too; projects need not repeat each path in
     # the candidate declaration just to prevent an invisible dependency change.
     for item in state['acceptance_gate']['acceptance_items']:
@@ -1866,9 +1956,42 @@ def _candidate_records(repo: Path, state: dict[str, Any]) -> dict[str, str]:
             relative = _safe_relative_path(raw)
             if relative is None:
                 raise ControlError(f'acceptance dependency path is unsafe: {raw}')
-            for record in _candidate_path_records(repo, 'acceptance_dependency', relative):
-                if record['path'] not in excluded:
-                    records.setdefault(record['path'], _sha(record))
+            declarations.append((relative, 'acceptance_dependency'))
+    # Only directory ancestors cover a declared descendant. Validate every root,
+    # including missing children and ENOTDIR paths, before eliminating traversal.
+    roots = {}
+    for relative, _ in dict.fromkeys(declarations):
+        if (relative in excluded or '__pycache__' in Path(relative).parts
+                or Path(relative).suffix in {'.pyc', '.pyo'}):
+            continue
+        path = repo / relative
+        watch(path)
+        try:
+            resolved = path.resolve(strict=True)
+            resolved.relative_to(repo)
+            roots[relative] = resolved.is_dir()
+        except FileNotFoundError:
+            if not path.resolve(strict=False).is_relative_to(repo):
+                raise ControlError('candidate input path escapes repository: ' + relative)
+            roots[relative] = False
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise ControlError('candidate input path is unsafe: ' + relative) from exc
+    selected = []
+    for relative in sorted(roots, key=lambda p: (len(Path(p).parts), p)):
+        if not any(roots[parent] and relative.startswith(parent + '/') for parent in selected):
+            selected.append(relative)
+        elif not (repo / relative).exists():
+            selected.append(relative)  # Explicit missing dependencies remain visible.
+    records = {}
+    declarations = list(dict.fromkeys(declarations))
+    for relative in selected:
+        for record in _candidate_path_records(repo, '', relative, excluded=excluded):
+            logical = record['path']
+            kinds = [kind for scope, kind in declarations
+                     if logical == scope or logical.startswith(scope + '/')]
+            primary = [kind for kind in kinds if kind != 'acceptance_dependency']
+            record['kind'] = primary[-1] if primary else 'acceptance_dependency'
+            records[logical] = _sha(record)
     return records
 
 
@@ -2233,10 +2356,10 @@ def _candidate_staleness_errors(repo: Path, state: dict[str, Any]) -> list[str]:
         relative = _safe_relative_path(snapshot.get('path'))
         if relative is None or not relative.startswith('.artifacts/gto/'):
             return ['runtime snapshot path is outside retained evidence']
-        root = repo / relative
+        root = _prepared_tree_path(repo / relative)
         if not root.resolve().is_relative_to(repo.resolve()):
             return ['runtime snapshot escapes repository']
-        manifest = json.loads((root / '.snapshot.json').read_text())
+        manifest = json.loads(read_text(root / '.snapshot.json'))
         if manifest.get('sha256') != snapshot['sha256']:
             return ['runtime snapshot binding changed']
         verify_tree(root, manifest)
@@ -2247,10 +2370,10 @@ def _candidate_staleness_errors(repo: Path, state: dict[str, Any]) -> list[str]:
         relative = _safe_relative_path(reference.get('path'))
         if relative is None or not relative.startswith('.artifacts/gto/'):
             return ['candidate archive is missing or outside retained evidence']
-        manifest_path = repo / relative
+        manifest_path = _prepared_tree_path(repo / relative)
         if manifest_path.is_symlink() or not manifest_path.resolve().is_relative_to(repo.resolve()):
             return ['candidate archive escapes repository']
-        raw = manifest_path.read_bytes()
+        raw = read_bytes(manifest_path)
         if _sha(raw) != reference.get('sha256'):
             return ['candidate archive manifest hash changed']
         archive = json.loads(raw)
@@ -2258,7 +2381,7 @@ def _candidate_staleness_errors(repo: Path, state: dict[str, Any]) -> list[str]:
             return ['candidate archive binding changed']
         for name, expected in archive['files'].items():
             path = manifest_path.parent / 'files' / name
-            if path.is_symlink() or not path.resolve().is_relative_to(manifest_path.parent.resolve()) or _sha(path.read_bytes()) != expected:
+            if path.is_symlink() or not path.resolve().is_relative_to(manifest_path.parent.resolve()) or file_digest(path) != expected:
                 return ['candidate archive content changed: ' + name]
     except (OSError, ValueError, KeyError, TypeError) as exc:
         return [f'candidate archive unavailable: {exc}']
@@ -2351,6 +2474,7 @@ def _current_run_errors(repo: Path, state: dict[str, Any], *, integrity_only: bo
     return errors
 
 
+@scoped
 def _session_summary(repo: Path, state: dict[str, Any]) -> dict[str, Any]:
     acceptance = point_acceptance.coverage(repo, state, _candidate_records(repo, state))
     points = acceptance['points']
@@ -2795,6 +2919,71 @@ def _record_expensive_attempt(
     attempt.update(copy.deepcopy(evidence))
 
 
+def _prepared_tree_path(path: Path) -> Path:
+    for kind, destination, value in reversed(_prepared_writes.get() or []):
+        if kind == 'publish-tree' and value['staged'] is not None and path.is_relative_to(destination):
+            return value['staged'] / path.relative_to(destination)
+    return path
+
+
+def _prepare_frozen_tree(source: Path, destination: Path, staging_root: Path, expected: dict[str, Any]) -> Path:
+    writes = _prepared_writes.get()
+    if writes is None:
+        raise ControlError('frozen tree preparation requires a staged transaction')
+    if any(p.is_symlink() for p in (destination, *destination.parents)):
+        raise ControlError('frozen destination must not contain symlinks')
+    if destination.exists():
+        verify_tree(destination, expected)
+        staged = None
+    else:
+        staged = staging_root / destination.name
+        if freeze_tree(source, staged) != expected:
+            raise ControlError('source changed during frozen tree preparation')
+    writes.append(('publish-tree', destination, {'staged': staged, 'expected': expected}))
+    return staged or destination
+
+
+def _publish_frozen_tree(staged: Path | None, destination: Path, expected: dict[str, Any]) -> None:
+    if any(p.is_symlink() for p in (destination, *destination.parents)):
+        raise ControlError('frozen destination must not contain symlinks')
+    with operation(fresh=True):
+        if destination.exists():
+            verify_tree(destination, expected)
+            if staged is not None and (staged / '.snapshot.json').is_file():
+                if json.loads(read_bytes(destination / '.snapshot.json')) != expected:
+                    raise ControlError('retained frozen tree snapshot manifest changed')
+            return  # Never replace any previously retained immutable directory.
+        if staged is None:
+            raise ControlError('previously retained frozen tree disappeared before commit')
+        verify_tree(staged, expected)
+        if (staged / '.snapshot.json').is_file() and json.loads(read_bytes(staged / '.snapshot.json')) != expected:
+            raise ControlError('staged frozen tree snapshot manifest changed')
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staged.rename(destination)
+    with operation(fresh=True):
+        verify_tree(destination, expected)
+
+
+@contextlib.contextmanager
+def _frozen_staging_scope(repo: Path, task_id: str) -> Iterator[Path]:
+    if not isinstance(task_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', task_id):
+        raise ControlError('invalid freeze task id')
+    parent = repo / '.artifacts' / 'gto' / task_id / '.staging'
+    if any(p.is_symlink() for p in (parent, *parent.parents)):
+        raise ControlError('freeze staging must not contain symlinks')
+    parent.mkdir(parents=True, exist_ok=True)
+    root = Path(tempfile.mkdtemp(prefix='freeze-', dir=parent))
+    token = _freeze_staging.set(root)
+    try:
+        yield root
+    finally:
+        _freeze_staging.reset(token)
+        if (root.parent != parent or not root.name.startswith('freeze-')
+                or any(p.is_symlink() for p in (root, *root.parents))):
+            raise ControlError('freeze staging cleanup path changed; retained for investigation')
+        shutil.rmtree(root)
+
+
 def _freeze_candidate(
     args: argparse.Namespace, repo: Path, paths: dict[str, Path], state: dict[str, Any]
 ) -> dict[str, Any]:
@@ -2826,19 +3015,19 @@ def _freeze_candidate(
     runtime = tree_manifest(SCRIPT_DIRECTORY.parent)
     relative = f".artifacts/gto/{args.TaskId}/runtimes/{runtime['sha256']}"
     destination = repo / relative
+    staging_root = _freeze_staging.get()
+    if staging_root is None:
+        raise ControlError('freeze-candidate requires the staged controller entrypoint')
     try:
-        if destination.exists():
-            verify_tree(destination, runtime)
-        else:
-            if freeze_tree(SCRIPT_DIRECTORY.parent, destination) != runtime:
-                raise ValueError("runtime changed during snapshot capture")
+        _prepare_frozen_tree(SCRIPT_DIRECTORY.parent, destination, staging_root, runtime)
     except (OSError, ValueError) as exc:
         raise ControlError(f"cannot freeze runtime: {exc}") from exc
     current['runtime_snapshot'] = {'path': relative, 'sha256': runtime['sha256']}
     # Retain the declared candidate bytes independently from the mutable checkout.
-    archive = repo / '.artifacts/gto' / args.TaskId / 'candidates' / current['candidate_id']
-    if any(p.is_symlink() for p in (archive, *archive.parents)):
+    archive_destination = repo / '.artifacts/gto' / args.TaskId / 'candidates' / current['candidate_id']
+    if any(p.is_symlink() for p in (archive_destination, *archive_destination.parents)):
         raise ControlError('candidate archive path must not contain symlinks')
+    archive = staging_root / current['candidate_id']
     records = _candidate_records(repo, state)
     inventory = {'candidate_id': current['candidate_id'], 'fingerprint': fingerprint,
                  'runtime_snapshot': current['runtime_snapshot'], 'records': records,
@@ -2846,24 +3035,29 @@ def _freeze_candidate(
     for relative_path in records:
         source = repo / relative_path
         if source.is_file():
-            raw = source.read_bytes()
-            inventory['files'][relative_path] = _sha(raw)
+            inventory['files'][relative_path] = file_digest(source)
             target = archive / 'files' / relative_path
             target.parent.mkdir(parents=True, exist_ok=True)
-            if target.exists() and target.read_bytes() != raw:
-                raise ControlError('retained candidate bytes changed')
-            target.write_bytes(raw)
+            with source.open('rb') as reader, target.open('wb') as writer:
+                shutil.copyfileobj(reader, writer, length=1024 * 1024)
     archive.mkdir(parents=True, exist_ok=True)
     manifest_path = archive / 'manifest.json'
     manifest_text = json.dumps(inventory, ensure_ascii=False, sort_keys=True, indent=2) + '\n'
-    if manifest_path.exists() and manifest_path.read_text() != manifest_text:
-        raise ControlError('retained candidate manifest changed')
     manifest_path.write_text(manifest_text)
-    current['candidate_archive'] = {'path': manifest_path.relative_to(repo).as_posix(),
-                                    'sha256': _sha(manifest_path.read_bytes())}
-    if _candidate_fingerprint(repo, state) != fingerprint:
-        raise ControlError('candidate changed during snapshot capture')
+    archive_manifest = tree_manifest(archive)
+    if archive_destination.exists():
+        verify_tree(archive_destination, archive_manifest)
+    _prepared_writes.get().append(('publish-tree', archive_destination,
+                                  {'staged': archive, 'expected': archive_manifest}))
+    current['candidate_archive'] = {'path': (archive_destination / 'manifest.json').relative_to(repo).as_posix(),
+                                    'sha256': _sha(manifest_text.encode('utf-8'))}
+    # Snapshot publication is a new trust boundary, independent of preparation.
+    with operation(fresh=True):
+        if _candidate_fingerprint(repo, state) != fingerprint:
+            raise ControlError('candidate changed during snapshot capture')
     state["acceptance_gate"]["current_candidate"] = current
+    _prepared_writes.get().append(('freeze-check', repo,
+        {'state': copy.deepcopy(state), 'fingerprint': fingerprint, 'runtime': runtime}))
     _write_state(paths, state)
     _append_event(paths["events.jsonl"], args.TaskId, "candidate_frozen", candidate_id=current["candidate_id"])
     return {"ok": True, "current_candidate": current}
@@ -2881,10 +3075,41 @@ def _verified_brief_path(repo: Path, raw: Any, expected_sha256: str) -> str:
         raise ControlError(f"dispatch brief file is unavailable or outside repository: {relative}") from exc
     if not resolved.is_file():
         raise ControlError(f"dispatch brief path is not a file: {relative}")
-    actual = _sha(resolved.read_bytes())
+    actual = file_digest(resolved)
     if actual != expected_sha256:
         raise ControlError("dispatch brief sha256 does not match the actual brief file")
     return relative
+
+
+def _unfinished_dependencies(repo: Path, state: dict[str, Any], task: dict[str, Any]) -> list[str]:
+    tasks = {item['subtask_id']: item for item in state['subtasks']}
+    candidate = state.get('acceptance_gate', {}).get('current_candidate')
+    unfinished = []
+    for ident in task.get('dependencies', []):
+        dependency = tasks.get(ident, {})
+        if dependency.get('status') == 'completed':
+            continue
+        if (state.get('workflow_revision') == 3 and task.get('stage') == 'final_documentation'
+                and dependency.get('stage') == 'expensive_acceptance'
+                and isinstance(candidate, dict) and candidate.get('status') == 'frozen'
+                and candidate.get('candidate_id')
+                and not _current_acceptance_pass_errors(repo, state)):
+            continue
+        unfinished.append(ident)
+    return unfinished
+
+
+def _refresh_subtask_readiness(repo: Path, state: dict[str, Any]) -> None:
+    """Derive readiness during normal writes, never reopen work or dispatch templates."""
+    if (state.get('workflow_revision') != 3 or state.get('status') != 'active'
+            or state.get('coordinator_blocker') or state.get('current_phase') == 'planning'):
+        return
+    for task in state['subtasks']:
+        if (task.get('status') != 'pending' or task.get('dispatch') is not None
+                or task.get('result') is not None or task.get('stage') == 'expensive_acceptance'):
+            continue
+        if not _unfinished_dependencies(repo, state, task):
+            task['status'] = 'ready'
 
 
 def _bind(args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any]) -> dict[str, Any]:
@@ -2905,15 +3130,7 @@ def _bind(args: argparse.Namespace, paths: dict[str, Path], state: dict[str, Any
             raise ControlError(f"subtask {args.SubtaskId} must be ready before dispatch")
         _require_stage_gate(paths["state.json"].parents[4], state, subtask.get("stage"), args.SubtaskId)
         brief_path = _verified_brief_path(paths["state.json"].parents[4], args.BriefPath, args.BriefSha256)
-    statuses = {
-        item.get("subtask_id"): item.get("status")
-        for item in state.get("subtasks", [])
-        if isinstance(item, dict)
-    }
-    unfinished = [dep for dep in subtask.get("dependencies", []) if statuses.get(dep) != "completed"
-                  and not (state.get("workflow_revision") == 3 and subtask.get("stage") == "final_documentation"
-                           and _find_subtask(state, dep).get("stage") == "expensive_acceptance"
-                           and not _current_acceptance_pass_errors(paths["state.json"].parents[4], state))]
+    unfinished = _unfinished_dependencies(paths["state.json"].parents[4], state, subtask)
     if unfinished:
         raise ControlError("subtask dependencies are not completed: " + ", ".join(unfinished))
     if state.get('workflow_revision') == 3:
@@ -3433,6 +3650,7 @@ def _record_fix(args: argparse.Namespace, paths: dict[str, Path], state: dict[st
     return {"ok": True, "finding": finding, "next_action": action}
 
 
+@scoped
 def _build_review_brief(args: argparse.Namespace, repo: Path, state: dict[str, Any]) -> dict[str, Any]:
     subtask = _find_subtask(state, args.SubtaskId)
     brief: dict[str, Any] = {
@@ -3549,7 +3767,7 @@ def _workspace_baseline_hash(repo: Path, relative: str) -> str:
     if path.is_symlink():
         return _sha(os.readlink(path).encode("utf-8"))
     if path.is_file():
-        return _sha(path.read_bytes())
+        return file_digest(path)
     return _sha({"path": relative, "state": "missing"})
 
 
@@ -3735,6 +3953,12 @@ def _preflight(repo: Path, paths: dict[str, Path], state: dict[str, Any], subtas
                          for t in state['subtasks'] if t.get('status') in {'ready', 'in_progress'}}
     if subtask_id:
         selected = _find_subtask(state, subtask_id)
+        if selected.get('status') not in {'ready', 'in_progress'}:
+            raise ControlError(f'subtask {subtask_id} must be ready or in progress for preflight')
+        unfinished = _unfinished_dependencies(repo, state, selected)
+        if unfinished:
+            raise ControlError('subtask dependencies are not completed: ' + ', '.join(unfinished))
+        _require_stage_gate(repo, state, selected.get('stage'), subtask_id)
         capability_failures = _capability_errors(repo, state, selected)
         if capability_failures:
             raise ControlError(*capability_failures)
@@ -3746,7 +3970,7 @@ def _preflight(repo: Path, paths: dict[str, Path], state: dict[str, Any], subtas
                 "name": name,
                 "path": path.relative_to(repo).as_posix(),
                 "exists": True,
-                "sha256": _sha(path.read_bytes()),
+                "sha256": file_digest(path),
             }
         )
     return {
@@ -3895,7 +4119,149 @@ def _complete_task(args: argparse.Namespace, repo: Path, paths: dict[str, Path],
     return completed
 
 
+READ_ONLY_ACTIONS = frozenset({'validate', 'preflight', 'validate-result', 'acceptance-status',
+                             'build-review-brief', 'capture-capability-context'})
+
+
+@contextlib.contextmanager
+def _command_access(args: argparse.Namespace, repo: Path, paths: dict[str, Path]) -> Iterator[None]:
+    if args.Action in READ_ONLY_ACTIONS or _prepared_writes.get() is not None:
+        yield
+    else:
+        with _task_lock(repo, args.TaskId), _preserve_artifacts_on_io_failure(paths):
+            yield
+
+
+def _control_inputs(paths: dict[str, Path], args: argparse.Namespace, repo: Path) -> dict[Path, bytes | None]:
+    inputs = {path for name, path in paths.items() if name != 'events.jsonl'}
+    for name in ('ResultJsonFile', 'ContractJsonFile', 'BriefPath', 'RunManifest', 'ObservationFile'):
+        value = getattr(args, name, None)
+        if value:
+            path = Path(value)
+            inputs.add(path if path.is_absolute() else repo / path)
+    return {path: read_bytes(path) if path.is_file() else None for path in inputs}
+
+
+def _check_control_inputs(inputs: dict[Path, bytes | None]) -> None:
+    for path, expected in inputs.items():
+        if any(p.is_symlink() for p in (path, *path.parents)):
+            raise ControlError('control input path became a symlink: ' + str(path))
+        actual = path.read_bytes() if path.is_file() else None
+        if actual != expected:
+            raise ControlError('control input changed before commit; retry from current state: ' + str(path))
+
+
+def _transaction_git_snapshot(repo: Path) -> tuple[str, ...] | None:
+    # This is a fresh external-state check, never an operation-local memo hit.
+    commands = [('status', '--porcelain=v2', '--branch', '--untracked-files=all')]
+    if _freeze_staging.get() is not None:
+        relative = _freeze_staging.get().relative_to(repo).as_posix()
+        commands = [(*commands[0], '--', '.', ':(exclude)' + relative)]
+    results = []
+    for command in commands:
+        result = subprocess.run(['git', '-C', str(repo), *command], capture_output=True,
+                                text=True, timeout=40)
+        if result.returncode:
+            locations = (repo, *repo.parents)
+            has_git_metadata = any((directory / '.git').exists() or (directory / '.git').is_symlink()
+                                   for directory in locations)
+            has_git_metadata = has_git_metadata or (repo / 'HEAD').is_file() and (repo / 'objects').is_dir()
+            if not has_git_metadata and not any(os.environ.get(key) for key in ('GIT_DIR', 'GIT_WORK_TREE')):
+                return None  # Only explicitly metadata-free diagnostic directories.
+            raise ControlError('cannot recheck Git transaction inputs: ' + result.stderr.strip())
+        results.append(result.stdout)
+    return tuple(results)
+
+
 def _run(args: argparse.Namespace) -> dict[str, Any]:
+    metrics = {'lock_wait_ns': 0, 'lock_hold_ns': 0, 'prepare_ns': 0, 'commit_ns': 0}
+    token = _run_metrics.set(metrics)
+    started = time.perf_counter_ns()
+    try:
+        if (getattr(args, 'Action', None) == 'freeze-candidate'
+                and getattr(args, 'RepoRoot', None) and getattr(args, 'TaskId', None)):
+            with _frozen_staging_scope(Path(args.RepoRoot).resolve(), args.TaskId):
+                result = _run_staged(args)
+        else:
+            result = _run_staged(args)
+    finally:
+        _metric_elapsed('elapsed_ns', started)
+        _run_metrics.reset(token)
+    if getattr(args, 'Profile', False):
+        result = {**result, 'performance': metrics}
+    return result
+
+
+def _run_staged(args: argparse.Namespace) -> dict[str, Any]:
+    action = getattr(args, 'Action', None)
+    if getattr(args, 'AuditHistory', False) and action != 'acceptance-status':
+        raise ControlError('--audit-history is only valid with acceptance-status')
+    if action in {'new-task', 'init-task', 'prepare-result'} or not getattr(args, 'RepoRoot', None) or not getattr(args, 'TaskId', None):
+        return _run_dispatch(args)
+    repo = Path(args.RepoRoot).resolve()
+    paths = _task_paths(repo, args.TaskId)
+    preparing = time.perf_counter_ns()
+    with operation(fresh=True) as context:
+        if _run_metrics.get() is not None:
+            _run_metrics.get()['prepare_io'] = context.metrics
+        inputs = _control_inputs(paths, args, repo)
+        if action in READ_ONLY_ACTIONS:
+            result = _run_dispatch(args)
+            _check_control_inputs(inputs)
+            _metric_elapsed('prepare_ns', preparing)
+            return result
+        git_before = _transaction_git_snapshot(repo)
+        writes: list[tuple[str, Path, Any]] = []
+        delayed_error = None
+        token = _prepared_writes.set(writes)
+        try:
+            try:
+                result = _run_dispatch(args)
+            except ControlError as exc:
+                if not writes or action == 'freeze-candidate':
+                    raise
+                delayed_error = exc  # Preserve documented persisted conflict outcomes.
+                result = {}
+        finally:
+            _prepared_writes.reset(token)
+    _metric_elapsed('prepare_ns', preparing)
+    committing = time.perf_counter_ns()
+    with _task_lock(repo, args.TaskId):
+        _check_control_inputs(inputs)
+        checked = context.recheck_strong()
+        if _run_metrics.get() is not None:
+            _run_metrics.get()['commit_io'] = checked
+        if _transaction_git_snapshot(repo) != git_before:
+            raise ControlError('Git inputs changed before commit; retry from current state')
+        if action == 'bind-dispatch':
+            # A capability lease can expire while waiting even when all bytes match.
+            with operation(fresh=True):
+                state_at_commit = _load_state(paths)
+                errors = _capability_errors(repo, state_at_commit,
+                    _find_subtask(state_at_commit, args.SubtaskId), args.PlatformAgentId)
+                if errors:
+                    raise ControlError(*errors)
+        for kind, _, value in writes:
+            if kind == 'freeze-check':
+                with operation(fresh=True):
+                    if (_candidate_fingerprint(repo, value['state']) != value['fingerprint']
+                            or tree_manifest(SCRIPT_DIRECTORY.parent) != value['runtime']):
+                        raise ControlError('candidate/runtime changed before frozen publication')
+        with _preserve_artifacts_on_io_failure(paths, touched={path for _, path, _ in writes}):
+            for kind, path, value in writes:
+                if kind == 'write':
+                    _atomic_write(path, value)
+                elif kind == 'event':
+                    _append_event_record(path, value)
+                elif kind == 'publish-tree':
+                    _publish_frozen_tree(value['staged'], path, value['expected'])
+    _metric_elapsed('commit_ns', committing)
+    if delayed_error:
+        raise delayed_error
+    return result
+
+
+def _run_dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if not args.Action:
         raise ControlError("Action is required")
     if args.Action == "new-task":
@@ -3908,7 +4274,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         state = _load_state(paths)
         if state.get('task_id') != args.TaskId or state.get('checkout_binding') != _sha(str(repo)):
             raise ControlError('acceptance status task/checkout binding mismatch')
-        return point_acceptance.coverage(repo, state, _candidate_records(repo, state))
+        return point_acceptance.coverage(repo, state, _candidate_records(repo, state),
+                                         audit_history=getattr(args, 'AuditHistory', False))
     if args.Action == 'validate-result':
         return _validate_result(args, repo, paths)
     if args.Action == "init-task":
@@ -3916,7 +4283,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         if paths["state.json"].exists():
             raise ControlError("task already exists")
         state, rendered = _initial_state(args, repo)
-        with _task_lock(repo, args.TaskId), _preserve_artifacts_on_io_failure(paths):
+        with _task_lock(repo, args.TaskId), _preserve_artifacts_on_io_failure(paths, replaces_events=True):
             return _init(args, paths, state, rendered)
     if args.Action == "preflight":
         state = _load_state(paths)
@@ -3925,7 +4292,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         if state.get("version") != 3:
             raise ControlError("state.json version must be 3")
         return _preflight(repo, paths, state, args.SubtaskId)
-    with _task_lock(repo, args.TaskId), _preserve_artifacts_on_io_failure(paths):
+    with _command_access(args, repo, paths):
         state = _load_state(paths)
         if state.get("task_id") != args.TaskId:
             raise ControlError("TaskId does not match state.json")
@@ -4095,6 +4462,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--repo-root", dest="RepoRoot")
     parser.add_argument("--task-id", dest="TaskId")
     parser.add_argument("--json", dest="Json", action="store_true")
+    parser.add_argument('--audit-history', dest='AuditHistory', action='store_true',
+                        help='Include full historical evidence diagnostics in acceptance-status.')
+    parser.add_argument('--profile', dest='Profile', action='store_true',
+                        help='Include operation timing and lock metrics in the JSON result.')
     parser.add_argument("--subtask-id", dest="SubtaskId")
     parser.add_argument("--attempt-kind", dest="AttemptKind", choices=("ordinary", "preparation", "blackbox"), default="ordinary")
     parser.add_argument("--finding-id", dest="FindingId")

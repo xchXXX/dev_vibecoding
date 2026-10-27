@@ -1,0 +1,340 @@
+{
+  "task_id": "20260909-141012-review-acceptance-routing",
+  "control_mode": "manual-user-authorized-no-gto",
+  "status": "completed",
+  "phase": "complete",
+  "owner": "/root",
+  "approval": "用户：开始实施；随后以review循环完成后统一投放为最终顺序",
+  "six_points": {
+    "do": "统一初始测试委派、发现者根因与测试文档责任、整合返工、review与验收独立闭环，并验证默认安装的无提示实际行为。",
+    "do_not": [
+      "本次不调用GTO编排",
+      "不提交合并或覆盖既有未提交改动",
+      "不修改无关Windows能力实现",
+      "不把模拟回执当真实黑盒通过"
+    ],
+    "change_areas": [
+      "docs/SUBAGENT_GOVERNANCE.md及相关规范",
+      "rules/items/workflow及相关policy、registry",
+      "skills/global-task-orchestrator",
+      "schemas/orchestrator-task-state.schema.json",
+      "templates/orchestrator及示例",
+      "tests/harness和必要黑盒夹具/runner",
+      "本次六工件和获审后默认安装区域",
+      "scripts/sync-codex.py：仅GTO投放选项，保留其他受管内容及回执",
+      "rules/items/workflow/黑盒测试原则.md及生成索引；用户本轮明确授权"
+    ],
+    "implementation": "文档先行和六工件；并行测试子代理；唯一整合实施；完整首审与范围复审；通过后统一投放；新进程无提示完整黑盒；验收失败直接整合返工与范围复验；单文档子代理收尾。",
+    "acceptance": [
+      "初始测试委派写入隔离、全部work后整合送审",
+      "发现者定位根因给方案补失败证明及同步文档，整合者独占代码返工",
+      "完整首审和范围复审，首次验收始终全范围",
+      "验收失败修复后直接复验，不回review；有效覆盖全部验收项",
+      "review和验收实际使用证据，WSL网页Browser、Windows GUI仅native",
+      "源码review后投放默认区并校验同候选，fresh无流程提示黑盒真实轨迹验证",
+      "单文档子代理验收后查漏同步，实质变化返回验收"
+    ],
+    "risks": [
+      "既有dirty工作受保护，仅改授权范围",
+      "machine doctor发现既有Windows runtime/global入口漂移，默认部署验收前需解决；项目doctor通过",
+      "黑盒未触发分支不得冒充已覆盖，缺失必需能力如实阻塞",
+      "源码候选与默认安装需hash一致，新进程消除热更新误判"
+    ]
+  },
+  "agents": {
+    "docs": "/root/docs_contract",
+    "test_a": "/root/test_a",
+    "integrator": "/root/integrator",
+    "test_b": "/root/test_b",
+    "reviewer": "/root/reviewer",
+    "acceptance": "/root/acceptance",
+    "native_blackbox_subject": "/root/merchant_fresh",
+    "final_documentation": "/root/integrator"
+  },
+  "checks": {
+    "machine_doctor": "pass-independently-rechecked-after-external-state-change",
+    "project_env_doctor": "pass",
+    "documentation_diff_check": "pass",
+    "test_a": {
+      "tests": 13,
+      "failures": 13,
+      "errors": 0,
+      "evidence": ".artifacts/review-acceptance-routing/test-a/red.log",
+      "limitation": "seven CLI cases stop at new-field initialization; later paths await Green"
+    },
+    "test_b": {
+      "tests": 23,
+      "red_targets": 20,
+      "positive_controls": 3,
+      "errors": 0,
+      "evidence": ".artifacts/review-acceptance-routing/test-b/handoff.md"
+    },
+    "initial_tests_green": {
+      "tests": 36,
+      "failures": 0,
+      "evidence": ".artifacts/review-acceptance-routing/integration/first-green.log"
+    },
+    "integration_final": {
+      "gto_tests": 72,
+      "runner_tests": 8,
+      "sync_tests": 4,
+      "revision2_template_tests": 5,
+      "status": "pass",
+      "evidence": ".artifacts/review-acceptance-routing/integration/handoff.md"
+    },
+    "independent_first_review": {
+      "status": "fail",
+      "findings": 5,
+      "evidence": ".artifacts/review-acceptance-routing/review/handoff.md"
+    },
+    "migration": {
+      "candidate_files": 44,
+      "hashes_match": true,
+      "source_written": false,
+      "evidence": ".artifacts/review-acceptance-routing/migration/snapshot.json"
+    },
+    "worktree_project_doctor": "pass",
+    "independent_scoped_review": {
+      "status": "pass",
+      "tests": 14,
+      "evidence": ".artifacts/review-acceptance-routing/review/scoped-handoff.md"
+    },
+    "default_gto_publication": {
+      "status": "pass",
+      "candidate_hash": "4973c9ec215a5330bf7224334ae7c244cb813f9e5c7e7586088a90691713fdda",
+      "unselected_unchanged": 113,
+      "evidence": ".artifacts/review-acceptance-routing/deployment/after-review/verification.json"
+    },
+    "machine_doctor_evidence": ".artifacts/review-acceptance-routing/acceptance/default-machine-doctor.json",
+    "first_acceptance": {
+      "acceptor": "/root/acceptance",
+      "overall": "blocked",
+      "default_hash_verification": "pass",
+      "default_machine_doctor": "pass",
+      "namespace_doctor_and_history_isolation": "pass",
+      "installed_cli_and_contract_tests": {
+        "status": "pass",
+        "count": 37,
+        "actual_cli_calls": 117,
+        "identity_kind": "explicit fixtures"
+      },
+      "normal_model_run": {
+        "status": "blocked_transport_no_model_content",
+        "thread_id": "01a08531-56dd-7e62-8804-5d21eb45e827",
+        "original_evidence": "/mnt/d/prj/harnesss/dev_vibecoding/.artifacts/gto-workflow/blackbox/20260909-160200-run",
+        "runner_exit": 130,
+        "cleanup": {
+          "run_id": "20260909-160200-run",
+          "temp_removed": true,
+          "process_reaped": true,
+          "reaped": true,
+          "escalated": false
+        }
+      },
+      "actual_ui": "not_applicable_to_cli_product",
+      "ui_contract_validation": "pass_structural_only",
+      "other_model_scenarios": "blocked_shared_transport_dependency"
+    },
+    "native_context_blackbox": {
+      "status": "historical_attempt_finished_not_current_running",
+      "subject": "/root/merchant_execution",
+      "fork_turns": "none",
+      "entry": "explicit default skill selection, no workflow steps",
+      "runtime_home": "/mnt/c/Users/Laptop/.codex",
+      "observed_initial_test_agent": "/root/merchant_execution/initial_tests",
+      "case_history": [
+        {
+          "subject": "refund_delivery",
+          "result": "small task did not select GTO"
+        },
+        {
+          "subject": "merchant_delivery",
+          "result": "read installed GTO; blocked by absent CODEX_HOME export"
+        },
+        {
+          "subject": "merchant_task",
+          "result": "runtime declared; completed code without selecting GTO"
+        },
+        {
+          "subject": "merchant_execution",
+          "result": "default skill selected; fixture HEAD omission fixed; same task resumed with independent initial tests"
+        }
+      ]
+    },
+    "acc_iso_publication": {
+      "returncode": 0,
+      "promoted_files": [
+        "skills/global-task-orchestrator/SKILL.md",
+        "skills/global-task-orchestrator/references/governance-essentials.md"
+      ],
+      "installed_matches": true,
+      "source_matches": true,
+      "unselected_count": 113,
+      "unselected_changed": []
+    },
+    "acc_iso_001_retest": {
+      "status": "closed_pass",
+      "evidence": ".artifacts/review-acceptance-routing/acceptance/desktop-top-level-handoff/adjudication.md",
+      "actual_successful_none_dispatches": 4
+    },
+    "blackbox_rule": {
+      "status": "pass",
+      "path": "rules/items/workflow/黑盒测试原则.md",
+      "rule_count": 26,
+      "errors": 0,
+      "warnings": 0,
+      "published_to_registered_source": true,
+      "existing_rules_changed": false
+    },
+    "top_level_cli_probe": {
+      "status": "blocked_transport",
+      "no_model_content_seconds": 120,
+      "owned_process_reaped": true,
+      "tcp_established": false,
+      "spawn_wait_close": "not_verified",
+      "evidence": ".artifacts/review-acceptance-routing/acceptance/top-level-platform-probe/handoff.md"
+    },
+    "acc_doc_owner_002": {
+      "status": "closed",
+      "mechanical_tests": 9,
+      "fresh_thread": "01a085b9-1dee-79e3-93aa-3063ed9c04f2",
+      "external_business_cases": 8,
+      "finding_repair_behavior": "untriggered",
+      "evidence": ".artifacts/review-acceptance-routing/acceptance/repair-component-fresh/adjudication.md"
+    },
+    "outer_acceptance": "pass",
+    "final_documentation": {
+      "status": "complete",
+      "author": "/root/integrator",
+      "semantic_change": false,
+      "evidence": ".artifacts/review-acceptance-routing/final-doc-sweep/handoff.md",
+      "validation": {
+        "plan": "pass",
+        "rules": "pass_26",
+        "task_routing": "pass",
+        "whole_repository_routing": "fail_unrelated_wsl_environment_module_skeleton",
+        "evidence": ".artifacts/review-acceptance-routing/final-doc-sweep/routing-validation.json",
+        "cfm_signature": "d0237898c83ddcbd72cebda6bb31b838bac52edf113b13dd3d1070028d94a4f5"
+      }
+    },
+    "final_fresh_blackbox": {
+      "thread_id": "01a085b9-1dee-79e3-93aa-3063ed9c04f2",
+      "status": "pass",
+      "successful_none_dispatches": 3,
+      "full_review": "pass",
+      "first_acceptance": "single_attempt_full_pass",
+      "external_business_cases": 8,
+      "finding_repair_behavior": "untriggered",
+      "acceptance_failure_direct_retest_behavior": "untriggered",
+      "old_same_thread_continuation": "excluded",
+      "trigger_mode": "explicit_skill_only",
+      "isolation": "fresh_context_shared_filesystem",
+      "computer_use": "not_applicable_cli",
+      "evidence": ".artifacts/review-acceptance-routing/acceptance/repair-component-fresh/adjudication.md"
+    }
+  },
+  "findings": [
+    {
+      "id": "RAR-001",
+      "status": "review_closed",
+      "summary": "equivalent and symlink test writer paths overlap",
+      "discovered_by": "/root/reviewer"
+    },
+    {
+      "id": "RAR-002",
+      "status": "review_closed",
+      "summary": "stable finding cannot reopen on repeated acceptance failure",
+      "discovered_by": "/root/reviewer"
+    },
+    {
+      "id": "RAR-003",
+      "status": "review_closed",
+      "summary": "new documentation suggested prohibited WSL GUI bridge",
+      "discovered_by": "/root/reviewer"
+    },
+    {
+      "id": "RAR-004",
+      "status": "review_closed",
+      "summary": "forged documentation receipt allows code drift finalization",
+      "discovered_by": "/root/reviewer"
+    },
+    {
+      "id": "RAR-005",
+      "status": "review_closed",
+      "summary": "acceptance can reuse implementer platform identity",
+      "discovered_by": "/root/reviewer"
+    },
+    {
+      "id": "RAR-006",
+      "status": "review_closed",
+      "summary": "runner breaks receipt identity and omits bootstrap receipt and audited runtime source files",
+      "discovered_by": "/root/reviewer",
+      "evidence": ".artifacts/review-acceptance-routing/review/rar-006-handoff.md"
+    },
+    {
+      "id": "ACC-DOC-001",
+      "status": "closed_documentation_only",
+      "discovered_by": "/root/acceptance",
+      "summary": "stale fixture documentation implied acceptance rework returns to review; fixed by discoverer with manifest refresh"
+    },
+    {
+      "id": "ACC-ISO-001",
+      "status": "closed",
+      "discovered_by": "/root/acceptance",
+      "routed_to": "/root/integrator",
+      "summary": "actual child fork_turns all contradicts isolated dispatch declarations",
+      "evidence": ".artifacts/review-acceptance-routing/acceptance/native-isolation-finding.md",
+      "closure_evidence": ".artifacts/review-acceptance-routing/acceptance/desktop-top-level-handoff/adjudication.md"
+    },
+    {
+      "id": "ACC-DOC-OWNER-002",
+      "status": "closed",
+      "discovered_by": "/root/acceptance",
+      "routed_to": "/root/integrator",
+      "summary": "finding修复借用同身份初次整合的宽write_paths，接受整合者修改应由发现者同步的正式文档",
+      "closure_evidence": ".artifacts/review-acceptance-routing/acceptance/repair-component-fresh/adjudication.md"
+    }
+  ],
+  "updated_at": "2026-09-09T19:01:00+08:00",
+  "sequencing_correction": "用户指出提前启动整合者；其只读设计暂停，文档完成后测试代理独立写Red，全部测试交付后才恢复整合者。",
+  "agents_status": {
+    "docs": "completed",
+    "test_a": "completed_red",
+    "test_b": "completed_red",
+    "integrator": "implementation_complete_and_single_document_sweep_complete",
+    "reviewer": "scoped_review_pass",
+    "acceptance": "passed_with_explicit_untriggered_branches",
+    "native_blackbox_subject": "historical_attempt_finished",
+    "final_documentation": "complete"
+  },
+  "test_baseline_hashes": {
+    "tests/harness/test_gto_initial_test_routing.py": "9001d0d32c6520bcc136233286e3fefb9d60c532ca50cc6c28b7dcd5b71f9658",
+    "tests/harness/test_gto_acceptance_retest_contract.py": "5ded3a2f96d5487a6e8c08923d077e680fde246552ad021b8381807989891033"
+  },
+  "source_candidate": "908848b27ef138a5c4d6ed689c9311f2f26fced10d340a3df6fedfbffed57863",
+  "workspace": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-review-acceptance-routing",
+  "branch": "codex/gto-review-acceptance-routing",
+  "external_inherited_drift": [
+    "scripts/sync-codex.py",
+    "tests/harness/test_sync_codex_scope.py"
+  ],
+  "final_snapshot_sha256": "019b93878818ccba769e76eff09a51845afcc6e45ead3edf5c2493453586de37",
+  "previous_blocker": {
+    "kind": "model_transport",
+    "summary": "WebSocket retries and HTTPS fallback produced no model content or tool execution; network root cause unresolved",
+    "resume": "restore model connectivity under the same isolation, rerun ordinary business prompts, then complete real behavior coverage and single documentation closeout",
+    "evidence": ".artifacts/review-acceptance-routing/acceptance/handoff.md"
+  },
+  "blocker": "",
+  "latest_user_direction": "新增一条全局黑盒测试原则规则并继续原GTO任务；先恢复有效独立顶层测试能力，再直接验收复验。",
+  "desktop_blackbox": {
+    "threadId": "01a08580-0e43-7b33-9c17-e7b7211c6574",
+    "hostId": "local",
+    "title": "订单与退款管理命令行工具",
+    "target": "projectless",
+    "prompt_file": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-review-acceptance-routing/.artifacts/review-acceptance-routing/acceptance/desktop-top-level-handoff/prompt.txt",
+    "model_override": null,
+    "history_inherited": false
+  },
+  "current_installed_candidate": "5ebba5d5ebd4251db1bbf24d290c0128a9b2c773ab572ad38a47a91bebe8f38c"
+}

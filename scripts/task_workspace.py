@@ -2,6 +2,8 @@
 """Task ownership records; never creates/switches worktrees or runs business checks."""
 import argparse
 from contextlib import contextmanager
+from contextvars import ContextVar
+from functools import wraps
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -19,6 +21,40 @@ from check_git_workflow import CheckError, git, read_policy
 STAGES = ("investigation", "plan", "documentation", "tests", "implementation", "review", "acceptance")
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,119}")
 INACTIVE = {"completed", "cancelled"}
+_reading = ContextVar("task_workspace_reading", default=None)
+
+
+def read_operation(function):
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        if _reading.get() is not None:
+            return function(*args, **kwargs)
+        token = _reading.set({"json": {}, "digest": {}, "git": {}})
+        try:
+            return function(*args, **kwargs)
+        finally:
+            _reading.reset(token)
+    return wrapped
+
+
+def git_fact(root, *args, **kwargs):
+    cache = _reading.get()
+    key = (str(root.resolve()), args, tuple(sorted(kwargs.items())))
+    if cache is None:
+        return git(root, *args, **kwargs)
+    if key not in cache["git"]:
+        cache["git"][key] = git(root, *args, **kwargs)
+    return cache["git"][key]
+
+
+def file_digest(path):
+    cache = _reading.get()
+    key = path.resolve()
+    if cache is None:
+        return digest(path)
+    if key not in cache["digest"]:
+        cache["digest"][key] = digest(path)
+    return cache["digest"][key]
 
 
 class TaskError(Exception):
@@ -28,7 +64,11 @@ class TaskError(Exception):
 
 
 def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    result = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            result.update(chunk)
+    return result.hexdigest()
 
 
 def binding(root):
@@ -39,9 +79,17 @@ def binding(root):
 
 def read_json(path):
     try:
-        value = json.loads(path.read_text(encoding="utf-8-sig"))
+        cache = _reading.get()
+        key = path.resolve()
+        if cache is not None and key in cache["json"]:
+            return cache["json"][key]
+        raw = path.read_bytes()
+        value = json.loads(raw.decode("utf-8-sig"))
         if not isinstance(value, dict):
             raise ValueError()
+        if cache is not None:
+            cache["json"][key] = value
+            cache["digest"][key] = hashlib.sha256(raw).hexdigest()
         return value
     except (OSError, ValueError) as exc:
         raise TaskError("RECORD_INVALID", 2) from exc
@@ -62,19 +110,22 @@ def atomic(path, value):
     try:
         temp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         os.replace(temp, path)
+        if _reading.get() is not None:
+            for values in _reading.get().values():
+                values.clear()
     finally:
         temp.unlink(missing_ok=True)
 
 
 def facts(root):
     root = root.resolve(strict=True)
-    _, top = git(root, "rev-parse", "--show-toplevel")
+    _, top = git_fact(root, "rev-parse", "--show-toplevel")
     if Path(top).resolve() != root:
         raise TaskError("CHECKOUT_ROOT_REQUIRED")
-    _, common = git(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    _, branch = git(root, "symbolic-ref", "--quiet", "--short", "HEAD", optional=True)
-    _, head = git(root, "rev-parse", "HEAD")
-    _, dirty = git(root, "status", "--porcelain=v1", "--untracked-files=normal")
+    _, common = git_fact(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    _, branch = git_fact(root, "symbolic-ref", "--quiet", "--short", "HEAD", optional=True)
+    _, head = git_fact(root, "rev-parse", "HEAD")
+    _, dirty = git_fact(root, "status", "--porcelain=v1", "--untracked-files=normal")
     return root, Path(common).resolve(), branch, head, dirty
 
 
@@ -91,7 +142,7 @@ def validate_ordinary(value, task_id):
 def load_record(row, task_id, common):
     try:
         root = Path(row["workspace"]).resolve(strict=True)
-        _, actual_common = git(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        _, actual_common = git_fact(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
         if Path(actual_common).resolve() != common:
             raise TaskError("BINDING_REPOSITORY_MISMATCH", 2)
         mode = row["mode"]
@@ -114,7 +165,111 @@ def load_record(row, task_id, common):
         raise TaskError("BINDING_INVALID", 2) from exc
 
 
-def discover(root, common):
+def preserved_record(root, row, task_id, expected_hash):
+    """Validate history without rebinding it or changing its lifecycle."""
+    mode = row.get("mode")
+    expected = (f"docs/tasks/{task_id}/task.json" if mode == "ordinary"
+                else f"docs/ai/tasks/{task_id}/state.json")
+    if mode not in {"ordinary", "gto"} or row.get("record") != expected:
+        raise TaskError("BINDING_INVALID", 2)
+    origin = Path(row["workspace"])
+    if not origin.is_absolute() or str(origin.resolve()) != str(origin):
+        raise TaskError("BINDING_INVALID", 2)
+    if origin != root and origin.exists():
+        raise TaskError("ORIGINAL_WORKSPACE_EXISTS")
+    path = inside(root, expected)
+    state = read_json(path)
+    if (file_digest(path) != expected_hash or state.get("task_id") != task_id
+            or state.get("checkout_binding") != binding(origin)):
+        raise TaskError("RECOVERY_RECORD_MISMATCH")
+    if mode == "ordinary":
+        validate_ordinary(state, task_id)
+        if not inside(root, state["task_document"]).is_file():
+            raise TaskError("TASK_DOCUMENT_MISSING", 2)
+    elif not isinstance(state.get("workspace"), dict):
+        raise TaskError("GTO_WORKSPACE_INVALID", 2)
+    _, tracked = git_fact(root, "ls-files", "--error-unmatch", "--", expected, optional=True)
+    if tracked != expected:
+        raise TaskError("RECOVERY_RECORD_NOT_TRACKED")
+    return state
+
+
+def released_record(row, task_id, common):
+    descriptor = row["release"]
+    receipt_path = inside(common, descriptor["receipt"])
+    receipt = read_json(receipt_path)
+    if (receipt_path.parent != common / "ai-harness/task-releases"
+            or file_digest(receipt_path) != descriptor["sha256"]):
+        raise TaskError("RELEASE_RECEIPT_INVALID", 2)
+    original = {k: v for k, v in row.items() if k != "release"}
+    if (receipt.get("schema_version") != 1 or receipt.get("action") != "recover-release"
+            or receipt.get("task_id") != task_id or receipt.get("original_binding") != original):
+        raise TaskError("RELEASE_RECEIPT_INVALID", 2)
+    root = Path(receipt["preserved_workspace"]).resolve(strict=True)
+    _, actual = git_fact(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if Path(actual).resolve() != common:
+        raise TaskError("BINDING_REPOSITORY_MISMATCH", 2)
+    manifest = receipt.get("files")
+    if not isinstance(manifest, dict) or not manifest:
+        raise TaskError("RELEASE_RECEIPT_INVALID", 2)
+    for relative, expected in manifest.items():
+        if file_digest(inside(root, relative)) != expected:
+            raise TaskError("RELEASE_EVIDENCE_CHANGED")
+    state = preserved_record(root, original, task_id, receipt["record_sha256"])
+    return root, state
+
+
+def recover_release(args, root, common, dirty):
+    if not args.coordinator.strip() or not args.basis.strip() or not args.writes_stopped:
+        raise TaskError("RECOVERY_AUTHORIZATION_REQUIRED")
+    if dirty:
+        raise TaskError("UNOWNED_CHANGES")
+    index_path = common / "ai-harness/task-bindings.json"
+    index = read_json(index_path)
+    if index.get("schema_version") != 1 or not isinstance(index.get("bindings"), dict):
+        raise TaskError("INDEX_INVALID", 2)
+    row = index["bindings"].get(args.task_id)
+    if not isinstance(row, dict):
+        raise TaskError("TASK_NOT_BOUND")
+    if "release" in row:
+        raise TaskError("TASK_WORKSPACE_RELEASED")
+    evidence_path = inside(root, args.evidence)
+    evidence = read_json(evidence_path)
+    if (evidence.get("actor") != args.coordinator
+            or not isinstance(evidence.get("summary"), str) or not evidence["summary"].strip()
+            or evidence.get("original_binding") != row
+            or evidence.get("preserved_record") != row.get("record")
+            or not isinstance(evidence.get("evidence"), list) or not evidence["evidence"]):
+        raise TaskError("RECOVERY_EVIDENCE_INVALID")
+    state = preserved_record(root, row, args.task_id, evidence.get("record_sha256"))
+    refs = [args.evidence, row["record"], evidence.get("authorization"), *evidence["evidence"]]
+    manifest = {}
+    for relative in refs:
+        path = inside(root, relative)
+        if not path.is_file() or path.stat().st_size == 0:
+            raise TaskError("RECOVERY_EVIDENCE_MISSING")
+        manifest[relative] = file_digest(path)
+    # Validate every other binding and reject same-ID occupants before any write.
+    rows = discover(root, common, recovering=args.task_id)
+    receipt = dict(schema_version=1, action="recover-release", task_id=args.task_id,
+                   actor=args.coordinator, basis=args.basis, writes_stopped=True,
+                   created_at=datetime.now(timezone.utc).isoformat(), original_binding=row,
+                   preserved_workspace=str(root), record_sha256=evidence["record_sha256"],
+                   evidence=args.evidence, files=manifest)
+    relative = f"ai-harness/task-releases/{args.task_id}-{uuid.uuid4().hex}.json"
+    receipt_path = inside(common, relative)
+    if receipt_path.exists():
+        raise TaskError("RELEASE_RECEIPT_EXISTS")
+    # Receipt first: interruption cannot leave an unrecorded effective release.
+    atomic(receipt_path, receipt)
+    rows[args.task_id] = {**row, "release": {"receipt": relative, "sha256": file_digest(receipt_path)}}
+    atomic(index_path, dict(schema_version=1, bindings=rows))
+    return success(task_id=args.task_id, released=True, status=state.get("status"),
+                   completion_changed=False, receipt=relative)
+
+
+@read_operation
+def discover(root, common, recovering=None):
     index = common / "ai-harness/task-bindings.json"
     rows = {}
     if index.exists():
@@ -125,10 +280,15 @@ def discover(root, common):
         for task_id, row in rows.items():
             if not ID.fullmatch(task_id) or not isinstance(row, dict):
                 raise TaskError("INDEX_INVALID", 2)
-            load_record(row, task_id, common)
+            if task_id == recovering:
+                continue
+            if "release" in row:
+                released_record(row, task_id, common)
+            else:
+                load_record(row, task_id, common)
     # Only Git's own known worktrees. Historical/copy documents without a matching
     # checkout binding do not establish ownership; explicitly indexed records do.
-    _, listing = git(root, "worktree", "list", "--porcelain")
+    _, listing = git_fact(root, "worktree", "list", "--porcelain")
     for line in listing.splitlines():
         if not line.startswith("worktree "):
             continue
@@ -146,6 +306,15 @@ def discover(root, common):
                     raise TaskError("TASK_ID_INVALID", 2)
                 row = dict(workspace=str(workspace), mode=mode,
                            record=path.relative_to(workspace).as_posix())
+                if task_id == recovering:
+                    if workspace != root or rows.get(task_id, {}).get("record") != row["record"]:
+                        raise TaskError("DUPLICATE_TASK_BINDING", 2)
+                    continue
+                if task_id in rows and "release" in rows[task_id]:
+                    preserved_root, _ = released_record(rows[task_id], task_id, common)
+                    if workspace != preserved_root or row["record"] != rows[task_id]["record"]:
+                        raise TaskError("DUPLICATE_TASK_BINDING", 2)
+                    continue
                 if task_id in rows and rows[task_id] != row:
                     raise TaskError("DUPLICATE_TASK_BINDING", 2)
                 load_record(row, task_id, common)
@@ -163,6 +332,9 @@ def ownership_lock(common):
     except FileExistsError as exc:
         raise TaskError("BINDING_LOCKED") from exc
     try:
+        if _reading.get() is not None:
+            for values in _reading.get().values():
+                values.clear()
         yield
     finally:
         lock.rmdir()
@@ -170,7 +342,7 @@ def ownership_lock(common):
 
 def occupants(rows, root, common):
     return [task_id for task_id, row in rows.items()
-            if Path(row["workspace"]).resolve() == root
+            if "release" not in row and Path(row["workspace"]).resolve() == root
             and load_record(row, task_id, common)[2].get("status") not in INACTIVE]
 
 
@@ -178,13 +350,15 @@ def current(rows, task_id, coordinator, common, root=None):
     if task_id not in rows:
         raise TaskError("TASK_NOT_BOUND")
     row = rows[task_id]
+    if "release" in row:
+        raise TaskError("TASK_WORKSPACE_RELEASED")
     target, path, state = load_record(row, task_id, common)
     if state.get("status") in INACTIVE:
         raise TaskError("TASK_NOT_ACTIVE")
     if root is not None and target != root:
         raise TaskError("WRONG_CHECKOUT")
     branch = state.get("branch") if row["mode"] == "ordinary" else state["workspace"].get("branch")
-    _, actual = git(target, "symbolic-ref", "--quiet", "--short", "HEAD", optional=True)
+    _, actual = git_fact(target, "symbolic-ref", "--quiet", "--short", "HEAD", optional=True)
     if branch not in (None, "unresolved") and branch != actual:
         raise TaskError("BRANCH_BINDING_MISMATCH")
     if row["mode"] == "ordinary" and state["coordinator"] != coordinator:
@@ -192,6 +366,7 @@ def current(rows, task_id, coordinator, common, root=None):
     return row, target, path, state
 
 
+@read_operation
 def legacy_binding_valid(root, task_id, coordinator):
     try:
         root, common, _, _, _ = facts(root)
@@ -201,6 +376,7 @@ def legacy_binding_valid(root, task_id, coordinator):
         return False
 
 
+@read_operation
 def evidence_files(root, relative, stage):
     path = inside(root, relative)
     value = read_json(path)
@@ -227,14 +403,15 @@ def evidence_files(root, relative, stage):
                 raise TaskError("POINT_EVIDENCE_REQUIRED")
             references.extend(check["evidence"])
     manifest = {}
-    for reference in references:
+    for reference in dict.fromkeys(references):
         target = inside(root, reference)
         if not target.is_file():
             raise TaskError("EVIDENCE_MISSING")
-        manifest[reference] = digest(target)
+        manifest[reference] = file_digest(target)
     return value, manifest
 
 
+@read_operation
 def verified_stages(root, state):
     latest = {"_roles": {"implementers": set()}}
     stages = state.get("stages", [])
@@ -242,10 +419,6 @@ def verified_stages(root, state):
         raise TaskError("STAGES_INVALID", 2)
     for receipt in stages:
         try:
-            for relative, expected in receipt["files"].items():
-                target = inside(root, relative)
-                if not target.is_file() or digest(target) != expected:
-                    raise TaskError("EVIDENCE_CHANGED")
             stage = receipt["stage"]
             if stage not in STAGES:
                 raise TaskError("STAGES_INVALID", 2)
@@ -286,6 +459,7 @@ def success(**values):
     return dict(ok=True, **values)
 
 
+@read_operation
 def execute(args):
     root, common, branch, head, dirty = facts(args.repo_root)
     if args.task_id and not ID.fullmatch(args.task_id):
@@ -300,7 +474,10 @@ def execute(args):
                                mode=rows[args.task_id]["mode"], branch=state.get("branch"))
             owners = occupants(rows, root, common)
             return success(decision="occupied" if owners else "unowned_changes" if dirty else "available",
-                           occupants=owners, branch=branch, dirty=bool(dirty))
+                           occupants=owners, branch=branch, dirty=bool(dirty),
+                           released_tasks=[dict(task_id=key, mode=row["mode"],
+                               status=released_record(row, key, common)[1].get("status"))
+                               for key, row in rows.items() if "release" in row])
         row, target, _, state = current(rows, args.task_id, args.coordinator, common,
                                        root if args.action == "check" else None)
         if row["mode"] == "ordinary":
@@ -312,6 +489,9 @@ def execute(args):
     # Fail before creating even a lock for invalid project configuration.
     policy = read_policy(root) if args.action in {"begin", "adopt"} else None
     with ownership_lock(common):
+        if args.action == "recover-release":
+            # Recheck dirty state inside the same ownership lock as the mutation.
+            return recover_release(args, root, common, facts(root)[4])
         rows = discover(root, common)
         task_id = args.task_id or ("task-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
                                    + "-" + uuid.uuid4().hex[:8])
@@ -434,7 +614,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, required=True)
     parser.add_argument("--action", choices=["inspect", "begin", "adopt", "resume", "check", "handoff",
-                                           "record-stage", "complete", "register-gto"], required=True)
+                                           "record-stage", "complete", "register-gto", "recover-release"], required=True)
     parser.add_argument("--task-id", default="")
     parser.add_argument("--coordinator", default="")
     parser.add_argument("--next-coordinator", default="")

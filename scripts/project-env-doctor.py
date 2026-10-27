@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import subprocess
+from runtime_common import run_probe, probe_budget, ProbeBudgetExpired
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -93,7 +94,9 @@ def _pyproject_dependencies(pyproject_file: Path, extras: list[str]) -> list[str
 def _valid_node_package(path: Path, name: str) -> bool:
     try:
         package = json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
+    except ProbeBudgetExpired:
+        raise
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
         return False
     return isinstance(package, dict) and package.get("name") == name and isinstance(package.get("version"), str) and bool(package["version"])
 
@@ -109,7 +112,7 @@ def _npm_integrity_ok(project_root: Path) -> tuple[bool, str]:
     if _windows_backed(str(executable)):
         return False, "windows"
     try:
-        checked = subprocess.run(
+        checked = run_probe(
             [str(executable), "ls", "--depth=0", "--offline", "--json", "--ignore-scripts", "--include=prod", "--include=dev"],
             cwd=project_root,
             text=True,
@@ -117,21 +120,25 @@ def _npm_integrity_ok(project_root: Path) -> tuple[bool, str]:
             check=False,
         )
         payload = json.loads(checked.stdout)
-    except (OSError, json.JSONDecodeError):
+    except ProbeBudgetExpired:
+        raise
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
         return False, "failed"
     return checked.returncode == 0 and isinstance(payload, dict), ""
 
 
 def _is_isolated_venv(python: Path, venv: Path) -> bool:
     try:
-        checked = subprocess.run(
+        checked = run_probe(
             [str(python), "-c", "import json,sys; print(json.dumps({'prefix': sys.prefix, 'base_prefix': sys.base_prefix}))"],
             text=True,
             capture_output=True,
             check=False,
         )
         details = json.loads(checked.stdout)
-    except (OSError, json.JSONDecodeError):
+    except ProbeBudgetExpired:
+        raise
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
         return False
     prefix = details.get("prefix") if isinstance(details, dict) else None
     base_prefix = details.get("base_prefix") if isinstance(details, dict) else None
@@ -205,6 +212,7 @@ def _validate_declaration(declaration: object, project_root: Path) -> dict[str, 
     return declaration
 
 
+@probe_budget(120)
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read-only project environment diagnosis for WSL projects.")
     parser.add_argument("--project-root", required=True)
@@ -252,7 +260,7 @@ def main() -> int:
                     has_requirements = bool(declared_requirements)
                     pip_arguments = declared_requirements
                 if has_requirements:
-                    checked = subprocess.run(
+                    checked = run_probe(
                         [
                             str(venv_python),
                             "-m",
@@ -319,15 +327,18 @@ def main() -> int:
                 elif _windows_backed(docker):
                     findings.append(_finding("docker_not_linux_client", docker))
                 else:
-                    version = subprocess.run([docker, "version"], text=True, capture_output=True, check=False)
+                    version = run_probe([docker, "version"], text=True, capture_output=True, check=False)
                     if version.returncode or "windows" in (version.stdout + version.stderr).casefold():
                         findings.append(_finding("docker_not_linux_client", docker))
                     else:
-                        info = subprocess.run([docker, "info"], text=True, capture_output=True, check=False)
+                        info = run_probe([docker, "info"], text=True, capture_output=True, check=False)
                         if info.returncode:
                             findings.append(_finding("docker_info_failed", docker))
         payload: dict[str, Any] = {"ok": not findings, "project_root": str(project_root), "findings": findings, "errors": []}
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+    except ProbeBudgetExpired as error:
+        payload = {"ok": False, "project_root": args.project_root, "findings": findings,
+                   "errors": [str(error)], "error": {"category": "probe_budget_exhausted"}}
+    except (OSError, subprocess.TimeoutExpired, ValueError, json.JSONDecodeError) as error:
         payload = {"ok": False, "project_root": args.project_root, "findings": findings, "errors": [str(error)], "error": {"category": "invalid_project_environment"}}
     return emit(payload, as_json=args.json, success_message="Project environment is ready")
 

@@ -1,6 +1,9 @@
 """Independent review regressions: per-point batch units and consumed evidence."""
 from copy import deepcopy
 import unittest
+import json
+import subprocess
+import sys
 
 import test_control_plane as legacy
 import test_gto_workflow as workflow
@@ -146,6 +149,16 @@ class IndependentBatchPointsTest(MultiPointBatchHarness, unittest.TestCase):
 class UnadoptedBatchEvidenceTest(BatchHarness, unittest.TestCase):
     setUp = PointHarness.setUp
 
+    def audited_status(self):
+        process = subprocess.run([sys.executable, '-B', str(legacy.CONTROLLER),
+            '--action', 'acceptance-status', '--repo-root', str(self.repo),
+            '--task-id', legacy.TASK_ID, '--audit-history', '--json'],
+            capture_output=True, text=True, timeout=40)
+        self.assertEqual(0, process.returncode, process.stdout + process.stderr)
+        payload = json.loads(process.stdout)
+        self.assertTrue(payload['ok'], payload)
+        return payload
+
     def test_superseded_batch_review_corruption_warns_without_blocking_current_point(self):
         _, old = self.historical()
         self.accepted('record-acceptance-evidence-batch', old)
@@ -171,11 +184,13 @@ class UnadoptedBatchEvidenceTest(BatchHarness, unittest.TestCase):
         status = self.accepted('acceptance-status')
         self.assertTrue(status['complete'], status)
         self.accepted('validate')
-        self.assertIn(proof_path, str(status.get('evidence_warnings', [])))
+        self.assertFalse(status.get('evidence_warnings', []), 'Default status must not audit superseded history.')
+        self.assertIn(proof_path, str(self.audited_status().get('evidence_warnings', [])))
         (self.repo / review_path).write_text('Damaged superseded applicability review.')
         status = self.accepted('acceptance-status')
         self.assertTrue(status['complete'], status)
-        self.assertIn(review_path, str(status.get('evidence_warnings', [])))
+        self.assertFalse(status.get('evidence_warnings', []))
+        self.assertIn(review_path, str(self.audited_status().get('evidence_warnings', [])))
         self.bind('DOC-FINAL-001', agent='docs-001', role='doc-curator')
         self.run_ctl('record-subtask-result', subtask_id='DOC-FINAL-001',
                      result=legacy.result('completed', 'docs-001', 'doc-curator'))
@@ -202,7 +217,8 @@ class UnadoptedBatchEvidenceTest(BatchHarness, unittest.TestCase):
         (self.repo / debug).write_text('Damaged unadopted diagnostic evidence.')
         status = self.accepted('acceptance-status')
         self.assertTrue(status['complete'])
-        self.assertIn(debug, str(status.get('evidence_warnings', [])), 'Historical corruption must remain visible.')
+        self.assertFalse(status.get('evidence_warnings', []), 'Default status must not audit unadopted debug evidence.')
+        self.assertIn(debug, str(self.audited_status().get('evidence_warnings', [])), 'Explicit audit must retain historical corruption visibility.')
         self.bind('DOC-FINAL-001', agent='docs-001', role='doc-curator')
         self.run_ctl('record-subtask-result', subtask_id='DOC-FINAL-001',
                      result=legacy.result('completed', 'docs-001', 'doc-curator'))

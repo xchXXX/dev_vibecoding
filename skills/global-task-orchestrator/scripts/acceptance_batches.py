@@ -8,6 +8,7 @@ import re
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable
+from verification_context import scoped, cached, read_bytes, file_digest, memo
 
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -47,6 +48,7 @@ def _relative(raw: Any) -> str:
     return "/".join(part for part in parts if part != ".")
 
 
+@scoped
 def _file(repo: Path, ref: Any, *, pointer: bool, json_required: bool = True) -> tuple[Path, Any]:
     required = {"path", "sha256"} | ({"pointer"} if pointer else set())
     allowed = required | ({"pointer"} if not pointer else set())
@@ -66,12 +68,18 @@ def _file(repo: Path, ref: Any, *, pointer: bool, json_required: bool = True) ->
         resolved.relative_to(repo.resolve())
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
         raise BatchEvidenceError(f"batch reference is missing or outside the repository: {relative}") from exc
-    if not resolved.is_file() or digest(resolved.read_bytes()) != expected:
+    if not json_required:
+        if not resolved.is_file() or file_digest(resolved) != expected:
+            raise BatchEvidenceError(f"batch reference file hash does not match: {relative}")
+        return resolved, None
+    raw = read_bytes(resolved) if resolved.is_file() else None
+    if raw is None or file_digest(resolved) != expected:
         raise BatchEvidenceError(f"batch reference file hash does not match: {relative}")
     if not json_required:
         return resolved, None
     try:
-        document = json.loads(resolved.read_text(encoding="utf-8"))
+        document = memo('batch-json', [str(resolved), expected],
+                        lambda: json.loads(raw.decode('utf-8')))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise BatchEvidenceError("batch reference must be valid UTF-8 JSON") from exc
     return resolved, document
@@ -109,6 +117,7 @@ def _value(repo: Path, ref: Any) -> tuple[Any, Any]:
     return document, _select(document, ref["pointer"])
 
 
+@cached
 def _attempt(state: dict[str, Any], attempt_id: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     attempt = next(
         (
@@ -139,6 +148,7 @@ def _required_acceptance_ids(gate: dict[str, Any], kind: str) -> set[str]:
     return blackbox if kind == "blackbox" else all_ids - blackbox
 
 
+@cached
 def _contract(
     repo: Path,
     ref: Any,
@@ -223,6 +233,7 @@ def _prefix(prefix: list[str], value: list[str]) -> bool:
     return value[: len(prefix)] == prefix
 
 
+@cached
 def _score(repo: Path, ref: Any, unit_id: str, projection_sha: str, writer: str) -> None:
     _, normalized = _value(repo, ref)
     fields = {
@@ -301,6 +312,7 @@ def registered_target(state, batch):
     return receipt['candidate_id']
 
 
+@scoped
 def validate_batch(
     repo: Path,
     state: dict[str, Any],
@@ -504,6 +516,7 @@ def validate_batch(
     }
 
 
+@scoped
 def validate_all_batches(
     repo: Path,
     state: dict[str, Any],
@@ -543,6 +556,7 @@ def validate_all_batches(
     return errors
 
 
+@scoped
 def add_batch(
     repo: Path,
     state: dict[str, Any],
@@ -578,6 +592,7 @@ def add_batch(
     return False, payload
 
 
+@scoped
 def validate_partial(
     repo: Path,
     state: dict[str, Any],
@@ -697,6 +712,7 @@ def _coverage_validation(
     }
 
 
+@scoped
 def add_coverage(
     repo: Path,
     state: dict[str, Any],
@@ -718,6 +734,7 @@ def add_coverage(
     return False, receipt
 
 
+@scoped
 def validate_coverages(
     repo: Path,
     state: dict[str, Any],
@@ -750,6 +767,7 @@ def validate_coverages(
     return errors
 
 
+@scoped
 def current_coverage(
     repo: Path,
     state: dict[str, Any],
@@ -781,6 +799,7 @@ def current_coverage(
     return None
 
 
+@scoped
 def point_coverage(repo, state, ident, current_records):
     """Adopt complete units for one point, independently of kind-wide receipts."""
     from acceptance_points import run_manifest, failure_barrier
@@ -843,6 +862,7 @@ def point_coverage(repo, state, ident, current_records):
             'reason': '; '.join(dict.fromkeys(errors)) if errors else 'Incomplete required units for this point.'}
 
 
+@scoped
 def coverage_evidence_sources(
     repo: Path,
     state: dict[str, Any],

@@ -42,7 +42,7 @@ acceptance-status 返回 `{ok:true,complete:boolean,points:{ID:{status,source_at
 
 现有 record-acceptance-evidence-batch/record-acceptance-coverage 继续负责有多个单元的原始证据归档；内容相同的复用不再强制 applicability_review。旧轮次真实性、来源、哈希、单元集合和真实评分检查保留，语义影响判断仍回到原发现者或验收者。
 
-批次按每个验收点所需的完整单元集合投影，可以与其他轮次的逐点结果合并。一个点的关联内容、采用单元或失败屏障变化不连带作废其他点。登记时核验整份运行；后续消费核验原 manifest 绑定、公共输出和实际采用的文件。未采用的历史辅助记录损坏列为 `evidence_warnings`，保留原回执并修复归档，不阻断已完整有效的覆盖，也不触发业务重跑。
+批次按每个验收点所需的完整单元集合投影，可以与其他轮次的逐点结果合并。一个点的关联内容、采用单元或失败屏障变化不连带作废其他点。登记时核验整份运行；后续消费核验原 manifest 绑定、公共输出和实际采用的文件。显式 `acceptance-status --audit-history` 将未采用的历史辅助记录损坏列为 `evidence_warnings`，保留原回执并修复归档，不阻断已完整有效的覆盖，也不触发业务重跑。
 
 混合失败来源中独立证明通过的单元，不受该来源自身的聚合失败阻挡；缺少必需单元仍不能通过，其他后来真实失败仍构成屏障。历史结构校验保留冻结合同、夹具和身份约束，但不读取未采用批次的可选范围判断及附件；实际采用时仍完整核验这些证明。该交叉边界已通过定向复验。
 
@@ -63,3 +63,8 @@ acceptance-status 返回 `{ok:true,complete:boolean,points:{ID:{status,source_at
 新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。
 
 任务身份与目录接续：同 task_id 的 Plan/Execute、子代理和复验沿用已绑定工作区、分支与冻结包；不同会话不自动成为新任务，dirty 不触发新建。共享目录的冲突写入串行、Git 由主协调器统一，交接先停止原写入。普通任务核心工件与流程另见 harness 的 docs/modules/git-workflow/contract/task-workspace.md，不叠加到本 GTO 合同。新定位入口不改写 state 或绕过 checkout_binding；相关新增能力仍以安装版本及验收记录为准。
+
+
+## 20261027 性能改进
+
+性能合同（20261027）：依赖闭包记忆化，保留unknown/cycle拒绝。当前覆盖强校验采用的历史证据及全部相关失败屏障；同一稳定阶段共享日志、JSON和批次材料只读一次。未采用历史的全量诊断与当前投影分离；完整历史审计通过 `acceptance-status --audit-history` 显式请求，返回 `history_audited=true`；默认不审计未采用历史，返回 `history_audited=false`，不能以缓存丢失真实失败或接受篡改。

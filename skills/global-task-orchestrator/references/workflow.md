@@ -90,3 +90,7 @@ Plan 在对应 assignment 声明必要能力及最小探针，派发前执行真
 新增恢复摘要、精确工具入口、原始证据登记草稿及无文档差异的事实收尾，合同唯一见[恢复、登记与收尾](streamlined-execution.md)。现有安全门禁和旧冻结版本保持；新增入口仅适用于包含它们的运行包，实际安装以发布回执为准。
 
 任务身份与目录接续：同 task_id 的 Plan/Execute、子代理和复验沿用已绑定工作区、分支与冻结包；不同会话不自动成为新任务，dirty 不触发新建。共享目录的冲突写入串行、Git 由主协调器统一，交接先停止原写入。普通任务核心工件与流程另见 harness 的 docs/modules/git-workflow/contract/task-workspace.md，不叠加到本 GTO 合同。新定位入口不改写 state 或绕过 checkout_binding；相关新增能力仍以安装版本及验收记录为准。
+
+## 依赖满足后的就绪推进（修复合同，待验证）
+
+初始 pending 子任务在依赖全部完成后，由控制器正常状态写入及阻塞恢复推进为 ready；不会重新打开终态或已有派发的子任务。昂贵验收模板仍须 create-subtask-attempt，不能直接派发。final_documentation 对验收模板的依赖仍要求全部当前有效验收覆盖。blocked 期间不推进新派发；恢复保留原批准指纹、依赖、身份、历史结果。就绪不等于获准施工，preflight、实际能力、阶段及绑定门禁仍必须通过。指定子任务的 preflight 不得对依赖未满足或不可派发状态声称可写。

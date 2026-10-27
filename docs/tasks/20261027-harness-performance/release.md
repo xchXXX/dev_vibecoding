@@ -13,3 +13,12 @@
 - 分别核实任务分支、main、javirs 的远端结果；不强推、不删除分支或工作区。
 
 当前状态：已授权，分支审计与提交中。最终 commit、发布和独立验收结果在下文追加。
+
+## 其他分支与旧工作副本收口
+
+- readiness 原改动提交 5855de1，原文件字节未变；性能主提交 7b3c1ff。de934d0 汇合 readiness；13863be 汇合 javirs 的独有历史，与性能提交相比仅增加 readiness 的四份完成任务文档。
+- main、javirs、plan-execution-contract 原文件树相同。其他已命名分支的提交均纳入本次历史，不通过覆盖旧工作副本合并。
+- 旧 routing 工作区独有的四个 repair ownership CLI 回归原样移植，QA 4/4 通过；旧 dispatch 测试绑定重复文案布局，现行 controller-guide 仍保留隔离语义和真实派发证据要求，不恢复重复正文。
+- 旧 revision-3 三份任务文档、旧 routing 六份任务材料原字节保存在 recovered-history，9 份来源/归档/provenance 摘要经独立复核一致；当前任务状态不被历史 completed 记录覆盖。旧 runtime/schema/兼容桥已由后续实现替代，三个旧工作副本全部原位保留。
+- 对已知工作区 121 份 GTO state 保存发布前摘要和绑定。12 个精确冻结目录引用发布前均已缺失，不能声称比较了实际旧业务包；不重建、不升级这些引用。另以发布前已安装版本生成隔离旧包 canary，供发布后新入口验证旧冻结选择。
+- 发布前真实已安装环境 doctor 退出 0。受管安装和三个回执已备份，config/hooks仅记录摘要；真实 CFM 数据库未迁移。

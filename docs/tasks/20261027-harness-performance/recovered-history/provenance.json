@@ -1,0 +1,47 @@
+[
+  {
+    "source": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-review-acceptance-routing/docs/ai/tasks/20260909-141012-review-acceptance-routing/events.jsonl",
+    "retained_path": "docs/tasks/20261027-harness-performance/recovered-history/routing-control/events.jsonl.txt",
+    "sha256": "473beafd076c2781a1c6e93ba4173651355be4fc7ff229583b66cb914bf7ab6b"
+  },
+  {
+    "source": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-review-acceptance-routing/docs/ai/tasks/20260909-141012-review-acceptance-routing/state.json",
+    "retained_path": "docs/tasks/20261027-harness-performance/recovered-history/routing-control/state.json.txt",
+    "sha256": "728d5283adfaa9dd15a56d55b30b3143944242dfee7b2f7559e3c1cf3bd0e774"
+  },
+  {
+    "source": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-review-acceptance-routing/docs/ai/tasks/20260909-141012-review-acceptance-routing/task.md",
+    "retained_path": "docs/tasks/20261027-harness-performance/recovered-history/routing-control/task.md",
+    "sha256": "23012278cb976ae610697c60a8e4448aae931ba0cb0f3545130ac45602e20cb7"
+  },
+  {
+    "source": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-review-acceptance-routing/docs/tasks/20260909-141012-review-acceptance-routing/acceptance.md",
+    "retained_path": "docs/tasks/20261027-harness-performance/recovered-history/routing-documents/acceptance.md",
+    "sha256": "4b89d1cccd25579f4e64377616996eb98fef7b81aaa97cfdfeca018e5b75ebc2"
+  },
+  {
+    "source": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-review-acceptance-routing/docs/tasks/20260909-141012-review-acceptance-routing/execution.md",
+    "retained_path": "docs/tasks/20261027-harness-performance/recovered-history/routing-documents/execution.md",
+    "sha256": "9edb4fbc7848ee1f5ae5fe656b318d03ce4f499ddd505484f85c294a27a70715"
+  },
+  {
+    "source": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-review-acceptance-routing/docs/tasks/20260909-141012-review-acceptance-routing/plan.md",
+    "retained_path": "docs/tasks/20261027-harness-performance/recovered-history/routing-documents/plan.md",
+    "sha256": "d79456f855962718e41fdb137490d117ff0efb42bfc57991fb1361304ef3f513"
+  },
+  {
+    "source": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-workflow-revision-3/docs/tasks/20260905-gto-workflow-revision-3/acceptance.md",
+    "retained_path": "docs/tasks/20261027-harness-performance/recovered-history/revision-3-documents/acceptance.md",
+    "sha256": "004ec84e2aebf275ddb6b72cb9e6011cdbf80114eacbfdc69cc2a23ebc8b2f4f"
+  },
+  {
+    "source": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-workflow-revision-3/docs/tasks/20260905-gto-workflow-revision-3/execution.md",
+    "retained_path": "docs/tasks/20261027-harness-performance/recovered-history/revision-3-documents/execution.md",
+    "sha256": "bb480c34763944e82505be9b113caf2b36b048dc84eb74719c70eb4401aa2a18"
+  },
+  {
+    "source": "/mnt/d/prj/harnesss/dev_vibecoding/.worktrees/gto-workflow-revision-3/docs/tasks/20260905-gto-workflow-revision-3/plan.md",
+    "retained_path": "docs/tasks/20261027-harness-performance/recovered-history/revision-3-documents/plan.md",
+    "sha256": "8f7ffdca5ae1af05fad5f883705652aceec7fac766ca6a5e233734b1445c74d4"
+  }
+]
